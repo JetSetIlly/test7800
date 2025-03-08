@@ -228,6 +228,30 @@ func (con *console) step() error {
 	return con.mc.ExecuteInstruction(cycle)
 }
 
+func (con *console) run(stop chan bool, hook func() error) error {
+	defer func() {
+		con.mem.last = nil
+	}()
+
+	for {
+		select {
+		case <-stop:
+			return nil
+		default:
+		}
+
+		err := con.step()
+		if err != nil {
+			return err
+		}
+
+		err = hook()
+		if err != nil {
+			return err
+		}
+	}
+}
+
 func (con *console) lastMemoryAccess() string {
 	if con.mem.last == nil {
 		return ""
