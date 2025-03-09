@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jetsetilly/test7800/cpu/execution"
-	"github.com/jetsetilly/test7800/cpu/instructions"
+	"github.com/jetsetilly/test7800/hardware/cpu/execution"
+	"github.com/jetsetilly/test7800/hardware/cpu/instructions"
 )
 
 type Entry struct {

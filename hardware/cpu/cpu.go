@@ -19,9 +19,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jetsetilly/test7800/cpu/execution"
-	"github.com/jetsetilly/test7800/cpu/instructions"
-	"github.com/jetsetilly/test7800/cpu/registers"
+	"github.com/jetsetilly/test7800/hardware/cpu/execution"
+	"github.com/jetsetilly/test7800/hardware/cpu/instructions"
+	"github.com/jetsetilly/test7800/hardware/cpu/registers"
 )
 
 // CPU implements the 6507 found as found in the Atari 2600. Register logic is

@@ -18,7 +18,7 @@ package test
 import (
 	"testing"
 
-	"github.com/jetsetilly/test7800/cpu/registers"
+	"github.com/jetsetilly/test7800/hardware/cpu/registers"
 )
 
 // EquateRegisters is used to test equality between two instances of a register

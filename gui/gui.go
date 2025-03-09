@@ -1,4 +1,4 @@
-package main
+package gui
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
@@ -24,7 +24,7 @@ func (g *gui) Layout(width, height int) (int, int) {
 	return width, height
 }
 
-func startGui(endGui chan bool) error {
+func Launch(endGui chan bool) error {
 	return ebiten.RunGame(&gui{
 		endGui: endGui,
 	})

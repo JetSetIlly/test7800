@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jetsetilly/test7800/cpu"
+	"github.com/jetsetilly/test7800/hardware/cpu"
 	"github.com/jetsetilly/test7800/test"
 )
 

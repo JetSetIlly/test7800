@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/jetsetilly/test7800/debugger"
+	"github.com/jetsetilly/test7800/gui"
 )
 
 func main() {
@@ -21,12 +24,12 @@ func main() {
 	resultDebugger = make(chan error, 1)
 
 	go func() {
-		resultGui <- startGui(endGui)
+		resultGui <- gui.Launch(endGui)
 		endDebugger <- true
 	}()
 
 	go func() {
-		resultDebugger <- startDebugger(endDebugger)
+		resultDebugger <- debugger.Launch(endDebugger)
 		endGui <- true
 	}()
 

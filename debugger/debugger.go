@@ -1,16 +1,17 @@
-package main
+package debugger
 
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jetsetilly/test7800/disassembly"
+	"github.com/jetsetilly/test7800/hardware"
 )
 
 type styles struct {
@@ -23,18 +24,20 @@ type styles struct {
 }
 
 type debugger struct {
-	console  console
+	console  hardware.Console
 	viewport viewport.Model
 	input    textinput.Model
 	output   []string
 	styles   styles
 
-	// if stopRunning is nil then the console is already stopped
-	stopRunning chan bool
+	breakpoints map[uint16]bool
+
+	// if stopRun is nil then the emulated console is already stopped
+	stopRun chan bool
 }
 
 func (m *debugger) Init() tea.Cmd {
-	m.console.initialise()
+	m.console = hardware.Create()
 
 	m.input = textinput.New()
 	m.input.Placeholder = ""
@@ -49,25 +52,27 @@ func (m *debugger) Init() tea.Cmd {
 	m.styles.breakpoint = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(4))
 	m.styles.debugger = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(2))
 
+	m.breakpoints = make(map[uint16]bool)
+
 	return nil
 }
 
 // step advances the emulation on CPU instruction
 func (m *debugger) step() {
-	err := m.console.step()
+	err := m.console.Step()
 	if err != nil {
 		m.output = append(m.output, m.styles.err.Render(
 			err.Error(),
 		))
 	} else {
-		res := disassembly.FormatResult(m.console.mc.LastResult)
+		res := disassembly.FormatResult(m.console.MC.LastResult)
 		m.output = append(m.output, m.styles.instruction.Render(
 			strings.TrimSpace(fmt.Sprintf("%s %s %s", res.Address, res.Operator, res.Operand))),
 		)
 		m.output = append(m.output, m.styles.cpu.Render(
-			m.console.mc.String(),
+			m.console.MC.String(),
 		))
-		s := m.console.lastMemoryAccess()
+		s := m.console.LastMemoryAccess()
 		if len(s) > 0 {
 			m.output = append(m.output, m.styles.mem.Render(s))
 		}
@@ -75,32 +80,49 @@ func (m *debugger) step() {
 }
 
 func (m *debugger) run() {
-	m.stopRunning = make(chan bool)
+	m.stopRun = make(chan bool)
+	m.output = append(m.output, m.styles.debugger.Render("emulation running..."))
 
 	go func() {
+		// we measure the number of instructions in the time period of the
+		// running emulation
+		var instructions int
+		var startTime time.Time
+
+		// sentinal error to indicate a breakpoint has been encountered
 		var breakpoint = errors.New("breakpoint")
 
+		// hook is called after every CPU instruction
 		hook := func() error {
-			pcAddr := m.console.mc.PC.Address()
-			if pcAddr == 0xf91a {
+			instructions++
+			pcAddr := m.console.MC.PC.Address()
+			if _, ok := m.breakpoints[pcAddr]; ok {
 				return fmt.Errorf("%w: %04x", breakpoint, pcAddr)
 			}
 			return nil
 		}
 
-		err := m.console.run(m.stopRunning, hook)
+		startTime = time.Now()
+		err := m.console.Run(m.stopRun, hook)
+
 		if errors.Is(err, breakpoint) {
 			m.output = append(m.output, m.styles.breakpoint.Render(err.Error()))
-			m.output = append(m.output, m.styles.cpu.Render(
-				m.console.mc.String(),
-			))
 		}
 
-		close(m.stopRunning)
-		m.stopRunning = nil
-	}()
+		// replace the last entry in the output (which should be "emulation
+		// running...") with an instruction/time summary
+		m.output[len(m.output)-1] = m.styles.debugger.Render(
+			fmt.Sprintf("%d instructions in %.02f seconds", instructions, time.Since(startTime).Seconds()),
+		)
 
-	m.output = append(m.output, m.styles.debugger.Render("emulation started"))
+		// it's useful to see the state of the CPU at the end of the run
+		m.output = append(m.output, m.styles.cpu.Render(
+			m.console.MC.String(),
+		))
+
+		close(m.stopRun)
+		m.stopRun = nil
+	}()
 }
 
 func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -115,12 +137,8 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			// stop any running emulation OR quit the application
-			if m.stopRunning != nil {
-				m.stopRunning <- true
-				m.output = append(m.output, m.styles.debugger.Render("emulation stopped"))
-				m.output = append(m.output, m.styles.cpu.Render(
-					m.console.mc.String(),
-				))
+			if m.stopRun != nil {
+				m.stopRun <- true
 			} else {
 				return m, tea.Quit
 			}
@@ -139,7 +157,7 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "STEP":
 					m.step()
 				case "RESET":
-					err := m.console.reset(true)
+					err := m.console.Reset(true)
 					if err != nil {
 						m.output = append(m.output, m.styles.err.Render(
 							err.Error(),
@@ -149,57 +167,94 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				case "CPU":
 					m.output = append(m.output, m.styles.cpu.Render(
-						m.console.mc.String(),
+						m.console.MC.String(),
 					))
 				case "MARIA":
 					m.output = append(m.output, m.styles.mem.Render(
-						m.console.mem.maria.Status(),
+						m.console.Mem.MARIA.Status(),
 					))
 				case "INPTCTRL":
 					m.output = append(m.output, m.styles.mem.Render(
-						m.console.mem.inptctrl.Status(),
+						m.console.Mem.INPTCTRL.Status(),
 					))
 				case "RAM7800":
-					// this dumps the entire contents of RAM to the terminal,
-					// which isn't ideal
-					for i := 0; i <= len(m.console.mem.ram7800.data)/16; i++ {
-						j := i * 15
-						m.output = append(m.output, m.styles.mem.Render(
-							fmt.Sprintf("% 02x", m.console.mem.ram7800.data[j:j+15]),
-						))
-					}
+					m.output = append(m.output, m.styles.mem.Render(
+						m.console.Mem.RAM7800.String(),
+					))
+				case "RAMRIOT":
+					m.output = append(m.output, m.styles.mem.Render(
+						m.console.Mem.RAMRIOT.String(),
+					))
 				case "PEEK":
 					if len(p) < 2 {
 						m.output = append(m.output, m.styles.err.Render(
 							"PEEK requires an address",
 						))
 					} else {
-						if strings.HasPrefix(p[1], "$") {
-							p[1] = fmt.Sprintf("0x%s", p[1][1:])
-						}
-						addr, err := strconv.ParseUint(p[1], 0, 16)
+						ma, err := m.parseAddress(p[1])
 						if err != nil {
 							m.output = append(m.output, m.styles.err.Render(
-								fmt.Sprintf("PEEK address is not valid: %s", p[1]),
+								fmt.Sprintf("PEEK %s", err.Error()),
+							))
+						}
+
+						data, err := ma.area.Read(ma.idx)
+						if err != nil {
+							m.output = append(m.output, m.styles.err.Render(
+								fmt.Sprintf("PEEK address is not readable: %s", p[1]),
 							))
 						} else {
-							idx, ar := m.console.mem.mapAddress(uint16(addr))
-							if ar == nil {
-								m.output = append(m.output, m.styles.err.Render(
-									fmt.Sprintf("PEEK address is not in an area: %s", p[1]),
-								))
-							} else {
-								data, err := ar.Read(idx)
-								if err != nil {
-									m.output = append(m.output, m.styles.err.Render(
-										fmt.Sprintf("PEEK address is not readable: %s", p[1]),
-									))
-								} else {
-									m.output = append(m.output, m.styles.mem.Render(
-										fmt.Sprintf("$%04x = %02x", addr, data),
-									))
-								}
-							}
+							m.output = append(m.output, m.styles.mem.Render(
+								fmt.Sprintf("$%04x = %02x", ma.address, data),
+							))
+						}
+					}
+				case "BREAK":
+					if len(p) < 2 {
+						m.output = append(m.output, m.styles.err.Render(
+							"BREAK requires an address",
+						))
+					} else {
+						ma, err := m.parseAddress(p[1])
+						if err != nil {
+							m.output = append(m.output, m.styles.err.Render(
+								fmt.Sprintf("BREAK %s", err.Error()),
+							))
+						}
+
+						if _, ok := m.breakpoints[ma.address]; ok {
+							m.output = append(m.output, m.styles.debugger.Render(
+								fmt.Sprintf("breakpoint on $%04x already present", ma.address),
+							))
+						} else {
+							m.breakpoints[ma.address] = true
+							m.output = append(m.output, m.styles.debugger.Render(
+								fmt.Sprintf("added breakpoint for $%04x", ma.address),
+							))
+						}
+					}
+				case "DROP":
+					if len(p) < 2 {
+						m.output = append(m.output, m.styles.err.Render(
+							"DROP requires an address",
+						))
+					} else {
+						ma, err := m.parseAddress(p[1])
+						if err != nil {
+							m.output = append(m.output, m.styles.err.Render(
+								fmt.Sprintf("DROP %s", err.Error()),
+							))
+						}
+
+						if _, ok := m.breakpoints[ma.address]; ok {
+							delete(m.breakpoints, ma.address)
+							m.output = append(m.output, m.styles.debugger.Render(
+								fmt.Sprintf("dropped breakpoint for $%04x", ma.address),
+							))
+						} else {
+							m.output = append(m.output, m.styles.debugger.Render(
+								fmt.Sprintf("breakpoint on $%04x does not exist", ma.address),
+							))
 						}
 					}
 				case "QUIT":
@@ -231,13 +286,20 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m debugger) View() string {
-	return fmt.Sprintf("%s\n%s",
-		m.viewport.View(),
-		m.input.View(),
-	)
+	// if emulation is running (ie. stopEmulation is not nil) then we don't want
+	// to allow user input because that might lead to a data-race. for example,
+	// PEEKing an address will likely collide with memory access by the
+	// emulation
+	if m.stopRun == nil {
+		return fmt.Sprintf("%s\n%s",
+			m.viewport.View(),
+			m.input.View(),
+		)
+	}
+	return m.viewport.View()
 }
 
-func startDebugger(endDebugger chan bool) error {
+func Launch(endDebugger chan bool) error {
 	m := &debugger{}
 	p := tea.NewProgram(m)
 

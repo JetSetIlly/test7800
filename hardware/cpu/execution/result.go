@@ -18,7 +18,7 @@ package execution
 import (
 	"fmt"
 
-	"github.com/jetsetilly/test7800/cpu/instructions"
+	"github.com/jetsetilly/test7800/hardware/cpu/instructions"
 )
 
 // Result records the state/result of each instruction executed on the CPU.
