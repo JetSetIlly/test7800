@@ -105,15 +105,15 @@ func (m *debugger) run() {
 		startTime = time.Now()
 		err := m.console.Run(m.stopRun, hook)
 
-		if errors.Is(err, breakpoint) {
-			m.output = append(m.output, m.styles.breakpoint.Render(err.Error()))
-		}
-
 		// replace the last entry in the output (which should be "emulation
 		// running...") with an instruction/time summary
 		m.output[len(m.output)-1] = m.styles.debugger.Render(
 			fmt.Sprintf("%d instructions in %.02f seconds", instructions, time.Since(startTime).Seconds()),
 		)
+
+		if errors.Is(err, breakpoint) {
+			m.output = append(m.output, m.styles.breakpoint.Render(err.Error()))
+		}
 
 		// it's useful to see the state of the CPU at the end of the run
 		m.output = append(m.output, m.styles.cpu.Render(
@@ -122,6 +122,9 @@ func (m *debugger) run() {
 
 		close(m.stopRun)
 		m.stopRun = nil
+
+		// consume last memory access information
+		_ = m.console.LastMemoryAccess()
 	}()
 }
 

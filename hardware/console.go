@@ -62,6 +62,11 @@ func (con *Console) Run(stop chan bool, hook func() error) error {
 	}
 }
 
+// LastMemoryAccess returns the Status() of the last memory area to be accessed,
+// if the memory area supports it.
+//
+// Once the function has been executed, the last memory area information is gone
+// and it will return nothing until the next memory access
 func (con *Console) LastMemoryAccess() string {
 	if con.Mem.last == nil {
 		return ""
