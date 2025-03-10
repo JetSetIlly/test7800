@@ -6,7 +6,6 @@ import (
 	_ "embed"
 
 	"github.com/jetsetilly/test7800/hardware/cpu"
-	"github.com/jetsetilly/test7800/hardware/ram"
 )
 
 type Console struct {
@@ -16,10 +15,7 @@ type Console struct {
 
 func Create() Console {
 	var con Console
-	con.Mem = &memory{
-		RAM7800: ram.Create("ram7800", 0x1000),
-		RAMRIOT: ram.Create("ramRIOT", 0x0080),
-	}
+	con.Mem = createMemory()
 	con.MC = cpu.NewCPU(con.Mem)
 	con.Reset(true)
 	return con
@@ -47,10 +43,6 @@ func (con *Console) Step() error {
 }
 
 func (con *Console) Run(stop chan bool, hook func() error) error {
-	defer func() {
-		con.Mem.last = nil
-	}()
-
 	for {
 		select {
 		case <-stop:

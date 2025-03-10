@@ -11,8 +11,8 @@ type RAM struct {
 	data  []uint8
 }
 
-func Create(label string, size int) RAM {
-	return RAM{
+func Create(label string, size int) *RAM {
+	return &RAM{
 		label: label,
 		data:  make([]uint8, size),
 	}
