@@ -37,7 +37,7 @@ func (ic INPTCTRL) MARIA() bool {
 }
 
 func (ic INPTCTRL) BIOS() bool {
-	return ic.value&0x04 == 0x04
+	return ic.value&0x04 != 0x04
 }
 
 func (ic INPTCTRL) TIA() bool {

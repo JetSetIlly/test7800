@@ -113,6 +113,8 @@ func (m *debugger) run() {
 
 		if errors.Is(err, breakpoint) {
 			m.output = append(m.output, m.styles.breakpoint.Render(err.Error()))
+		} else {
+			m.output = append(m.output, m.styles.err.Render(err.Error()))
 		}
 
 		// it's useful to see the state of the CPU at the end of the run

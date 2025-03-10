@@ -31,7 +31,7 @@ func (m debugger) parseAddress(address string) (mappedAddress, error) {
 	}
 	ma.address = uint16(addr)
 
-	ma.idx, ma.area = m.console.Mem.MapAddress(ma.address)
+	ma.idx, ma.area = m.console.Mem.MapAddress(ma.address, true)
 	if ma.area == nil {
 		return ma, fmt.Errorf("address is not mapped: %s", address)
 	}
