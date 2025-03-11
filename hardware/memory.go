@@ -50,6 +50,7 @@ type Area interface {
 	// addresses within the area
 	Read(idx uint16) (uint8, error)
 	Write(idx uint16, data uint8) error
+	Label() string
 }
 
 const (

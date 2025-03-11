@@ -21,6 +21,7 @@ type styles struct {
 	err         lipgloss.Style
 	breakpoint  lipgloss.Style
 	debugger    lipgloss.Style
+	echo        lipgloss.Style
 }
 
 type debugger struct {
@@ -54,6 +55,7 @@ func (m *debugger) Init() tea.Cmd {
 	m.styles.err = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(1))
 	m.styles.breakpoint = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(4))
 	m.styles.debugger = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(2))
+	m.styles.echo = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(0)).Background(lipgloss.ANSIColor(3))
 
 	m.breakpoints = make(map[uint16]bool)
 
@@ -142,10 +144,12 @@ func (m *debugger) run() {
 			fmt.Sprintf("%d instructions in %.02f seconds", instructions, time.Since(startTime).Seconds()),
 		)
 
-		if errors.Is(err, breakpoint) {
-			m.output = append(m.output, m.styles.breakpoint.Render(err.Error()))
-		} else {
-			m.output = append(m.output, m.styles.err.Render(err.Error()))
+		if err != nil {
+			if errors.Is(err, breakpoint) {
+				m.output = append(m.output, m.styles.breakpoint.Render(err.Error()))
+			} else {
+				m.output = append(m.output, m.styles.err.Render(err.Error()))
+			}
 		}
 
 		// it's useful to see the state of the CPU at the end of the run
@@ -186,6 +190,11 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.step()
 			} else {
 				cmd := strings.ToUpper(p[0])
+				m.output = append(m.output, m.styles.echo.Render(
+					strings.TrimSpace(
+						fmt.Sprintf("%s %s", cmd, strings.Join(p[1:], " ")),
+					),
+				))
 				switch cmd {
 				case "BOOT":
 					if len(p) < 4 {
@@ -251,7 +260,7 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 
 					m.output = append(m.output, m.styles.mem.Render(
-						fmt.Sprintf("$%04x = %02x", ma.address, data),
+						fmt.Sprintf("$%04x = %02x (%s)", ma.address, data, ma.area.Label()),
 					))
 				case "BREAK":
 					if len(p) < 2 {
