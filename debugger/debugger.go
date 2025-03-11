@@ -34,6 +34,9 @@ type debugger struct {
 
 	// if stopRun is nil then the emulated console is already stopped
 	stopRun chan bool
+
+	// the boot file to load on console reset
+	bootfile string
 }
 
 func (m *debugger) Init() tea.Cmd {
@@ -54,7 +57,35 @@ func (m *debugger) Init() tea.Cmd {
 
 	m.breakpoints = make(map[uint16]bool)
 
+	m.reset()
+
 	return nil
+}
+
+func (m *debugger) reset() {
+	// if a bootfile has been specified on the command line, resetting will use
+	// it as part of the reset process. ie. the console will be left in the
+	// state directed by the bootfile
+	if m.bootfile != "" {
+		m.output = append(m.output, m.styles.debugger.Render(
+			fmt.Sprintf("booting from %s", m.bootfile),
+		))
+		err := m.bootFromFile(m.bootfile)
+		if err != nil {
+			m.output = append(m.output, m.styles.err.Render(err.Error()))
+		}
+		return
+	}
+
+	err := m.console.Reset(true)
+	if err != nil {
+		m.output = append(m.output, m.styles.err.Render(err.Error()))
+		return
+	}
+	m.output = append(m.output, m.styles.debugger.Render("console reset"))
+	m.output = append(m.output, m.styles.cpu.Render(
+		m.console.MC.String(),
+	))
 }
 
 // step advances the emulation on CPU instruction
@@ -150,26 +181,31 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			s := m.input.Value()
 			s = strings.TrimSpace(s)
-			s = strings.ToUpper(s)
-
 			p := strings.Fields(s)
 			if len(p) == 0 {
 				m.step()
 			} else {
-				switch p[0] {
+				cmd := strings.ToUpper(p[0])
+				switch cmd {
+				case "BOOT":
+					if len(p) < 4 {
+						m.output = append(m.output, m.styles.err.Render(
+							"PEEK requires a ROM file, an origin address and entry address",
+						))
+						break // switch
+					}
+
+					err := m.bootParse(p[1:])
+					if err != nil {
+						m.output = append(m.output, m.styles.err.Render(err.Error()))
+						break // switch
+					}
 				case "RUN":
 					m.run()
 				case "STEP":
 					m.step()
 				case "RESET":
-					err := m.console.Reset(true)
-					if err != nil {
-						m.output = append(m.output, m.styles.err.Render(
-							err.Error(),
-						))
-					} else {
-						m.output = append(m.output, m.styles.debugger.Render("console reset"))
-					}
+					m.reset()
 				case "CPU":
 					m.output = append(m.output, m.styles.cpu.Render(
 						m.console.MC.String(),
@@ -195,73 +231,82 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.output = append(m.output, m.styles.err.Render(
 							"PEEK requires an address",
 						))
-					} else {
-						ma, err := m.parseAddress(p[1])
-						if err != nil {
-							m.output = append(m.output, m.styles.err.Render(
-								fmt.Sprintf("PEEK %s", err.Error()),
-							))
-						}
-
-						data, err := ma.area.Read(ma.idx)
-						if err != nil {
-							m.output = append(m.output, m.styles.err.Render(
-								fmt.Sprintf("PEEK address is not readable: %s", p[1]),
-							))
-						} else {
-							m.output = append(m.output, m.styles.mem.Render(
-								fmt.Sprintf("$%04x = %02x", ma.address, data),
-							))
-						}
+						break // switch
 					}
+
+					ma, err := m.parseAddress(p[1])
+					if err != nil {
+						m.output = append(m.output, m.styles.err.Render(
+							fmt.Sprintf("PEEK %s", err.Error()),
+						))
+						break // switch
+					}
+
+					data, err := ma.area.Read(ma.idx)
+					if err != nil {
+						m.output = append(m.output, m.styles.err.Render(
+							fmt.Sprintf("PEEK address is not readable: %s", p[1]),
+						))
+						break // switch
+					}
+
+					m.output = append(m.output, m.styles.mem.Render(
+						fmt.Sprintf("$%04x = %02x", ma.address, data),
+					))
 				case "BREAK":
 					if len(p) < 2 {
 						m.output = append(m.output, m.styles.err.Render(
 							"BREAK requires an address",
 						))
-					} else {
-						ma, err := m.parseAddress(p[1])
-						if err != nil {
-							m.output = append(m.output, m.styles.err.Render(
-								fmt.Sprintf("BREAK %s", err.Error()),
-							))
-						}
-
-						if _, ok := m.breakpoints[ma.address]; ok {
-							m.output = append(m.output, m.styles.debugger.Render(
-								fmt.Sprintf("breakpoint on $%04x already present", ma.address),
-							))
-						} else {
-							m.breakpoints[ma.address] = true
-							m.output = append(m.output, m.styles.debugger.Render(
-								fmt.Sprintf("added breakpoint for $%04x", ma.address),
-							))
-						}
+						break // switch
 					}
+
+					ma, err := m.parseAddress(p[1])
+					if err != nil {
+						m.output = append(m.output, m.styles.err.Render(
+							fmt.Sprintf("BREAK %s", err.Error()),
+						))
+						break // switch
+					}
+
+					if _, ok := m.breakpoints[ma.address]; ok {
+						m.output = append(m.output, m.styles.debugger.Render(
+							fmt.Sprintf("breakpoint on $%04x already present", ma.address),
+						))
+						break // switch
+					}
+
+					m.breakpoints[ma.address] = true
+					m.output = append(m.output, m.styles.debugger.Render(
+						fmt.Sprintf("added breakpoint for $%04x", ma.address),
+					))
 				case "DROP":
 					if len(p) < 2 {
 						m.output = append(m.output, m.styles.err.Render(
 							"DROP requires an address",
 						))
-					} else {
-						ma, err := m.parseAddress(p[1])
-						if err != nil {
-							m.output = append(m.output, m.styles.err.Render(
-								fmt.Sprintf("DROP %s", err.Error()),
-							))
-						}
-
-						if _, ok := m.breakpoints[ma.address]; ok {
-							delete(m.breakpoints, ma.address)
-							m.output = append(m.output, m.styles.debugger.Render(
-								fmt.Sprintf("dropped breakpoint for $%04x", ma.address),
-							))
-						} else {
-							m.output = append(m.output, m.styles.debugger.Render(
-								fmt.Sprintf("breakpoint on $%04x does not exist", ma.address),
-							))
-						}
+						break // switch
 					}
+
+					ma, err := m.parseAddress(p[1])
+					if err != nil {
+						m.output = append(m.output, m.styles.err.Render(
+							fmt.Sprintf("DROP %s", err.Error()),
+						))
+						break // switch
+					}
+
+					if _, ok := m.breakpoints[ma.address]; !ok {
+						m.output = append(m.output, m.styles.debugger.Render(
+							fmt.Sprintf("breakpoint on $%04x does not exist", ma.address),
+						))
+						break // switch
+					}
+
+					delete(m.breakpoints, ma.address)
+					m.output = append(m.output, m.styles.debugger.Render(
+						fmt.Sprintf("dropped breakpoint for $%04x", ma.address),
+					))
 				case "QUIT":
 					return m, tea.Quit
 				default:
@@ -304,8 +349,18 @@ func (m debugger) View() string {
 	return m.viewport.View()
 }
 
-func Launch(endDebugger chan bool) error {
-	m := &debugger{}
+func Launch(endDebugger chan bool, args []string) error {
+	var bootfile string
+
+	if len(args) == 1 {
+		bootfile = args[0]
+	} else if len(args) > 1 {
+		return fmt.Errorf("too many arguments to debugger")
+	}
+
+	m := &debugger{
+		bootfile: bootfile,
+	}
 	p := tea.NewProgram(m)
 
 	go func() {

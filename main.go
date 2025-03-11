@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/jetsetilly/test7800/debugger"
 	"github.com/jetsetilly/test7800/gui"
@@ -29,14 +30,14 @@ func main() {
 	}()
 
 	go func() {
-		resultDebugger <- debugger.Launch(endDebugger)
+		resultDebugger <- debugger.Launch(endDebugger, os.Args[1:])
 		endGui <- true
 	}()
 
 	if err := <-resultGui; err != nil {
-		fmt.Println(err)
+		fmt.Printf("*** %s\n", err)
 	}
 	if err := <-resultDebugger; err != nil {
-		fmt.Println(err)
+		fmt.Printf("*** %s\n", err)
 	}
 }
