@@ -18,7 +18,7 @@ type mappedAddress struct {
 	// and index fields are the real requirements
 }
 
-func (m debugger) parseAddress(address string) (mappedAddress, error) {
+func (m *debugger) parseAddress(address string) (mappedAddress, error) {
 	var ma mappedAddress
 
 	if strings.HasPrefix(address, "$") {

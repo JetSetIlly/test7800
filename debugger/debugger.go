@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -36,8 +37,8 @@ type debugger struct {
 
 	breakpoints map[uint16]bool
 
-	// if stopRun is nil then the emulated console is already stopped
 	stopRun chan bool
+	running atomic.Bool
 
 	// the boot file to load on console reset
 	bootfile string
@@ -60,7 +61,6 @@ func (m *debugger) Init() tea.Cmd {
 	m.styles.echo = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(0)).Background(lipgloss.ANSIColor(3))
 
 	m.breakpoints = make(map[uint16]bool)
-
 	m.reset()
 
 	return nil
@@ -121,11 +121,13 @@ func (m *debugger) step() {
 }
 
 func (m *debugger) run() {
-	m.stopRun = make(chan bool)
 	m.output = append(m.output, m.styles.debugger.Render("emulation running..."))
 
-	// WARNING: this go function cases race errors but we'll keep it for now
+	// WARNING: this go function causes race errors but we'll keep it for now
 	go func() {
+		m.running.Store(true)
+		defer m.running.Store(false)
+
 		// we measure the number of instructions in the time period of the
 		// running emulation
 		var instructions int
@@ -176,9 +178,6 @@ func (m *debugger) run() {
 			m.console.MARIA.Coords.String(),
 		))
 
-		close(m.stopRun)
-		m.stopRun = nil
-
 		// consume last memory access information
 		_ = m.console.LastAreaStatus()
 	}()
@@ -196,7 +195,7 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			// stop any running emulation OR quit the application
-			if m.stopRun != nil {
+			if m.running.Load() {
 				m.stopRun <- true
 			} else {
 				return m, tea.Quit
@@ -375,17 +374,17 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m debugger) View() string {
-	if m.stopRun == nil {
-		m.input.Prompt = fmt.Sprintf("%s > ", m.console.MARIA.Coords.ShortString())
+func (m *debugger) View() string {
+	if m.running.Load() {
 		return fmt.Sprintf("%s\n%s",
 			m.viewport.View(),
-			m.input.View(),
+			m.console.MARIA.Coords.ShortString(),
 		)
 	}
+	m.input.Prompt = fmt.Sprintf("%s > ", m.console.MARIA.Coords.ShortString())
 	return fmt.Sprintf("%s\n%s",
 		m.viewport.View(),
-		m.console.MARIA.Coords.ShortString(),
+		m.input.View(),
 	)
 }
 
@@ -401,6 +400,7 @@ func Launch(endDebugger chan bool, rendering chan *image.RGBA, args []string) er
 	m := &debugger{
 		console:  hardware.Create(rendering),
 		bootfile: bootfile,
+		stopRun:  make(chan bool),
 	}
 	p := tea.NewProgram(m)
 
