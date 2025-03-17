@@ -1,10 +1,10 @@
 package maria
 
 import (
+	"errors"
 	"fmt"
+	"image"
 	"strings"
-
-	_ "embed"
 )
 
 type mariaCtrl struct {
@@ -28,13 +28,15 @@ func (ctrl *mariaCtrl) write(data uint8) {
 func (ctrl *mariaCtrl) String() string {
 	var s strings.Builder
 	s.WriteString(fmt.Sprintf("ck=%v ", ctrl.colourKill))
-	s.WriteString(fmt.Sprintf("dma=%d ", ctrl.dma))
+	s.WriteString(fmt.Sprintf("dma=%#02b ", ctrl.dma))
 	s.WriteString(fmt.Sprintf("cw=%v ", ctrl.charWidth))
 	s.WriteString(fmt.Sprintf("bc=%v ", ctrl.border))
 	s.WriteString(fmt.Sprintf("km=%v ", ctrl.kanagroo))
-	s.WriteString(fmt.Sprintf("rm=%d ", ctrl.readMode))
+	s.WriteString(fmt.Sprintf("rm=%#02b ", ctrl.readMode))
 	return s.String()
 }
+
+var WarningErr = errors.New("warning")
 
 type Maria struct {
 	bg       uint8
@@ -45,6 +47,42 @@ type Maria struct {
 	charbase uint8
 	offset   uint8
 	ctrl     mariaCtrl
+
+	// current DLL
+	DLL dll
+	DL  dl
+
+	// read-only registers
+	mstat uint8 // bit 7 is true if VBLANK is enabled
+
+	// interface to console memory
+	mem Memory
+
+	// the current coordinates of the TV image
+	Coords coords
+
+	// any error from the most recent tick. errors are caused when the maria
+	// can't continue in a normal fashion. for example, if dpph/dppl do not
+	// point to a valid RAM area
+	Error error
+
+	// pixels for current frame
+	currentFrame *image.RGBA
+	rendering    chan *image.RGBA
+}
+
+type Memory interface {
+	Read(address uint16) (uint8, error)
+	Write(address uint16, data uint8) error
+}
+
+func Create(mem Memory, rendering chan *image.RGBA) *Maria {
+	mar := &Maria{
+		mem:       mem,
+		rendering: rendering,
+	}
+	mar.currentFrame = newImage()
+	return mar
 }
 
 func (mar *Maria) Label() string {
@@ -64,6 +102,14 @@ func (mar *Maria) Status() string {
 		for c := range mar.palette[p] {
 			s.WriteString(fmt.Sprintf(" %d=%#02x", c, mar.palette[p][c]))
 		}
+	}
+	if mar.Error != nil {
+		if errors.Is(mar.Error, WarningErr) {
+			s.WriteString("warning: ")
+		} else {
+			s.WriteString("error: ")
+		}
+		s.WriteString(mar.Error.Error())
 	}
 	return s.String()
 }
@@ -90,8 +136,7 @@ func (mar *Maria) Read(idx uint16) (uint8, error) {
 		return mar.palette[1][2], nil
 	case 0x028:
 		// maria status
-		// TODO: proper VBLANK status. bit 7 is true if VBLANK is enabled
-		return 0x80, nil
+		return mar.mstat, nil
 	case 0x029:
 		return mar.palette[2][0], nil
 	case 0x02a:
@@ -129,7 +174,7 @@ func (mar *Maria) Read(idx uint16) (uint8, error) {
 	case 0x037:
 		return mar.palette[5][2], nil
 	case 0x038:
-		// reserved for future expansion
+		// reserved for future expansion. this should always be zero
 		return mar.offset, nil
 	case 0x039:
 		return mar.palette[6][0], nil
@@ -148,8 +193,7 @@ func (mar *Maria) Read(idx uint16) (uint8, error) {
 	case 0x03f:
 		return mar.palette[7][2], nil
 	}
-
-	panic("read: not a maria address")
+	return 0x00, fmt.Errorf("not a maria address")
 }
 
 func (mar *Maria) Write(idx uint16, data uint8) error {
@@ -206,7 +250,7 @@ func (mar *Maria) Write(idx uint16, data uint8) error {
 	case 0x037:
 		mar.palette[5][2] = data
 	case 0x038:
-		// reserved for future expansion
+		// reserved for future expansion. this should always be zero
 		mar.offset = data
 	case 0x039:
 		mar.palette[6][0] = data
@@ -224,8 +268,111 @@ func (mar *Maria) Write(idx uint16, data uint8) error {
 	case 0x03f:
 		mar.palette[7][2] = data
 	default:
-		panic("read: not a maria address")
+		return fmt.Errorf("not a maria address")
+	}
+	return nil
+}
+
+// returns true if CPU is to be halted
+func (mar *Maria) Tick() bool {
+	// error is reset and will be set again as appropriate in this function
+	mar.Error = nil
+
+	// assuming ntsc for now
+	mar.Coords.clk++
+	if mar.Coords.clk > clksScanline {
+		mar.Coords.clk = 0
+		mar.Coords.scanline++
+		mar.wsync = false
+
+		if mar.Coords.scanline > ntscAbsoluteBottom {
+			mar.Coords.scanline = 0
+			mar.Coords.frame++
+
+			// send current frame to renderer
+			mar.rendering <- mar.currentFrame
+
+			// it's no longer safe to use that frame in this context. create a
+			// new image to use for current frame
+			//
+			// this can almost certainly be improved in efficiency
+			mar.currentFrame = newImage()
+
+		} else if mar.Coords.scanline == ntscVisibleTop {
+			// enable DMA at start of visible screen
+			mar.mstat = 0x00
+
+			// start DLL reads
+			err := mar.nextDLL(true)
+			if err != nil {
+				mar.Error = err
+			}
+
+		} else if mar.Coords.scanline > ntscVisibleBottom {
+			mar.mstat = 0x80
+
+		} else {
+			err := mar.nextDLL(false)
+			if err != nil {
+				mar.Error = err
+			}
+		}
+
+		// draw entire scanline in one go if DMA is enabled after the scanline increase
+		if mar.mstat == 0x00 {
+			// set entire scanline to background colour. individual pixels will
+			// be changed according to the display lists
+			sl := mar.Coords.scanline - ntscVisibleTop
+			for clk := range clksVisible {
+				mar.currentFrame.Set(clk, sl, palette[mar.bg])
+			}
+
+			switch mar.ctrl.dma {
+			case 0x00:
+				// treat as DMA being off but record a warning
+				mar.Error = fmt.Errorf("%w: dma value of 0x00 in ctrl register is undefined", WarningErr)
+			case 0x01:
+				// treat as DMA being off but record a warning
+				mar.Error = fmt.Errorf("%w: dma value of 0x01 in ctrl register is undefined", WarningErr)
+			case 0x02:
+				// pixel width is controlled by the readmode value in the ctrl register
+				var pixelWidth uint8
+
+				switch mar.ctrl.readMode {
+				case 0:
+					pixelWidth = 2
+				case 1:
+					mar.Error = fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", WarningErr)
+				case 2:
+					pixelWidth = 1
+					mar.Error = fmt.Errorf("%w: readmode value of 0x02 in ctrl register is not fully emulated", WarningErr)
+				case 3:
+					pixelWidth = 1
+					mar.Error = fmt.Errorf("%w: readmode value of 0x03 in ctrl register is not fully emulated", WarningErr)
+				}
+
+				mar.nextDL(true)
+				for !mar.DL.isEnd {
+					if mar.DL.writemode {
+						pixelWidth *= 2
+					}
+
+					for w := range mar.DL.width {
+						// TODO: correct palette referencing
+						p := mar.palette[mar.DL.palette][0]
+						for i := range pixelWidth {
+							mar.currentFrame.Set(int(mar.DL.horizontalPosition+((w*pixelWidth)+i)), sl, palette[p])
+						}
+					}
+
+					mar.nextDL(false)
+				}
+			case 0x03:
+				// dma is off. showing only background colour
+			}
+		}
 	}
 
-	return nil
+	// return HALT signal if either WSYNC or DMA signal is enabled
+	return mar.wsync || (mar.mstat == 0x00 && mar.Coords.clk > clksHBLANK)
 }

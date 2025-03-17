@@ -5,12 +5,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jetsetilly/test7800/hardware"
+	"github.com/jetsetilly/test7800/hardware/memory"
 )
 
 type mappedAddress struct {
 	address uint16
-	area    hardware.Area
+	area    memory.Area
 	idx     uint16
 
 	// this struct doesn't contain the actual mapped address. it would be nice

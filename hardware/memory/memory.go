@@ -1,47 +1,44 @@
-package hardware
+package memory
 
 import (
 	"fmt"
 
-	"github.com/jetsetilly/test7800/hardware/bios"
-	"github.com/jetsetilly/test7800/hardware/cartridge"
-	"github.com/jetsetilly/test7800/hardware/inptctrl"
-	"github.com/jetsetilly/test7800/hardware/maria"
-	"github.com/jetsetilly/test7800/hardware/ram"
-	"github.com/jetsetilly/test7800/hardware/riot"
-	"github.com/jetsetilly/test7800/hardware/tia"
+	"github.com/jetsetilly/test7800/hardware/memory/bios"
+	"github.com/jetsetilly/test7800/hardware/memory/cartridge"
+	"github.com/jetsetilly/test7800/hardware/memory/inptctrl"
+	"github.com/jetsetilly/test7800/hardware/memory/ram"
 )
 
-type lastArea interface {
-	Label() string
-	Status() string
-}
-
-type memory struct {
+type Memory struct {
 	bios      *bios.BIOS
 	INPTCTRL  *inptctrl.INPTCTRL
-	MARIA     *maria.Maria
 	RAM7800   *ram.RAM
 	RAMRIOT   *ram.RAM
-	TIA       *tia.TIA
-	RIOT      *riot.RIOT
+	MARIA     Area
+	TIA       Area
+	RIOT      Area
 	cartridge *cartridge.Cartridge
-	last      lastArea
+	Last      Area
 }
 
-func createMemory() *memory {
-	mem := &memory{
+func Create() (*Memory, AddChips) {
+	mem := &Memory{
 		bios:      &bios.BIOS{},
 		INPTCTRL:  &inptctrl.INPTCTRL{},
-		MARIA:     &maria.Maria{},
 		RAM7800:   ram.Create("ram7800", 0x1000),
 		RAMRIOT:   ram.Create("ramRIOT", 0x0080),
-		TIA:       &tia.TIA{},
-		RIOT:      &riot.RIOT{},
 		cartridge: &cartridge.Cartridge{},
 	}
-	return mem
+	return mem, func(maria Area, tia Area, riot Area) {
+		mem.MARIA = maria
+		mem.TIA = tia
+		mem.RIOT = riot
+	}
 }
+
+// AddChips is returned by the Create() function and should be called to
+// finalise the memory creation process
+type AddChips func(maria Area, tia Area, riot Area)
 
 type Area interface {
 	// read and write both take an index value. this is an address in the area
@@ -74,7 +71,7 @@ const (
 //
 // Also, RAM7800 is always returned as an area even if MARIA is disabled. I'm
 // pretty sure this isn't strictly correct but it shouldn't cause any harm.
-func (mem *memory) MapAddress(address uint16, read bool) (uint16, Area) {
+func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	// page one
 	if address >= 0x0000 && address <= 0x001f {
 		// INPTCTRL or TIA
@@ -196,7 +193,7 @@ func (mem *memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	return 0, nil
 }
 
-func (mem *memory) Read(address uint16) (uint8, error) {
+func (mem *Memory) Read(address uint16) (uint8, error) {
 	idx, area := mem.MapAddress(address, true)
 	if area == nil {
 		return 0, fmt.Errorf("memory.Read: unmapped address: %04x", address)
@@ -204,13 +201,11 @@ func (mem *memory) Read(address uint16) (uint8, error) {
 	return area.Read(idx)
 }
 
-func (mem *memory) Write(address uint16, data uint8) error {
+func (mem *Memory) Write(address uint16, data uint8) error {
 	idx, area := mem.MapAddress(address, false)
 	if area == nil {
 		return fmt.Errorf("memory.Write: unmapped address: %04x", address)
 	}
-	if l, ok := area.(lastArea); ok {
-		mem.last = l
-	}
+	mem.Last = area
 	return area.Write(idx, data)
 }

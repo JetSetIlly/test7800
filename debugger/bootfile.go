@@ -3,6 +3,7 @@ package debugger
 import (
 	"fmt"
 	"io/ioutil"
+	"strconv"
 	"strings"
 )
 
@@ -18,8 +19,12 @@ func (m *debugger) bootFromFile(bootfile string) error {
 	}
 
 	p := strings.Fields(l[0])
-	if len(p) > 3 {
+	if len(p) > 4 {
 		return fmt.Errorf("too many fields in bootfile")
+	}
+
+	if len(p) < 4 {
+		return fmt.Errorf("too few fields in bootfile")
 	}
 
 	return m.bootParse(p)
@@ -36,11 +41,16 @@ func (m *debugger) bootParse(args []string) error {
 		return err
 	}
 
-	return m.boot(args[0], origin, entry)
+	inptctrl, err := strconv.ParseUint(args[3], 0, 8)
+	if err != nil {
+		return err
+	}
+
+	return m.boot(args[0], origin, entry, uint8(inptctrl))
 }
 
 // loads a ROM file at the stated origin and sets the PC accordingly
-func (m *debugger) boot(romfile string, origin mappedAddress, entry mappedAddress) error {
+func (m *debugger) boot(romfile string, origin mappedAddress, entry mappedAddress, inptctrl uint8) error {
 	d, err := ioutil.ReadFile(romfile)
 	if err != nil {
 		return fmt.Errorf("error loading %s", romfile)
@@ -65,7 +75,7 @@ func (m *debugger) boot(romfile string, origin mappedAddress, entry mappedAddres
 	m.console.MC.PC.Load(entry.address)
 
 	// disable BIOS and enable MARIA. not locking
-	m.console.Mem.INPTCTRL.Write(0x01, 0b00000110)
+	m.console.Mem.INPTCTRL.Write(0x01, inptctrl)
 
 	m.output = append(m.output, m.styles.debugger.Render(
 		fmt.Sprintf("loaded %s at %#04x", romfile, origin.address),

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"os"
 
 	"github.com/jetsetilly/test7800/debugger"
@@ -24,13 +25,17 @@ func main() {
 	resultGui = make(chan error, 1)
 	resultDebugger = make(chan error, 1)
 
+	// rendering channel is used to communicate images to the gui from the debugger
+	var rendering chan *image.RGBA
+	rendering = make(chan *image.RGBA, 1)
+
 	go func() {
-		resultGui <- gui.Launch(endGui)
+		resultGui <- gui.Launch(endGui, rendering)
 		endDebugger <- true
 	}()
 
 	go func() {
-		resultDebugger <- debugger.Launch(endDebugger, os.Args[1:])
+		resultDebugger <- debugger.Launch(endDebugger, rendering, os.Args[1:])
 		endGui <- true
 	}()
 

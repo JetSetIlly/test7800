@@ -3,6 +3,7 @@ package debugger
 import (
 	"errors"
 	"fmt"
+	"image"
 	"strings"
 	"time"
 
@@ -12,12 +13,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/hardware"
+	"github.com/jetsetilly/test7800/hardware/maria"
 )
 
 type styles struct {
 	instruction lipgloss.Style
 	cpu         lipgloss.Style
 	mem         lipgloss.Style
+	video       lipgloss.Style
 	err         lipgloss.Style
 	breakpoint  lipgloss.Style
 	debugger    lipgloss.Style
@@ -41,8 +44,6 @@ type debugger struct {
 }
 
 func (m *debugger) Init() tea.Cmd {
-	m.console = hardware.Create()
-
 	m.input = textinput.New()
 	m.input.Placeholder = ""
 	m.input.Focus()
@@ -52,6 +53,7 @@ func (m *debugger) Init() tea.Cmd {
 	m.styles.instruction = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(3))
 	m.styles.cpu = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(4))
 	m.styles.mem = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(5))
+	m.styles.video = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(6))
 	m.styles.err = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(1))
 	m.styles.breakpoint = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(4))
 	m.styles.debugger = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(2))
@@ -73,10 +75,16 @@ func (m *debugger) reset() {
 			fmt.Sprintf("booting from %s", m.bootfile),
 		))
 		err := m.bootFromFile(m.bootfile)
-		if err != nil {
-			m.output = append(m.output, m.styles.err.Render(err.Error()))
+		if err == nil {
+			return
 		}
-		return
+
+		// if there is an error from the bootFromFile() we output it and carry
+		// on with the reset as though the bootfile wasn't specified
+		m.output = append(m.output, m.styles.err.Render(err.Error()))
+
+		// we also forget about the bootfile because we know it doesn't work
+		m.bootfile = ""
 	}
 
 	err := m.console.Reset(true)
@@ -105,7 +113,7 @@ func (m *debugger) step() {
 		m.output = append(m.output, m.styles.cpu.Render(
 			m.console.MC.String(),
 		))
-		s := m.console.LastMemoryAccess()
+		s := m.console.LastAreaStatus()
 		if len(s) > 0 {
 			m.output = append(m.output, m.styles.mem.Render(s))
 		}
@@ -116,6 +124,7 @@ func (m *debugger) run() {
 	m.stopRun = make(chan bool)
 	m.output = append(m.output, m.styles.debugger.Render("emulation running..."))
 
+	// WARNING: this go function cases race errors but we'll keep it for now
 	go func() {
 		// we measure the number of instructions in the time period of the
 		// running emulation
@@ -131,6 +140,13 @@ func (m *debugger) run() {
 			pcAddr := m.console.MC.PC.Address()
 			if _, ok := m.breakpoints[pcAddr]; ok {
 				return fmt.Errorf("%w: %04x", breakpoint, pcAddr)
+			}
+			if m.console.MARIA.Error != nil {
+				if errors.Is(m.console.MARIA.Error, maria.WarningErr) {
+					// TODO: output warning
+				} else {
+					return m.console.MARIA.Error
+				}
 			}
 			return nil
 		}
@@ -152,16 +168,19 @@ func (m *debugger) run() {
 			}
 		}
 
-		// it's useful to see the state of the CPU at the end of the run
+		// it's useful to see the state of the CPU and the MARIA coords at the end of the run
 		m.output = append(m.output, m.styles.cpu.Render(
 			m.console.MC.String(),
+		))
+		m.output = append(m.output, m.styles.video.Render(
+			m.console.MARIA.Coords.String(),
 		))
 
 		close(m.stopRun)
 		m.stopRun = nil
 
 		// consume last memory access information
-		_ = m.console.LastMemoryAccess()
+		_ = m.console.LastAreaStatus()
 	}()
 }
 
@@ -197,9 +216,9 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				))
 				switch cmd {
 				case "BOOT":
-					if len(p) < 4 {
+					if len(p) < 5 {
 						m.output = append(m.output, m.styles.err.Render(
-							"PEEK requires a ROM file, an origin address and entry address",
+							"BOOT requires a ROM file, an origin address, an entry address and the INPTCTRL value",
 						))
 						break // switch
 					}
@@ -221,7 +240,19 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					))
 				case "MARIA":
 					m.output = append(m.output, m.styles.mem.Render(
-						m.console.Mem.MARIA.Status(),
+						m.console.MARIA.Status(),
+					))
+				case "DL":
+					m.output = append(m.output, m.styles.mem.Render(
+						m.console.MARIA.DL.Status(),
+					))
+				case "DLL":
+					m.output = append(m.output, m.styles.mem.Render(
+						m.console.MARIA.DLL.Status(),
+					))
+				case "VIDEO":
+					m.output = append(m.output, m.styles.video.Render(
+						m.console.MARIA.Coords.String(),
 					))
 				case "INPTCTRL":
 					m.output = append(m.output, m.styles.mem.Render(
@@ -345,20 +376,20 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m debugger) View() string {
-	// if emulation is running (ie. stopEmulation is not nil) then we don't want
-	// to allow user input because that might lead to a data-race. for example,
-	// PEEKing an address will likely collide with memory access by the
-	// emulation
 	if m.stopRun == nil {
+		m.input.Prompt = fmt.Sprintf("%s > ", m.console.MARIA.Coords.ShortString())
 		return fmt.Sprintf("%s\n%s",
 			m.viewport.View(),
 			m.input.View(),
 		)
 	}
-	return m.viewport.View()
+	return fmt.Sprintf("%s\n%s",
+		m.viewport.View(),
+		m.console.MARIA.Coords.ShortString(),
+	)
 }
 
-func Launch(endDebugger chan bool, args []string) error {
+func Launch(endDebugger chan bool, rendering chan *image.RGBA, args []string) error {
 	var bootfile string
 
 	if len(args) == 1 {
@@ -368,6 +399,7 @@ func Launch(endDebugger chan bool, args []string) error {
 	}
 
 	m := &debugger{
+		console:  hardware.Create(rendering),
 		bootfile: bootfile,
 	}
 	p := tea.NewProgram(m)

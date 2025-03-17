@@ -6,6 +6,13 @@ import (
 
 type INPTCTRL struct {
 	value uint8
+
+	// "In addition to the functions controlled by the register bits, INPTCTRL
+	// also controls the HALT input to the 6502. When the 7800 is first powered
+	// up HALT is blocked from getting to the 6502, but after 2 writes to the
+	// control register (the data written doesn’t make a difference), the HALT
+	// input will be enabled."
+	enableHalt int
 }
 
 func (ic *INPTCTRL) Label() string {
@@ -21,6 +28,9 @@ func (ic *INPTCTRL) Read(idx uint16) (uint8, error) {
 }
 
 func (ic *INPTCTRL) Write(idx uint16, data uint8) error {
+	if ic.enableHalt < 2 {
+		ic.enableHalt++
+	}
 	if ic.Lock() {
 		return nil
 	}
@@ -42,4 +52,8 @@ func (ic INPTCTRL) BIOS() bool {
 
 func (ic INPTCTRL) TIA() bool {
 	return ic.value&0x08 == 0x08
+}
+
+func (ic *INPTCTRL) HaltEnabled() bool {
+	return ic.enableHalt > 1
 }
