@@ -103,7 +103,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	// page 2
 	if address >= 0x0100 && address <= 0x011f {
 		// INPTCTRL or TIA
-		address -= 0x01000
+		address -= 0x0100
 		if mem.INPTCTRL.Lock() {
 			if read {
 				return address & maskReadTIA, mem.TIA
@@ -115,7 +115,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	}
 	if address >= 0x0120 && address <= 0x013f {
 		// MARIA or TIA
-		address -= 0x0120
+		address -= 0x0100
 		if mem.INPTCTRL.Lock() && mem.INPTCTRL.TIA() {
 			if read {
 				return address & maskReadTIA, mem.TIA
@@ -128,6 +128,36 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	if address >= 0x0140 && address <= 0x01ff {
 		// RAM 7800 block 1
 		return address - 0x0140 + 0x0940, mem.RAM7800
+	}
+
+	// page 3
+	if address >= 0x0200 && address <= 0x021f {
+		// INPTCTRL or TIA
+		address -= 0x0200
+		if mem.INPTCTRL.Lock() {
+			if read {
+				return address & maskReadTIA, mem.TIA
+			} else {
+				return address & maskWriteTIA, mem.TIA
+			}
+		}
+		return address, mem.INPTCTRL
+	}
+	if address >= 0x0220 && address <= 0x023f {
+		// MARIA or TIA
+		address -= 0x0200
+		if mem.INPTCTRL.Lock() && mem.INPTCTRL.TIA() {
+			if read {
+				return address & maskReadTIA, mem.TIA
+			} else {
+				return address & maskWriteTIA, mem.TIA
+			}
+		}
+		return address, mem.MARIA
+	}
+	if address >= 0x0240 && address <= 0x02ff {
+		// RAM 7800 block 1
+		return address - 0x0240 + 0x0940, mem.RAM7800
 	}
 
 	// unsure
@@ -196,16 +226,24 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 func (mem *Memory) Read(address uint16) (uint8, error) {
 	idx, area := mem.MapAddress(address, true)
 	if area == nil {
-		return 0, fmt.Errorf("memory.Read: unmapped address: %04x", address)
+		return 0, fmt.Errorf("read unmapped address: %04x", address)
 	}
-	return area.Read(idx)
+	v, err := area.Read(idx)
+	if err != nil {
+		return 0, fmt.Errorf("read %04x: %w", address, err)
+	}
+	return v, nil
 }
 
 func (mem *Memory) Write(address uint16, data uint8) error {
 	idx, area := mem.MapAddress(address, false)
 	if area == nil {
-		return fmt.Errorf("memory.Write: unmapped address: %04x", address)
+		return fmt.Errorf("write unmapped address: %04x", address)
 	}
 	mem.Last = area
-	return area.Write(idx, data)
+	err := area.Write(idx, data)
+	if err != nil {
+		return fmt.Errorf("write %04x: %w", address, err)
+	}
+	return nil
 }
