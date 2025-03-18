@@ -193,7 +193,7 @@ func (mar *Maria) Read(idx uint16) (uint8, error) {
 	case 0x03f:
 		return mar.palette[7][2], nil
 	}
-	return 0x00, fmt.Errorf("not a maria address")
+	return 0x00, fmt.Errorf("not a maria address (%#04x)", idx)
 }
 
 func (mar *Maria) Write(idx uint16, data uint8) error {
@@ -335,36 +335,46 @@ func (mar *Maria) Tick() bool {
 				// treat as DMA being off but record a warning
 				mar.Error = fmt.Errorf("%w: dma value of 0x01 in ctrl register is undefined", WarningErr)
 			case 0x02:
-				// pixel width is controlled by the readmode value in the ctrl register
-				var pixelWidth uint8
-
-				switch mar.ctrl.readMode {
-				case 0:
-					pixelWidth = 2
-				case 1:
-					mar.Error = fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", WarningErr)
-				case 2:
-					pixelWidth = 1
-					mar.Error = fmt.Errorf("%w: readmode value of 0x02 in ctrl register is not fully emulated", WarningErr)
-				case 3:
-					pixelWidth = 1
-					mar.Error = fmt.Errorf("%w: readmode value of 0x03 in ctrl register is not fully emulated", WarningErr)
-				}
 
 				mar.nextDL(true)
 				for !mar.DL.isEnd {
-					if mar.DL.writemode {
-						pixelWidth *= 2
-					}
-
-					for w := range mar.DL.width {
-						// TODO: correct palette referencing
-						p := mar.palette[mar.DL.palette][0]
-						for i := range pixelWidth {
-							mar.currentFrame.Set(int(mar.DL.horizontalPosition+((w*pixelWidth)+i)), sl, palette[p])
+					switch mar.ctrl.readMode {
+					case 0:
+						for w := range mar.DL.width {
+							a := ((uint16(mar.DL.highAddress) << 8) | uint16(mar.DL.lowAddress)) + uint16(w)
+							b, err := mar.mem.Read(a)
+							if err != nil {
+								mar.Error = fmt.Errorf("%w: failed to read graphics byte", err)
+							}
+							if mar.DL.writemode {
+								// 160B
+								for i := range 2 {
+									c := (b >> (((1 - i) * 2) + 4)) & 0x03
+									pi := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
+									p := mar.palette[pi]
+									if c > 0 {
+										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, palette[p[c-1]])
+									}
+								}
+							} else {
+								//160A
+								p := mar.palette[mar.DL.palette]
+								for i := range 4 {
+									c := (b >> ((3 - i) * 2)) & 0x03
+									if c > 0 {
+										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, palette[p[c-1]])
+									}
+								}
+							}
 						}
-					}
 
+					case 1:
+						mar.Error = fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", WarningErr)
+					case 2:
+						mar.Error = fmt.Errorf("%w: readmode value of 0x02 in ctrl register is not fully emulated", WarningErr)
+					case 3:
+						mar.Error = fmt.Errorf("%w: readmode value of 0x03 in ctrl register is not fully emulated", WarningErr)
+					}
 					mar.nextDL(false)
 				}
 			case 0x03:
