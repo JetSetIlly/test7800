@@ -7,27 +7,42 @@ import (
 	"strings"
 )
 
-func (m *debugger) bootFromFile(bootfile string) error {
+func (m *debugger) bootFromFile(bootfile string) ([]string, error) {
 	f, err := ioutil.ReadFile(bootfile)
 	if err != nil {
-		return fmt.Errorf("cannot load bootfile")
+		return []string{}, fmt.Errorf("cannot load bootfile")
 	}
 
-	l := strings.Split(strings.TrimSpace(string(f)), "\n")
-	if len(l) > 1 {
-		return fmt.Errorf("too many lines in bootfile")
+	lns := strings.Split(strings.TrimSpace(string(f)), "\n")
+	if len(lns) == 1 {
+		return []string{}, fmt.Errorf("not enough lines in bootfile")
 	}
 
-	p := strings.Fields(l[0])
+	p := strings.Fields(lns[0])
 	if len(p) > 4 {
-		return fmt.Errorf("too many fields in bootfile")
+		return []string{}, fmt.Errorf("too many fields in bootfile")
 	}
 
 	if len(p) < 4 {
-		return fmt.Errorf("too few fields in bootfile")
+		return []string{}, fmt.Errorf("too few fields in bootfile")
 	}
 
-	return m.bootParse(p)
+	err = m.bootParse(p)
+	if err != nil {
+		return []string{}, err
+	}
+
+	// use remainder of the file as a boot script. blank lines are not accepted
+	// in the script and are filtered out
+	var script []string
+	for _, l := range lns[1:] {
+		l = strings.TrimSpace(l)
+		if l != "" {
+			script = append(script, l)
+		}
+	}
+
+	return script, nil
 }
 
 func (m *debugger) bootParse(args []string) error {

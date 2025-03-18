@@ -42,6 +42,9 @@ type debugger struct {
 
 	// the boot file to load on console reset
 	bootfile string
+
+	// script of commands
+	script []string
 }
 
 func (m *debugger) Init() tea.Cmd {
@@ -74,7 +77,9 @@ func (m *debugger) reset() {
 		m.output = append(m.output, m.styles.debugger.Render(
 			fmt.Sprintf("booting from %s", m.bootfile),
 		))
-		err := m.bootFromFile(m.bootfile)
+
+		var err error
+		m.script, err = m.bootFromFile(m.bootfile)
 		if err == nil {
 			return
 		}
@@ -370,6 +375,14 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.viewport, cmd = m.viewport.Update(msg)
 	cmds = append(cmds, cmd)
+
+	// execute script
+	if len(m.script) > 0 {
+		m.input.SetValue(m.script[0])
+		cmds = append(cmds,
+			func() tea.Msg { return tea.KeyMsg{Type: tea.KeyEnter} })
+		m.script = m.script[1:]
+	}
 
 	return m, tea.Batch(cmds...)
 }
