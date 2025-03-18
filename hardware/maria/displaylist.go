@@ -120,6 +120,10 @@ func (mar *Maria) nextDL(reset bool) error {
 		// width of zero is valid in an extended header, and will be interpreted as
 		// a value of 32"
 		if mar.DL.width == 0 {
+			// the way we do this is to set the value to 32. in real hardware I
+			// think what really happens is that the five bit number wraps
+			// around and it's 32 decrements until it reaches zero again. but
+			// we're using an 8bit value so that won't work in quite the same way
 			mar.DL.width = 32
 		}
 
