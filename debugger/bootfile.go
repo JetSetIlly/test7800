@@ -14,8 +14,8 @@ func (m *debugger) bootFromFile(bootfile string) ([]string, error) {
 	}
 
 	lns := strings.Split(strings.TrimSpace(string(f)), "\n")
-	if len(lns) == 1 {
-		return []string{}, fmt.Errorf("not enough lines in bootfile")
+	if len(lns) < 1 {
+		return []string{}, fmt.Errorf("there must be at least one line in a bootfile")
 	}
 
 	p := strings.Fields(lns[0])
