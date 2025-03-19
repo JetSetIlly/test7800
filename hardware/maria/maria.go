@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"strings"
 )
 
@@ -69,6 +70,13 @@ type Maria struct {
 	// pixels for current frame
 	currentFrame *image.RGBA
 	rendering    chan *image.RGBA
+
+	// the selected rgba palette to use when rendering the screen
+	rgba [256]color.RGBA
+
+	// creating a new image depends on the tv specification. the newImage()
+	// function returns an appropriately sized image for the specification
+	newImage func() *image.RGBA
 }
 
 type Memory interface {
@@ -76,12 +84,28 @@ type Memory interface {
 	Write(address uint16, data uint8) error
 }
 
-func Create(mem Memory, rendering chan *image.RGBA) *Maria {
+func Create(mem Memory, spec string, rendering chan *image.RGBA) *Maria {
 	mar := &Maria{
 		mem:       mem,
 		rendering: rendering,
 	}
-	mar.currentFrame = newImage()
+
+	switch strings.ToUpper(spec) {
+	case "NTSC":
+		mar.rgba = ntscPalette
+		mar.newImage = func() *image.RGBA {
+			return image.NewRGBA(image.Rect(0, 0, clksVisible*2, ntscVisibleBottom-ntscVisibleTop))
+		}
+	case "PAL":
+		mar.rgba = palPalette
+		mar.newImage = func() *image.RGBA {
+			return image.NewRGBA(image.Rect(0, 0, clksVisible*2, palVisibleBottom-palVisibleTop))
+		}
+	default:
+		panic("currently unsupported specification")
+	}
+
+	mar.currentFrame = mar.newImage()
 	return mar
 }
 
@@ -296,7 +320,7 @@ func (mar *Maria) Tick() bool {
 			// new image to use for current frame
 			//
 			// this can almost certainly be improved in efficiency
-			mar.currentFrame = newImage()
+			mar.currentFrame = mar.newImage()
 
 		} else if mar.Coords.scanline == ntscVisibleTop {
 			// enable DMA at start of visible screen
@@ -324,7 +348,7 @@ func (mar *Maria) Tick() bool {
 			// be changed according to the display lists
 			sl := mar.Coords.scanline - ntscVisibleTop
 			for clk := range clksVisible {
-				mar.currentFrame.Set(clk, sl, palette[mar.bg])
+				mar.currentFrame.Set(clk, sl, mar.rgba[mar.bg])
 			}
 
 			switch mar.ctrl.dma {
@@ -353,16 +377,16 @@ func (mar *Maria) Tick() bool {
 									pi := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
 									p := mar.palette[pi]
 									if c > 0 {
-										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, palette[p[c-1]])
+										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.rgba[p[c-1]])
 									}
 								}
 							} else {
-								//160A
+								// 160A
 								p := mar.palette[mar.DL.palette]
 								for i := range 4 {
 									c := (b >> ((3 - i) * 2)) & 0x03
 									if c > 0 {
-										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, palette[p[c-1]])
+										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.rgba[p[c-1]])
 									}
 								}
 							}

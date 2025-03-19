@@ -98,6 +98,9 @@ func (m *debugger) reset() {
 		return
 	}
 	m.output = append(m.output, m.styles.debugger.Render("console reset"))
+	m.output = append(m.output, m.styles.mem.Render(
+		m.console.Mem.BIOS.Status(),
+	))
 	m.output = append(m.output, m.styles.cpu.Render(
 		m.console.MC.String(),
 	))
@@ -241,6 +244,10 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "CPU":
 					m.output = append(m.output, m.styles.cpu.Render(
 						m.console.MC.String(),
+					))
+				case "BIOS":
+					m.output = append(m.output, m.styles.mem.Render(
+						m.console.Mem.BIOS.Status(),
 					))
 				case "MARIA":
 					m.output = append(m.output, m.styles.mem.Render(

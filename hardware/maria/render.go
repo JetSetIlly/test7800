@@ -2,31 +2,34 @@ package maria
 
 import (
 	_ "embed"
-	"image"
 	"image/color"
 )
 
-// palette downloaded from https://forums.atariage.com/topic/210082-colorswhat-do-you-want/#comment-2716653
+// palettes downloaded from
+// https://forums.atariage.com/topic/210082-colorswhat-do-you-want/#comment-2716653
 // using files in option (A)
 
 //go:embed "palettes/NTSC_A7800_CRTTV.pal"
-var raw []byte
+var ntscRaw []byte
+
+//go:embed "palettes/PAL_A7800_CRTTV.pal"
+var palRaw []byte
 
 // pre-processed RGB information
-var palette [256]color.RGBA
+var ntscPalette [256]color.RGBA
+var palPalette [256]color.RGBA
 
 func init() {
-	if len(raw) != 768 {
-		panic("palette data is incorrect length. should be 768bytes (256bytes * 3)")
+	if len(ntscRaw) != 768 {
+		panic("ntsc palette data is incorrect length. should be 768bytes (256bytes * 3)")
+	}
+	if len(palRaw) != 768 {
+		panic("pal palette data is incorrect length. should be 768bytes (256bytes * 3)")
 	}
 
 	for i := range 256 {
 		p := i * 3
-		palette[i] = color.RGBA{R: raw[p], G: raw[p+1], B: raw[p+2]}
+		ntscPalette[i] = color.RGBA{R: ntscRaw[p], G: ntscRaw[p+1], B: ntscRaw[p+2]}
+		palPalette[i] = color.RGBA{R: palRaw[p], G: palRaw[p+1], B: palRaw[p+2]}
 	}
-}
-
-// image is twice the width of clksVisible so we can support 320A, 320B, 320C and 320D
-func newImage() *image.RGBA {
-	return image.NewRGBA(image.Rect(0, 0, clksVisible*2, ntscVisibleBottom-ntscVisibleTop))
 }

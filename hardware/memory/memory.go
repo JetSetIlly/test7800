@@ -10,7 +10,7 @@ import (
 )
 
 type Memory struct {
-	bios      *bios.BIOS
+	BIOS      *bios.BIOS
 	INPTCTRL  *inptctrl.INPTCTRL
 	RAM7800   *ram.RAM
 	RAMRIOT   *ram.RAM
@@ -23,7 +23,7 @@ type Memory struct {
 
 func Create() (*Memory, AddChips) {
 	mem := &Memory{
-		bios:      &bios.BIOS{},
+		BIOS:      &bios.BIOS{},
 		INPTCTRL:  &inptctrl.INPTCTRL{},
 		RAM7800:   ram.Create("ram7800", 0x1000),
 		RAMRIOT:   ram.Create("ramRIOT", 0x0080),
@@ -211,7 +211,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	// BIOS
 	if mem.INPTCTRL.BIOS() {
 		if address >= bios.OriginBIOS && address <= 0xffff {
-			return address - bios.OriginBIOS, mem.bios
+			return address - bios.OriginBIOS, mem.BIOS
 		}
 	}
 

@@ -33,7 +33,7 @@ func Create(rendering chan *image.RGBA) Console {
 	con.Mem, addChips = memory.Create()
 
 	con.MC = cpu.NewCPU(con.Mem)
-	con.MARIA = maria.Create(con.Mem, rendering)
+	con.MARIA = maria.Create(con.Mem, con.Mem.BIOS.Spec(), rendering)
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
 	con.Reset(true)
