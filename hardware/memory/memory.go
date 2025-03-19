@@ -36,6 +36,12 @@ func Create() (*Memory, AddChips) {
 	}
 }
 
+func (mem *Memory) Reset(random bool) {
+	mem.INPTCTRL.Reset()
+	mem.RAM7800.Reset(random)
+	mem.RAMRIOT.Reset(random)
+}
+
 // AddChips is returned by the Create() function and should be called to
 // finalise the memory creation process
 type AddChips func(maria Area, tia Area, riot Area)
@@ -72,6 +78,41 @@ const (
 // Also, RAM7800 is always returned as an area even if MARIA is disabled. I'm
 // pretty sure this isn't strictly correct but it shouldn't cause any harm.
 func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
+	// map taken from "7800 Software Guide":
+	//
+	// 0000 to 001F 	TIA Registers
+	// 0020 to 003F 	MARIA Registers
+	// 0040 to 00FF 	RAM (6116 Block Zero)
+	// 0100 to 013F 	Shadow of Page 0
+	// 0140 to 01FF 	RAM (6116 Block One)
+	// 0200 to 027F 	Shadowed
+	// 0280 to 02FF 	6532 Ports
+	// 0300 to 037F 	Shadowed
+	// 0380 to 03FF 	Shadowed 6532 Ports
+	// 0400 to 047F 	Available for mapping by external devices
+	// 0480 to 04FF 	6532 RAM. Don't Use
+	// 0500 to 057F 	Available for mapping by external devices
+	// 0580 to 05FF 	6532 RAM Shadow. Don't Use
+	// 0600 to 17FF 	Available for mapping by external devices
+	// 1800 to 203F 	RAM
+	// 2040 to 20FF 	Block Zero Shadow
+	// 2100 to 213F 	RAM
+	// 2140 to 21FF 	Block One Shadow
+	// 2200 to 27FF 	RAM
+	// 2800 to 2FFF 	Unavailable for mapping by external devices. (BIOS conflict)
+	// 3000 to FF7F 	Available for mapping by external devices
+	// FF80 to FFF7 	Reserved for cart encryption signature
+	// FFF8 to FFFF 	Reserved for startup flags and 6502 vectors
+	//
+	// the range 1800 to 27ff is treated as a single block of RAM. contrary to
+	// what the map says, I think that the areas referred to as "SHADOW OF ZERO
+	// PAGE RAM" and "SHADOW OF STACK RAM" are better thought of as the primary
+	// areas and "ZERO PAGE RAM" and "RAM (STACK)" as being the shadows
+	//
+	// The MARIA.S file for the 7800 PAL OS source code shows a slightly
+	// different map to the above. we prefer this software guide map because it
+	// is based on modern research
+
 	// page one
 	if address >= 0x0000 && address <= 0x001f {
 		// INPTCTRL or TIA
@@ -126,7 +167,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		return address, mem.MARIA
 	}
 	if address >= 0x0140 && address <= 0x01ff {
-		// RAM 7800 block 1
+		// RAM 7800 block 1 (6507 stack)
 		return address - 0x0140 + 0x0940, mem.RAM7800
 	}
 
@@ -208,15 +249,15 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		return address - 0x1800, mem.RAM7800
 	}
 
-	// BIOS
-	if mem.INPTCTRL.BIOS() {
+	if mem.INPTCTRL.BIOS() || mem.cartridge.Ejected() {
+		// BIOS
 		if address >= bios.OriginBIOS && address <= 0xffff {
 			return address - bios.OriginBIOS, mem.BIOS
 		}
 	}
 
-	// cartridge
 	if address >= cartridge.OriginCart && address <= 0xffff {
+		// cartridge
 		return address - cartridge.OriginCart, mem.cartridge
 	}
 

@@ -76,6 +76,9 @@ type Result struct {
 	// whether this data has been finalised - some fields in this struct will
 	// be undefined if Final is false
 	Final bool
+
+	// was the instruction executed inside of an interrupt
+	InInterrupt bool
 }
 
 // Reset nullifies all members of the Result instance.
@@ -88,11 +91,18 @@ func (r *Result) Reset() {
 	r.PageFault = false
 	r.CPUBug = ""
 	r.Final = false
+	r.InInterrupt = false
 }
 
 // very rough disassembly. it should not be used in preference to the
 // disassembly package if at all possible. none-the-less it is useful for
 // development purposes.
+//
+// instructions executed inside of an interrupt are written with two leading
+// exclamation points
 func (r *Result) String() string {
+	if r.InInterrupt {
+		return fmt.Sprintf("!! %04x %s %s %04x", r.Address, r.Defn.Operator, r.Defn.AddressingMode, r.InstructionData)
+	}
 	return fmt.Sprintf("%04x %s %s %04x", r.Address, r.Defn.Operator, r.Defn.AddressingMode, r.InstructionData)
 }

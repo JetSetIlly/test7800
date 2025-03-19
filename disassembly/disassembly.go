@@ -42,6 +42,9 @@ type Entry struct {
 }
 
 func (e Entry) String() string {
+	if e.Result.InInterrupt {
+		return fmt.Sprintf("!! %5s %5s %3s %s", e.Bytecode, e.Address, e.Operator, e.Operand)
+	}
 	return fmt.Sprintf("%5s %5s %3s %s", e.Bytecode, e.Address, e.Operator, e.Operand)
 }
 

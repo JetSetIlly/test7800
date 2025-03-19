@@ -15,6 +15,11 @@ type INPTCTRL struct {
 	enableHalt int
 }
 
+func (ic *INPTCTRL) Reset() {
+	ic.value = 0
+	ic.enableHalt = 0
+}
+
 func (ic *INPTCTRL) Label() string {
 	return "INPTCTRL"
 }
@@ -46,8 +51,13 @@ func (ic INPTCTRL) MARIA() bool {
 	return ic.value&0x02 == 0x02
 }
 
+func (ic INPTCTRL) EXT() bool {
+	return ic.value&0x04 == 0x04
+}
+
+// BIOS function returns the inverted meaning of the EXT bit in the INPTCTRL register
 func (ic INPTCTRL) BIOS() bool {
-	return ic.value&0x04 != 0x04
+	return !ic.EXT()
 }
 
 func (ic INPTCTRL) TIA() bool {

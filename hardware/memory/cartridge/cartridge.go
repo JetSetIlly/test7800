@@ -5,6 +5,10 @@ const OriginCart = 0x3000
 type Cartridge struct {
 }
 
+func (cart *Cartridge) Ejected() bool {
+	return true
+}
+
 func (cart *Cartridge) Label() string {
 	return "Cartridge"
 }

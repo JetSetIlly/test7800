@@ -114,10 +114,7 @@ func (m *debugger) step() {
 			err.Error(),
 		))
 	} else {
-		res := disassembly.FormatResult(m.console.MC.LastResult)
-		m.output = append(m.output, m.styles.instruction.Render(
-			strings.TrimSpace(fmt.Sprintf("%s %s %s", res.Address, res.Operator, res.Operand))),
-		)
+		m.last()
 		m.output = append(m.output, m.styles.cpu.Render(
 			m.console.MC.String(),
 		))
@@ -128,8 +125,19 @@ func (m *debugger) step() {
 	}
 }
 
+func (m *debugger) last() {
+	res := disassembly.FormatResult(m.console.MC.LastResult)
+	m.output = append(m.output, m.styles.instruction.Render(
+		strings.TrimSpace(fmt.Sprintf("%s %s %s", res.Address, res.Operator, res.Operand))),
+	)
+}
+
 func (m *debugger) run() {
-	m.output = append(m.output, m.styles.debugger.Render("emulation running..."))
+	// the message output at the beginning of the run and that is removed at the
+	// end of the run if nothing else has been added to the output
+	const emulationRunningMsg = "emulation running..."
+
+	m.output = append(m.output, m.styles.debugger.Render(emulationRunningMsg))
 
 	// WARNING: this go function causes race errors but we'll keep it for now
 	go func() {
@@ -138,18 +146,18 @@ func (m *debugger) run() {
 
 		// we measure the number of instructions in the time period of the
 		// running emulation
-		var instructions int
+		var instructionCt int
 		var startTime time.Time
 
 		// sentinal error to indicate a breakpoint has been encountered
-		var breakpoint = errors.New("breakpoint")
+		var breakpointErr = errors.New("breakpoint")
 
 		// hook is called after every CPU instruction
 		hook := func() error {
-			instructions++
+			instructionCt++
 			pcAddr := m.console.MC.PC.Address()
 			if _, ok := m.breakpoints[pcAddr]; ok {
-				return fmt.Errorf("%w: %04x", breakpoint, pcAddr)
+				return fmt.Errorf("%w: %04x", breakpointErr, pcAddr)
 			}
 			if m.console.MARIA.Error != nil {
 				if errors.Is(m.console.MARIA.Error, maria.WarningErr) {
@@ -166,12 +174,14 @@ func (m *debugger) run() {
 
 		// replace the last entry in the output (which should be "emulation
 		// running...") with an instruction/time summary
-		m.output[len(m.output)-1] = m.styles.debugger.Render(
-			fmt.Sprintf("%d instructions in %.02f seconds", instructions, time.Since(startTime).Seconds()),
-		)
+		if m.output[len(m.output)-1] == emulationRunningMsg {
+			m.output[len(m.output)-1] = m.styles.debugger.Render(
+				fmt.Sprintf("%d instructions in %.02f seconds", instructionCt, time.Since(startTime).Seconds()),
+			)
+		}
 
 		if err != nil {
-			if errors.Is(err, breakpoint) {
+			if errors.Is(err, breakpointErr) {
 				m.output = append(m.output, m.styles.breakpoint.Render(err.Error()))
 			} else {
 				m.output = append(m.output, m.styles.err.Render(err.Error()))
@@ -235,6 +245,9 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.output = append(m.output, m.styles.err.Render(err.Error()))
 						break // switch
 					}
+				case "R":
+					// shortcut for "RUN"
+					m.run()
 				case "RUN":
 					m.run()
 				case "STEP":
@@ -331,6 +344,14 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.output = append(m.output, m.styles.debugger.Render(
 						fmt.Sprintf("added breakpoint for $%04x", ma.address),
 					))
+				case "LIST":
+					if len(m.breakpoints) == 0 {
+						m.output = append(m.output, m.styles.debugger.Render("no breakpoints added"))
+					} else {
+						for a := range m.breakpoints {
+							m.output = append(m.output, m.styles.debugger.Render(fmt.Sprintf("%#04x", a)))
+						}
+					}
 				case "DROP":
 					if len(p) < 2 {
 						m.output = append(m.output, m.styles.err.Render(

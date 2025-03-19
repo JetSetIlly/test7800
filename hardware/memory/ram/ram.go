@@ -31,8 +31,8 @@ func (r *RAM) Reset(random bool) {
 func (r *RAM) String() string {
 	var s strings.Builder
 	for i := 0; i <= (len(r.data)-1)/16; i++ {
-		j := i * 15
-		s.WriteString(fmt.Sprintf("% 02x\n", r.data[j:j+15]))
+		j := i * 16
+		s.WriteString(fmt.Sprintf("%04x : % 02x\n", j, r.data[j:j+16]))
 	}
 	return strings.TrimSuffix(s.String(), "\n")
 }

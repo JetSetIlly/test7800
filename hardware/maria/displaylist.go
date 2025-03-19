@@ -182,13 +182,13 @@ func (dll *dll) Status() string {
 	return s.String()
 }
 
-func (mar *Maria) nextDLL(reset bool) error {
+func (mar *Maria) nextDLL(reset bool) (bool, error) {
 	if reset {
 		mar.DLL.ct = 0
 	} else {
 		mar.DLL.offset--
 		if mar.DLL.offset >= 0 {
-			return nil
+			return mar.DLL.dli && mar.DLL.offset == 0, nil
 		}
 		mar.DLL.ct++
 	}
@@ -197,7 +197,7 @@ func (mar *Maria) nextDLL(reset bool) error {
 
 	d, err := mar.mem.Read(mar.DLL.origin)
 	if err != nil {
-		return err
+		return false, err
 	}
 	mar.DLL.dli = d&0x80 == 0x80
 	mar.DLL.h16 = d&0x40 == 0x40
@@ -206,13 +206,13 @@ func (mar *Maria) nextDLL(reset bool) error {
 
 	mar.DLL.highAddress, err = mar.mem.Read(mar.DLL.origin + 1)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	mar.DLL.lowAddress, err = mar.mem.Read(mar.DLL.origin + 2)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	return false, nil
 }

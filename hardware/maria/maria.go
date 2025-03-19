@@ -94,12 +94,12 @@ func Create(mem Memory, spec string, rendering chan *image.RGBA) *Maria {
 	case "NTSC":
 		mar.rgba = ntscPalette
 		mar.newImage = func() *image.RGBA {
-			return image.NewRGBA(image.Rect(0, 0, clksVisible*2, ntscVisibleBottom-ntscVisibleTop))
+			return image.NewRGBA(image.Rect(0, 0, clksVisible, ntscVisibleBottom-ntscVisibleTop))
 		}
 	case "PAL":
 		mar.rgba = palPalette
 		mar.newImage = func() *image.RGBA {
-			return image.NewRGBA(image.Rect(0, 0, clksVisible*2, palVisibleBottom-palVisibleTop))
+			return image.NewRGBA(image.Rect(0, 0, clksVisible, palVisibleBottom-palVisibleTop))
 		}
 	default:
 		panic("currently unsupported specification")
@@ -294,11 +294,14 @@ func (mar *Maria) Write(idx uint16, data uint8) error {
 	default:
 		return fmt.Errorf("not a maria address")
 	}
+
 	return nil
 }
 
-// returns true if CPU is to be halted
-func (mar *Maria) Tick() bool {
+// returns true if CPU is to be halted and true if DLL has requested an interrupt
+func (mar *Maria) Tick() (halt bool, nmi bool) {
+	var dli bool
+
 	// error is reset and will be set again as appropriate in this function
 	mar.Error = nil
 
@@ -327,7 +330,7 @@ func (mar *Maria) Tick() bool {
 			mar.mstat = 0x00
 
 			// start DLL reads
-			err := mar.nextDLL(true)
+			_, err := mar.nextDLL(true)
 			if err != nil {
 				mar.Error = err
 			}
@@ -336,7 +339,8 @@ func (mar *Maria) Tick() bool {
 			mar.mstat = 0x80
 
 		} else {
-			err := mar.nextDLL(false)
+			var err error
+			dli, err = mar.nextDLL(false)
 			if err != nil {
 				mar.Error = err
 			}
@@ -408,5 +412,5 @@ func (mar *Maria) Tick() bool {
 	}
 
 	// return HALT signal if either WSYNC or DMA signal is enabled
-	return mar.wsync || (mar.mstat == 0x00 && mar.Coords.clk > clksHBLANK)
+	return mar.wsync || (mar.mstat == 0x00 && mar.Coords.clk > clksHBLANK), dli
 }

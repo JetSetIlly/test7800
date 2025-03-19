@@ -65,11 +65,17 @@ type CPU struct {
 	// is outside of the direct control of the CPU.
 	NoFlowControl bool
 
-	// Interrupted indicated that the CPU has been put into a state outside of
+	// Exceptional indicates that the CPU has been put into a state outside of
 	// its normal operation. When true work may be done on the CPU that would
 	// otherwise be considered an error. Resets to false on every call to
 	// ExecuteInstruction()
-	Interrupted bool
+	Exceptional bool
+
+	// whether the CPU is in an interrupt block of code. this field is >0 when
+	// the PC has been loaded with the address pointed to by the NMI address. it
+	// is possible for the the code to be interrupted while inside an interrupt,
+	// which is why this field is an integer rather than a boolean
+	interruptDepth int
 
 	// Whether the last memory access by the CPU was a phantom access
 	PhantomMemAccess bool
@@ -135,11 +141,55 @@ func (mc *CPU) SetRDY(rdy bool) {
 	mc.RdyFlg = rdy
 }
 
+// Interrupt loads the PC with the 16bit value at the NMI address
+func (mc *CPU) Interrupt(nonMaskable bool) error {
+	// IRQ interrupts only take effect if the InterruptDisable flag is unset
+	if !nonMaskable {
+		if mc.Status.InterruptDisable {
+			return nil
+		}
+		mc.Status.InterruptDisable = true
+	}
+
+	// TODO: cycleCallback after every cycle
+
+	// push MSB of PC onto stack, and decrement SP
+	err := mc.write8Bit(mc.SP.Address(), uint8(mc.PC.Address()>>8), false)
+	if err != nil {
+		return err
+	}
+	mc.SP.Add(0xff, false)
+
+	// push LSB of PC onto stack, and decrement SP
+	err = mc.write8Bit(mc.SP.Address(), uint8(mc.PC.Address()), false)
+	if err != nil {
+		return err
+	}
+	mc.SP.Add(0xff, false)
+
+	// push status register
+	err = mc.write8Bit(mc.SP.Address(), mc.Status.Value(), false)
+	if err != nil {
+		return err
+	}
+	mc.SP.Add(0xff, false)
+
+	// the interruptDepth field is now >0 and indicates that the CPU is in the
+	// interrupted state. if the CPU has been interrupted previously without an
+	// intervening RTI then the field will be >1
+	mc.interruptDepth++
+
+	if nonMaskable {
+		return mc.LoadPCIndirect(NMI)
+	}
+	return mc.LoadPCIndirect(BRK)
+}
+
 // Reset reinitialises all registers. Does not load PC with RESET vector. Use
 // cpu.LoadPCIndirect(cpubus.Reset) when appropriate.
 func (mc *CPU) Reset() {
 	mc.LastResult.Reset()
-	mc.Interrupted = true
+	mc.Exceptional = true
 	mc.Killed = false
 
 	mc.PC.Load(0)
@@ -166,7 +216,7 @@ func (mc *CPU) HasReset() bool {
 func (mc *CPU) LoadPCIndirect(indirectAddress uint16) error {
 	mc.PhantomMemAccess = false
 
-	if !mc.LastResult.Final && !mc.Interrupted {
+	if !mc.LastResult.Final && !mc.Exceptional {
 		return fmt.Errorf("cpu: load PC indirect invalid mid-instruction")
 	}
 
@@ -189,7 +239,7 @@ func (mc *CPU) LoadPCIndirect(indirectAddress uint16) error {
 
 // LoadPC loads the contents of directAddress into the PC.
 func (mc *CPU) LoadPC(directAddress uint16) error {
-	if !mc.LastResult.Final && !mc.Interrupted {
+	if !mc.LastResult.Final && !mc.Exceptional {
 		return fmt.Errorf("cpu: load PC invalid mid-instruction")
 	}
 
@@ -488,12 +538,12 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 
 	// a previous call to ExecuteInstruction() has not yet completed. it is
 	// impossible to begin a new instruction
-	if !mc.LastResult.Final && !mc.Interrupted {
+	if !mc.LastResult.Final && !mc.Exceptional {
 		return fmt.Errorf("cpu: starting a new instruction is invalid mid-instruction")
 	}
 
 	// reset Interrupted flag
-	mc.Interrupted = false
+	mc.Exceptional = false
 
 	// do nothing and return nothing if ready flag is false
 	if !mc.RdyFlg {
@@ -506,6 +556,7 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 	// prepare new round of results
 	mc.LastResult.Reset()
 	mc.LastResult.Address = mc.PC.Address()
+	mc.LastResult.InInterrupt = mc.interruptDepth > 0
 
 	var err error
 
@@ -1425,6 +1476,19 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 		}
 
 	case instructions.Rti:
+		if mc.interruptDepth == 0 {
+			// this isn't really an error but it's doubtful that a program would
+			// want to call an RTI outisde of an interrupt. while we're
+			// debugging the interrupt implemention it's a good idea to flag
+			// this up to alert ourselves to check that we're working correctly
+			return fmt.Errorf("cpu: RTI called outside of an interrupt")
+		}
+
+		// reduce depth count by one. if the count is now zero then the CPU is
+		// no longer in the interrupt state. if however, the an interrupt
+		// happened whilst inside an interrupt, the count will still be >0
+		mc.interruptDepth--
+
 		// pull status register (same effect as PLP)
 		if !mc.NoFlowControl {
 			mc.SP.Add(1, false)

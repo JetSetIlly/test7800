@@ -48,13 +48,20 @@ func (con *Console) Reset(random bool) error {
 		con.MC.X.Load(uint8(rand.IntN(255)))
 		con.MC.Y.Load(uint8(rand.IntN(255)))
 	}
-	con.Mem.RAM7800.Reset(random)
-	con.Mem.RAMRIOT.Reset(random)
+	con.Mem.Reset(random)
 
 	return con.MC.LoadPCIndirect(cpu.Reset)
 }
 
 func (con *Console) Step() error {
+	var nmiNextInstruction bool
+
+	defer func() {
+		if nmiNextInstruction {
+			_ = con.MC.Interrupt(true)
+		}
+	}()
+
 	tick := func() error {
 		// this function is called once per CPU cycle. MARIA runs faster than
 		// the CPU and so there are multiple ticks of the MARIA per CPU cycle
@@ -63,7 +70,9 @@ func (con *Console) Step() error {
 		//
 		// TODO: handle slowing down of CPU
 		for range clocks.MariaCycles {
-			con.halt = con.MARIA.Tick()
+			var nmi bool
+			con.halt, nmi = con.MARIA.Tick()
+			nmiNextInstruction = nmiNextInstruction || nmi
 		}
 		return nil
 	}
