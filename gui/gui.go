@@ -48,6 +48,7 @@ func Launch(endGui chan bool, rendering chan *image.RGBA) error {
 	ebiten.SetWindowTitle("test7800")
 	ebiten.SetVsyncEnabled(true)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	ebiten.SetWindowPosition(10, 10)
 
 	return ebiten.RunGame(&gui{
 		endGui:    endGui,

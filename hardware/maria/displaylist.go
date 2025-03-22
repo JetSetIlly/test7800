@@ -47,7 +47,7 @@ func (dl *dl) Status() string {
 }
 
 func (mar *Maria) nextDL(reset bool) error {
-	// the amount we adjust the DLL pointer by to the next entry in the DLL
+	// the amount we adjust the DLL pointer by to the next entry in the DL
 	// depends on the size of the previous DL header
 	var prevSize int
 

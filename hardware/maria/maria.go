@@ -363,7 +363,6 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 				// treat as DMA being off but record a warning
 				mar.Error = fmt.Errorf("%w: dma value of 0x01 in ctrl register is undefined", WarningErr)
 			case 0x02:
-
 				mar.nextDL(true)
 				for !mar.DL.isEnd {
 					switch mar.ctrl.readMode {
@@ -382,6 +381,8 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 									p := mar.palette[pi]
 									if c > 0 {
 										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.rgba[p[c-1]])
+									} else if mar.ctrl.kanagroo {
+										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.rgba[mar.bg])
 									}
 								}
 							} else {
@@ -391,6 +392,8 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 									c := (b >> ((3 - i) * 2)) & 0x03
 									if c > 0 {
 										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.rgba[p[c-1]])
+									} else if mar.ctrl.kanagroo {
+										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.rgba[mar.bg])
 									}
 								}
 							}
