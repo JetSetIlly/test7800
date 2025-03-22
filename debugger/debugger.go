@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/hardware"
+	"github.com/jetsetilly/test7800/hardware/cpu/execution"
 	"github.com/jetsetilly/test7800/hardware/maria"
 )
 
@@ -45,6 +46,9 @@ type debugger struct {
 
 	// script of commands
 	script []string
+
+	// keep a short history of execution
+	immediateHistory []execution.Result
 }
 
 func (m *debugger) Init() tea.Cmd {
@@ -132,12 +136,17 @@ func (m *debugger) last() {
 	)
 }
 
+const shortHistoryLen = 50
+
 func (m *debugger) run() {
 	// the message output at the beginning of the run and that is removed at the
-	// end of the run if nothing else has been added to the output
-	const emulationRunningMsg = "emulation running..."
-
-	m.output = append(m.output, m.styles.debugger.Render(emulationRunningMsg))
+	// end of the run if nothing else has been added to the output. the message
+	// is being declared like this and stored in its own variable because we
+	// need to check if it is the last message in the output before removing it
+	// - the Render() function adds the ANSI codes so it's not really just a
+	// plain string
+	var emulationRunningMsg = m.styles.debugger.Render("emulation running...")
+	m.output = append(m.output, emulationRunningMsg)
 
 	// WARNING: this go function causes race errors but we'll keep it for now
 	go func() {
@@ -154,6 +163,14 @@ func (m *debugger) run() {
 
 		// hook is called after every CPU instruction
 		hook := func() error {
+			// keeping a short history of execution
+			if m.console.MC.LastResult.Final {
+				m.immediateHistory = append(m.immediateHistory, m.console.MC.LastResult)
+				if len(m.immediateHistory) > shortHistoryLen {
+					m.immediateHistory = m.immediateHistory[1:]
+				}
+			}
+
 			instructionCt++
 			pcAddr := m.console.MC.PC.Address()
 			if _, ok := m.breakpoints[pcAddr]; ok {
@@ -178,6 +195,15 @@ func (m *debugger) run() {
 			m.output[len(m.output)-1] = m.styles.debugger.Render(
 				fmt.Sprintf("%d instructions in %.02f seconds", instructionCt, time.Since(startTime).Seconds()),
 			)
+		}
+
+		if len(m.immediateHistory) > 0 {
+			for _, x := range m.immediateHistory {
+				res := disassembly.FormatResult(x)
+				m.output = append(m.output, m.styles.instruction.Render(
+					strings.TrimSpace(fmt.Sprintf("%s %s %s", res.Address, res.Operator, res.Operand))),
+				)
+			}
 		}
 
 		if err != nil {
@@ -323,6 +349,19 @@ func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							"BREAK requires an address",
 						))
 						break // switch
+					}
+
+					// the NEXT argument to BREAK is useful for setting a
+					// breakpoint on the instruction on a failed branch
+					// instruction, which is a common action when stepping
+					// through a program
+					//
+					// a STEP OVER command would be just as good but we don't
+					// have that at the moment
+					if strings.ToUpper(p[1]) == "NEXT" {
+						address := m.console.MC.LastResult.Address
+						address += uint16(m.console.MC.LastResult.ByteCount)
+						p[1] = fmt.Sprintf("%#04x", address)
 					}
 
 					ma, err := m.parseAddress(p[1])

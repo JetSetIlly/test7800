@@ -249,7 +249,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		return address - 0x1800, mem.RAM7800
 	}
 
-	if mem.INPTCTRL.BIOS() || mem.cartridge.Ejected() {
+	if mem.INPTCTRL.BIOS() {
 		// BIOS
 		if address >= bios.OriginBIOS && address <= 0xffff {
 			return address - bios.OriginBIOS, mem.BIOS
