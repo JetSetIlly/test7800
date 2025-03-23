@@ -94,14 +94,8 @@ func (con *Console) Step() error {
 	return con.MC.ExecuteInstruction(tick)
 }
 
-func (con *Console) Run(stop chan bool, hook func() error) error {
+func (con *Console) Run(hook func() error) error {
 	for {
-		select {
-		case <-stop:
-			return nil
-		default:
-		}
-
 		err := con.Step()
 		if err != nil {
 			return err

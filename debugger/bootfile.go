@@ -92,13 +92,13 @@ func (m *debugger) boot(romfile string, origin mappedAddress, entry mappedAddres
 	// disable BIOS and enable MARIA. not locking
 	m.console.Mem.INPTCTRL.Write(0x01, inptctrl)
 
-	m.output = append(m.output, m.styles.debugger.Render(
+	fmt.Println(m.styles.debugger.Render(
 		fmt.Sprintf("loaded %s at %#04x", romfile, origin.address),
 	))
-	m.output = append(m.output, m.styles.cpu.Render(
+	fmt.Println(m.styles.cpu.Render(
 		m.console.Mem.INPTCTRL.Status(),
 	))
-	m.output = append(m.output, m.styles.cpu.Render(
+	fmt.Println(m.styles.cpu.Render(
 		m.console.MC.String(),
 	))
 	return nil

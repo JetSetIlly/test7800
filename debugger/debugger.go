@@ -1,16 +1,16 @@
 package debugger
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"image"
+	"os"
+	"os/signal"
 	"strings"
-	"sync/atomic"
+	"syscall"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/hardware"
@@ -26,20 +26,20 @@ type styles struct {
 	err         lipgloss.Style
 	breakpoint  lipgloss.Style
 	debugger    lipgloss.Style
-	echo        lipgloss.Style
+}
+
+type input struct {
+	s   string
+	err error
 }
 
 type debugger struct {
-	console  hardware.Console
-	viewport viewport.Model
-	input    textinput.Model
-	output   []string
-	styles   styles
+	externalQuit chan bool
+	sig          chan os.Signal
+	input        chan input
 
+	console     hardware.Console
 	breakpoints map[uint16]bool
-
-	stopRun chan bool
-	running atomic.Bool
 
 	// the boot file to load on console reset
 	bootfile string
@@ -47,30 +47,11 @@ type debugger struct {
 	// script of commands
 	script []string
 
-	// keep a short history of execution
+	// printing styles
+	styles styles
+
+	// keep a short history of execution to show when RUN stops
 	immediateHistory []execution.Result
-}
-
-func (m *debugger) Init() tea.Cmd {
-	m.input = textinput.New()
-	m.input.Placeholder = ""
-	m.input.Focus()
-	m.input.CharLimit = 256
-	m.input.Width = 50
-
-	m.styles.instruction = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(3))
-	m.styles.cpu = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(4))
-	m.styles.mem = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(5))
-	m.styles.video = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(6))
-	m.styles.err = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(1))
-	m.styles.breakpoint = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(4))
-	m.styles.debugger = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(2))
-	m.styles.echo = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(0)).Background(lipgloss.ANSIColor(3))
-
-	m.breakpoints = make(map[uint16]bool)
-	m.reset()
-
-	return nil
 }
 
 func (m *debugger) reset() {
@@ -78,7 +59,7 @@ func (m *debugger) reset() {
 	// it as part of the reset process. ie. the console will be left in the
 	// state directed by the bootfile
 	if m.bootfile != "" {
-		m.output = append(m.output, m.styles.debugger.Render(
+		fmt.Println(m.styles.debugger.Render(
 			fmt.Sprintf("booting from %s", m.bootfile),
 		))
 
@@ -90,7 +71,7 @@ func (m *debugger) reset() {
 
 		// if there is an error from the bootFromFile() we output it and carry
 		// on with the reset as though the bootfile wasn't specified
-		m.output = append(m.output, m.styles.err.Render(err.Error()))
+		fmt.Println(m.styles.err.Render(err.Error()))
 
 		// we also forget about the bootfile because we know it doesn't work
 		m.bootfile = ""
@@ -98,14 +79,14 @@ func (m *debugger) reset() {
 
 	err := m.console.Reset(true)
 	if err != nil {
-		m.output = append(m.output, m.styles.err.Render(err.Error()))
+		fmt.Println(m.styles.err.Render(err.Error()))
 		return
 	}
-	m.output = append(m.output, m.styles.debugger.Render("console reset"))
-	m.output = append(m.output, m.styles.mem.Render(
+	fmt.Println(m.styles.debugger.Render("console reset"))
+	fmt.Println(m.styles.mem.Render(
 		m.console.Mem.BIOS.Status(),
 	))
-	m.output = append(m.output, m.styles.cpu.Render(
+	fmt.Println(m.styles.cpu.Render(
 		m.console.MC.String(),
 	))
 }
@@ -114,361 +95,312 @@ func (m *debugger) reset() {
 func (m *debugger) step() {
 	err := m.console.Step()
 	if err != nil {
-		m.output = append(m.output, m.styles.err.Render(
+		fmt.Println(m.styles.err.Render(
 			err.Error(),
 		))
 	} else {
 		m.last()
-		m.output = append(m.output, m.styles.cpu.Render(
+		fmt.Println(m.styles.cpu.Render(
 			m.console.MC.String(),
 		))
 		s := m.console.LastAreaStatus()
 		if len(s) > 0 {
-			m.output = append(m.output, m.styles.mem.Render(s))
+			fmt.Println(m.styles.mem.Render(s))
 		}
 	}
 }
 
 func (m *debugger) last() {
 	res := disassembly.FormatResult(m.console.MC.LastResult)
-	m.output = append(m.output, m.styles.instruction.Render(
+	fmt.Println(m.styles.instruction.Render(
 		strings.TrimSpace(fmt.Sprintf("%s %s %s", res.Address, res.Operator, res.Operand))),
 	)
 }
 
-const shortHistoryLen = 50
+// returns true if quit signal has been received
+func (m *debugger) run() bool {
+	fmt.Println(m.styles.debugger.Render("emulation running"))
 
-func (m *debugger) run() {
-	// the message output at the beginning of the run and that is removed at the
-	// end of the run if nothing else has been added to the output. the message
-	// is being declared like this and stored in its own variable because we
-	// need to check if it is the last message in the output before removing it
-	// - the Render() function adds the ANSI codes so it's not really just a
-	// plain string
-	var emulationRunningMsg = m.styles.debugger.Render("emulation running...")
-	m.output = append(m.output, emulationRunningMsg)
+	// we measure the number of instructions in the time period of the running emulation
+	var instructionCt int
+	var startTime time.Time
 
-	// WARNING: this go function causes race errors but we'll keep it for now
-	go func() {
-		m.running.Store(true)
-		defer m.running.Store(false)
+	// sentinal errors to
+	var (
+		breakpointErr = errors.New("breakpoint")
+		endRunErr     = errors.New("end run")
+		quitErr       = errors.New("quit")
+	)
 
-		// we measure the number of instructions in the time period of the
-		// running emulation
-		var instructionCt int
-		var startTime time.Time
-
-		// sentinal error to indicate a breakpoint has been encountered
-		var breakpointErr = errors.New("breakpoint")
-
-		// hook is called after every CPU instruction
-		hook := func() error {
-			// keeping a short history of execution
-			if m.console.MC.LastResult.Final {
-				m.immediateHistory = append(m.immediateHistory, m.console.MC.LastResult)
-				if len(m.immediateHistory) > shortHistoryLen {
-					m.immediateHistory = m.immediateHistory[1:]
-				}
-			}
-
-			instructionCt++
-			pcAddr := m.console.MC.PC.Address()
-			if _, ok := m.breakpoints[pcAddr]; ok {
-				return fmt.Errorf("%w: %04x", breakpointErr, pcAddr)
-			}
-			if m.console.MARIA.Error != nil {
-				if errors.Is(m.console.MARIA.Error, maria.WarningErr) {
-					// TODO: output warning
-				} else {
-					return m.console.MARIA.Error
-				}
-			}
-			return nil
+	// hook is called after every CPU instruction
+	hook := func() error {
+		select {
+		case <-m.sig:
+			return endRunErr
+		case <-m.externalQuit:
+			return quitErr
+		default:
 		}
 
-		startTime = time.Now()
-		err := m.console.Run(m.stopRun, hook)
+		// output last instruction
+		if m.console.MC.LastResult.Final {
+			const immediateHistoryLen = 50
+			m.immediateHistory = append(m.immediateHistory, m.console.MC.LastResult)
+			if len(m.immediateHistory) > immediateHistoryLen {
+				m.immediateHistory = m.immediateHistory[1:]
+			}
+		}
 
-		// replace the last entry in the output (which should be "emulation
-		// running...") with an instruction/time summary
-		if m.output[len(m.output)-1] == emulationRunningMsg {
-			m.output[len(m.output)-1] = m.styles.debugger.Render(
-				fmt.Sprintf("%d instructions in %.02f seconds", instructionCt, time.Since(startTime).Seconds()),
+		instructionCt++
+		pcAddr := m.console.MC.PC.Address()
+		if _, ok := m.breakpoints[pcAddr]; ok {
+			return fmt.Errorf("%w: %04x", breakpointErr, pcAddr)
+		}
+		if m.console.MARIA.Error != nil {
+			if errors.Is(m.console.MARIA.Error, maria.WarningErr) {
+				// TODO: output warning
+			} else {
+				return m.console.MARIA.Error
+			}
+		}
+		return nil
+	}
+
+	startTime = time.Now()
+	err := m.console.Run(hook)
+
+	if errors.Is(err, quitErr) {
+		return true
+	}
+
+	// output immediate history on end
+	if len(m.immediateHistory) > 0 {
+		for _, x := range m.immediateHistory {
+			res := disassembly.FormatResult(x)
+			fmt.Println(m.styles.instruction.Render(
+				strings.TrimSpace(fmt.Sprintf("%s %s %s", res.Address, res.Operator, res.Operand))),
 			)
 		}
+	}
 
-		if len(m.immediateHistory) > 0 {
-			for _, x := range m.immediateHistory {
-				res := disassembly.FormatResult(x)
-				m.output = append(m.output, m.styles.instruction.Render(
-					strings.TrimSpace(fmt.Sprintf("%s %s %s", res.Address, res.Operator, res.Operand))),
-				)
-			}
-		}
+	if errors.Is(err, endRunErr) {
+		fmt.Println(m.styles.debugger.Render(
+			fmt.Sprintf("%d instructions in %.02f seconds", instructionCt, time.Since(startTime).Seconds())),
+		)
+	} else if errors.Is(err, breakpointErr) {
+		fmt.Println(m.styles.breakpoint.Render(err.Error()))
+	} else if err != nil {
+		fmt.Println(m.styles.err.Render(err.Error()))
+	}
 
-		if err != nil {
-			if errors.Is(err, breakpointErr) {
-				m.output = append(m.output, m.styles.breakpoint.Render(err.Error()))
-			} else {
-				m.output = append(m.output, m.styles.err.Render(err.Error()))
-			}
-		}
+	// it's useful to see the state of the CPU and the MARIA coords at the end of the run
+	fmt.Println(m.styles.cpu.Render(m.console.MC.String()))
+	fmt.Println(m.styles.video.Render(m.console.MARIA.Coords.String()))
 
-		// it's useful to see the state of the CPU and the MARIA coords at the end of the run
-		m.output = append(m.output, m.styles.cpu.Render(
-			m.console.MC.String(),
-		))
-		m.output = append(m.output, m.styles.video.Render(
-			m.console.MARIA.Coords.String(),
-		))
+	// consume last memory access information
+	_ = m.console.LastAreaStatus()
 
-		// consume last memory access information
-		_ = m.console.LastAreaStatus()
-	}()
+	return false
 }
 
-func (m *debugger) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
+func (m *debugger) loop() {
+	for {
+		fmt.Printf("%s> ", m.console.MARIA.Coords.ShortString())
 
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.viewport.Width = msg.Width
-		m.viewport.Height = msg.Height - 1
+		var cmd []string
 
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "esc":
-			// stop any running emulation OR quit the application
-			if m.running.Load() {
-				m.stopRun <- true
-			} else {
-				return m, tea.Quit
+		select {
+		case input := <-m.input:
+			if input.err != nil {
+				fmt.Println(m.styles.err.Render(input.err.Error()))
+				return
 			}
-		case "enter":
-			s := m.input.Value()
-			s = strings.TrimSpace(s)
-			p := strings.Fields(s)
-			if len(p) == 0 {
-				m.step()
-			} else {
-				cmd := strings.ToUpper(p[0])
-				m.output = append(m.output, m.styles.echo.Render(
-					strings.TrimSpace(
-						fmt.Sprintf("%s %s", cmd, strings.Join(p[1:], " ")),
-					),
+			cmd = strings.Fields(input.s)
+			if len(cmd) == 0 {
+				cmd = []string{"STEP"}
+			}
+		case <-m.sig:
+			fmt.Print("\r")
+			return
+		case <-m.externalQuit:
+			fmt.Print("\n")
+			return
+		}
+
+		switch strings.ToUpper(cmd[0]) {
+		case "BOOT":
+			if len(cmd) < 5 {
+				fmt.Println(m.styles.err.Render(
+					"BOOT requires a ROM file, an origin address, an entry address and the INPTCTRL value",
 				))
-				switch cmd {
-				case "BOOT":
-					if len(p) < 5 {
-						m.output = append(m.output, m.styles.err.Render(
-							"BOOT requires a ROM file, an origin address, an entry address and the INPTCTRL value",
-						))
-						break // switch
-					}
+				break // switch
+			}
 
-					err := m.bootParse(p[1:])
-					if err != nil {
-						m.output = append(m.output, m.styles.err.Render(err.Error()))
-						break // switch
-					}
-				case "R":
-					// shortcut for "RUN"
-					m.run()
-				case "RUN":
-					m.run()
-				case "STEP":
-					m.step()
-				case "RESET":
-					m.reset()
-				case "CPU":
-					m.output = append(m.output, m.styles.cpu.Render(
-						m.console.MC.String(),
-					))
-				case "BIOS":
-					m.output = append(m.output, m.styles.mem.Render(
-						m.console.Mem.BIOS.Status(),
-					))
-				case "MARIA":
-					m.output = append(m.output, m.styles.mem.Render(
-						m.console.MARIA.Status(),
-					))
-				case "DL":
-					m.output = append(m.output, m.styles.mem.Render(
-						m.console.MARIA.DL.Status(),
-					))
-				case "DLL":
-					m.output = append(m.output, m.styles.mem.Render(
-						m.console.MARIA.DLL.Status(),
-					))
-				case "VIDEO":
-					m.output = append(m.output, m.styles.video.Render(
-						m.console.MARIA.Coords.String(),
-					))
-				case "INPTCTRL":
-					m.output = append(m.output, m.styles.mem.Render(
-						m.console.Mem.INPTCTRL.Status(),
-					))
-				case "RAM7800":
-					m.output = append(m.output, m.styles.mem.Render(
-						m.console.Mem.RAM7800.String(),
-					))
-				case "RAMRIOT":
-					m.output = append(m.output, m.styles.mem.Render(
-						m.console.Mem.RAMRIOT.String(),
-					))
-				case "PEEK":
-					if len(p) < 2 {
-						m.output = append(m.output, m.styles.err.Render(
-							"PEEK requires an address",
-						))
-						break // switch
-					}
+			err := m.bootParse(cmd[1:])
+			if err != nil {
+				fmt.Println(m.styles.err.Render(err.Error()))
+				break // switch
+			}
+		case "R":
+			// shortcut for "RUN"
+			m.run()
+		case "RUN":
+			if m.run() {
+				return
+			}
+		case "STEP":
+			m.step()
+		case "RESET":
+			m.reset()
+		case "CPU":
+			fmt.Println(m.styles.cpu.Render(
+				m.console.MC.String(),
+			))
+		case "BIOS":
+			fmt.Println(m.styles.mem.Render(
+				m.console.Mem.BIOS.Status(),
+			))
+		case "MARIA":
+			fmt.Println(m.styles.mem.Render(
+				m.console.MARIA.Status(),
+			))
+		case "DL":
+			fmt.Println(m.styles.mem.Render(
+				m.console.MARIA.DL.Status(),
+			))
+		case "DLL":
+			fmt.Println(m.styles.mem.Render(
+				m.console.MARIA.DLL.Status(),
+			))
+		case "VIDEO":
+			fmt.Println(m.styles.video.Render(
+				m.console.MARIA.Coords.String(),
+			))
+		case "INPTCTRL":
+			fmt.Println(m.styles.mem.Render(
+				m.console.Mem.INPTCTRL.Status(),
+			))
+		case "RAM7800":
+			fmt.Println(m.styles.mem.Render(
+				m.console.Mem.RAM7800.String(),
+			))
+		case "RAMRIOT":
+			fmt.Println(m.styles.mem.Render(
+				m.console.Mem.RAMRIOT.String(),
+			))
+		case "PEEK":
+			if len(cmd) < 2 {
+				fmt.Println(m.styles.err.Render(
+					"PEEK requires an address",
+				))
+				break // switch
+			}
 
-					ma, err := m.parseAddress(p[1])
-					if err != nil {
-						m.output = append(m.output, m.styles.err.Render(
-							fmt.Sprintf("PEEK %s", err.Error()),
-						))
-						break // switch
-					}
+			ma, err := m.parseAddress(cmd[1])
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("PEEK %s", err.Error()),
+				))
+				break // switch
+			}
 
-					data, err := ma.area.Read(ma.idx)
-					if err != nil {
-						m.output = append(m.output, m.styles.err.Render(
-							fmt.Sprintf("PEEK address is not readable: %s", p[1]),
-						))
-						break // switch
-					}
+			data, err := ma.area.Read(ma.idx)
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("PEEK address is not readable: %s", cmd[1]),
+				))
+				break // switch
+			}
 
-					m.output = append(m.output, m.styles.mem.Render(
-						fmt.Sprintf("$%04x = %02x (%s)", ma.address, data, ma.area.Label()),
-					))
-				case "BREAK":
-					if len(p) < 2 {
-						m.output = append(m.output, m.styles.err.Render(
-							"BREAK requires an address",
-						))
-						break // switch
-					}
+			fmt.Println(m.styles.mem.Render(
+				fmt.Sprintf("$%04x = %02x (%s)", ma.address, data, ma.area.Label()),
+			))
+		case "BREAK":
+			if len(cmd) < 2 {
+				fmt.Println(m.styles.err.Render(
+					"BREAK requires an address",
+				))
+				break // switch
+			}
 
-					// the NEXT argument to BREAK is useful for setting a
-					// breakpoint on the instruction on a failed branch
-					// instruction, which is a common action when stepping
-					// through a program
-					//
-					// a STEP OVER command would be just as good but we don't
-					// have that at the moment
-					if strings.ToUpper(p[1]) == "NEXT" {
-						address := m.console.MC.LastResult.Address
-						address += uint16(m.console.MC.LastResult.ByteCount)
-						p[1] = fmt.Sprintf("%#04x", address)
-					}
+			// the NEXT argument to BREAK is useful for setting a
+			// breakpoint on the instruction on a failed branch
+			// instruction, which is a common action when stepping
+			// through a program
+			//
+			// a STEP OVER command would be just as good but we don't
+			// have that at the moment
+			if strings.ToUpper(cmd[1]) == "NEXT" {
+				address := m.console.MC.LastResult.Address
+				address += uint16(m.console.MC.LastResult.ByteCount)
+				cmd[1] = fmt.Sprintf("%#04x", address)
+			}
 
-					ma, err := m.parseAddress(p[1])
-					if err != nil {
-						m.output = append(m.output, m.styles.err.Render(
-							fmt.Sprintf("BREAK %s", err.Error()),
-						))
-						break // switch
-					}
+			ma, err := m.parseAddress(cmd[1])
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("BREAK %s", err.Error()),
+				))
+				break // switch
+			}
 
-					if _, ok := m.breakpoints[ma.address]; ok {
-						m.output = append(m.output, m.styles.debugger.Render(
-							fmt.Sprintf("breakpoint on $%04x already present", ma.address),
-						))
-						break // switch
-					}
+			if _, ok := m.breakpoints[ma.address]; ok {
+				fmt.Println(m.styles.debugger.Render(
+					fmt.Sprintf("breakpoint on $%04x already present", ma.address),
+				))
+				break // switch
+			}
 
-					m.breakpoints[ma.address] = true
-					m.output = append(m.output, m.styles.debugger.Render(
-						fmt.Sprintf("added breakpoint for $%04x", ma.address),
-					))
-				case "LIST":
-					if len(m.breakpoints) == 0 {
-						m.output = append(m.output, m.styles.debugger.Render("no breakpoints added"))
-					} else {
-						for a := range m.breakpoints {
-							m.output = append(m.output, m.styles.debugger.Render(fmt.Sprintf("%#04x", a)))
-						}
-					}
-				case "DROP":
-					if len(p) < 2 {
-						m.output = append(m.output, m.styles.err.Render(
-							"DROP requires an address",
-						))
-						break // switch
-					}
-
-					ma, err := m.parseAddress(p[1])
-					if err != nil {
-						m.output = append(m.output, m.styles.err.Render(
-							fmt.Sprintf("DROP %s", err.Error()),
-						))
-						break // switch
-					}
-
-					if _, ok := m.breakpoints[ma.address]; !ok {
-						m.output = append(m.output, m.styles.debugger.Render(
-							fmt.Sprintf("breakpoint on $%04x does not exist", ma.address),
-						))
-						break // switch
-					}
-
-					delete(m.breakpoints, ma.address)
-					m.output = append(m.output, m.styles.debugger.Render(
-						fmt.Sprintf("dropped breakpoint for $%04x", ma.address),
-					))
-				case "QUIT":
-					return m, tea.Quit
-				default:
-					m.output = append(m.output, m.styles.err.Render(
-						fmt.Sprintf("unrecognised command: %s", s),
-					))
+			m.breakpoints[ma.address] = true
+			fmt.Println(m.styles.debugger.Render(
+				fmt.Sprintf("added breakpoint for $%04x", ma.address),
+			))
+		case "LIST":
+			if len(m.breakpoints) == 0 {
+				fmt.Println(m.styles.debugger.Render("no breakpoints added"))
+			} else {
+				for a := range m.breakpoints {
+					fmt.Println(m.styles.debugger.Render(fmt.Sprintf("%#04x", a)))
 				}
 			}
+		case "DROP":
+			if len(cmd) < 2 {
+				fmt.Println(m.styles.err.Render(
+					"DROP requires an address",
+				))
+				break // switch
+			}
 
-			m.input.SetValue("")
+			ma, err := m.parseAddress(cmd[1])
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("DROP %s", err.Error()),
+				))
+				break // switch
+			}
+
+			if _, ok := m.breakpoints[ma.address]; !ok {
+				fmt.Println(m.styles.debugger.Render(
+					fmt.Sprintf("breakpoint on $%04x does not exist", ma.address),
+				))
+				break // switch
+			}
+
+			delete(m.breakpoints, ma.address)
+			fmt.Println(m.styles.debugger.Render(
+				fmt.Sprintf("dropped breakpoint for $%04x", ma.address),
+			))
+		case "QUIT":
+			return
+		default:
+			fmt.Println(m.styles.err.Render(
+				fmt.Sprintf("unrecognised command: %s", strings.Join(cmd, " ")),
+			))
 		}
 	}
-
-	// always update viewport and scroll to bottom. this isn't optimal and means
-	// we can't scroll the viewport up but this is the best I can do for now
-	m.viewport.SetContent(strings.Join(m.output, "\n"))
-	m.viewport.GotoBottom()
-
-	var cmd tea.Cmd
-	m.input, cmd = m.input.Update(msg)
-	cmds = append(cmds, cmd)
-
-	m.viewport, cmd = m.viewport.Update(msg)
-	cmds = append(cmds, cmd)
-
-	// execute script
-	if len(m.script) > 0 {
-		m.input.SetValue(m.script[0])
-		cmds = append(cmds,
-			func() tea.Msg { return tea.KeyMsg{Type: tea.KeyEnter} })
-		m.script = m.script[1:]
-	}
-
-	return m, tea.Batch(cmds...)
 }
 
-func (m *debugger) View() string {
-	if m.running.Load() {
-		return fmt.Sprintf("%s\n%s",
-			m.viewport.View(),
-			m.console.MARIA.Coords.ShortString(),
-		)
-	}
-	m.input.Prompt = fmt.Sprintf("%s > ", m.console.MARIA.Coords.ShortString())
-	return fmt.Sprintf("%s\n%s",
-		m.viewport.View(),
-		m.input.View(),
-	)
-}
-
-func Launch(endDebugger chan bool, rendering chan *image.RGBA, args []string) error {
+func Launch(externalQuit chan bool, rendering chan *image.RGBA, args []string) error {
 	var bootfile string
 
 	if len(args) == 1 {
@@ -478,16 +410,42 @@ func Launch(endDebugger chan bool, rendering chan *image.RGBA, args []string) er
 	}
 
 	m := &debugger{
-		console:  hardware.Create(rendering),
-		bootfile: bootfile,
-		stopRun:  make(chan bool),
+		externalQuit: externalQuit,
+		sig:          make(chan os.Signal, 1),
+		input:        make(chan input, 1),
+		console:      hardware.Create(rendering),
+		bootfile:     bootfile,
+		styles: styles{
+			instruction: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(3)),
+			cpu:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(4)),
+			mem:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(5)),
+			video:       lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(6)),
+			err:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(1)),
+			breakpoint:  lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(4)),
+			debugger:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(2)),
+		},
+		breakpoints: make(map[uint16]bool),
 	}
-	p := tea.NewProgram(m)
+
+	signal.Notify(m.sig, syscall.SIGINT)
 
 	go func() {
-		<-endDebugger
-		p.Quit()
+		r := bufio.NewReader(os.Stdin)
+		b := make([]byte, 256)
+		for {
+			n, err := r.Read(b)
+			select {
+			case m.input <- input{
+				s:   strings.TrimSpace(string(b[:n])),
+				err: err,
+			}:
+			default:
+			}
+		}
 	}()
 
-	return p.Start()
+	m.reset()
+	m.loop()
+
+	return nil
 }

@@ -317,7 +317,10 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 			mar.Coords.frame++
 
 			// send current frame to renderer
-			mar.rendering <- mar.currentFrame
+			select {
+			case mar.rendering <- mar.currentFrame:
+			default:
+			}
 
 			// it's no longer safe to use that frame in this context. create a
 			// new image to use for current frame
