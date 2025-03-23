@@ -371,11 +371,24 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 					switch mar.ctrl.readMode {
 					case 0:
 						for w := range mar.DL.width {
-							a := ((uint16(mar.DL.highAddress) << 8) | uint16(mar.DL.lowAddress)) + uint16(w)
+							a := ((uint16(mar.DL.highAddress) << 8) | uint16(mar.DL.lowAddress))
+							if mar.DL.indirect {
+								a += (uint16(mar.charbase) << 8)
+							}
+							a += uint16(mar.DLL.offset) << 8
+							a += uint16(w)
+
 							b, err := mar.mem.Read(a)
 							if err != nil {
 								mar.Error = fmt.Errorf("%w: failed to read graphics byte", err)
 							}
+
+							if mar.DLL.h16 && (a&0x9000 == 0x9000) {
+								continue // for width loop
+							} else if mar.DLL.h8 && (a&0x8800 == 0x8800) {
+								continue // for width loop
+							}
+
 							if mar.DL.writemode {
 								// 160B
 								for i := range 2 {
@@ -385,7 +398,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 									if c > 0 {
 										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.rgba[p[c-1]])
 									} else if mar.ctrl.kanagroo {
-										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.rgba[mar.bg])
+										// mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.rgba[mar.bg])
 									}
 								}
 							} else {
@@ -396,7 +409,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 									if c > 0 {
 										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.rgba[p[c-1]])
 									} else if mar.ctrl.kanagroo {
-										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.rgba[mar.bg])
+										// mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.rgba[mar.bg])
 									}
 								}
 							}
@@ -409,6 +422,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 					case 3:
 						mar.Error = fmt.Errorf("%w: readmode value of 0x03 in ctrl register is not fully emulated", WarningErr)
 					}
+
 					mar.nextDL(false)
 				}
 			case 0x03:

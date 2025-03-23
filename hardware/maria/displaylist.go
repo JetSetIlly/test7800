@@ -92,7 +92,7 @@ func (mar *Maria) nextDL(reset bool) error {
 	}
 
 	// the size of the DL header is different for indirect and direct modes
-	mar.DL.indirect = mode&0x5f == 0x40
+	mar.DL.indirect = mode&0x1f == 0x00
 	if mar.DL.indirect {
 		// for indirect mode the header is 5bytes long
 
