@@ -152,10 +152,16 @@ func (m *debugger) run() bool {
 		}
 
 		instructionCt++
+
+		if m.console.MC.Killed {
+			return fmt.Errorf("CPU in KIL state")
+		}
+
 		pcAddr := m.console.MC.PC.Address()
 		if _, ok := m.breakpoints[pcAddr]; ok {
 			return fmt.Errorf("%w: %04x", breakpointErr, pcAddr)
 		}
+
 		if m.console.MARIA.Error != nil {
 			if errors.Is(m.console.MARIA.Error, maria.WarningErr) {
 				// TODO: output warning
@@ -163,6 +169,7 @@ func (m *debugger) run() bool {
 				return m.console.MARIA.Error
 			}
 		}
+
 		return nil
 	}
 
