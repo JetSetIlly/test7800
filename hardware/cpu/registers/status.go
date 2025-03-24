@@ -39,6 +39,7 @@ func NewStatus() Status {
 
 // Label returns the canonical name for the status register.
 func (sr Status) Label() string {
+	// I've seen the status register abbreviated to P but we'll stick with SR
 	return "SR"
 }
 
@@ -103,7 +104,8 @@ func (sr Status) Value() uint8 {
 	if sr.Overflow {
 		v |= 0x40
 	}
-	if sr.Break {
+	if sr.Break == false {
+		// the value of the Break flag in the bit field is inverted
 		v |= 0x10
 	}
 	if sr.DecimalMode {
@@ -128,6 +130,8 @@ func (sr Status) Value() uint8 {
 
 // Load sets the status register flags from an 8 bit integer (which has been
 // taken from the stack, for example)
+//
+// The Break flag will alwayers be set to false on load.
 func (sr *Status) Load(v uint8) {
 	sr.Sign = v&0x80 == 0x80
 	sr.Overflow = v&0x40 == 0x40
@@ -135,7 +139,5 @@ func (sr *Status) Load(v uint8) {
 	sr.InterruptDisable = v&0x04 == 0x04
 	sr.Zero = v&0x02 == 0x02
 	sr.Carry = v&0x01 == 0x01
-
-	// break flags is always set on loading of value
-	sr.Break = true
+	sr.Break = false
 }

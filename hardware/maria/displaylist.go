@@ -160,7 +160,7 @@ type dll struct {
 	dli         bool
 	h16         bool
 	h8          bool
-	offset      int   // 4 bits of first byte (we need a signed value for this)
+	offset      uint8 // 4 bits of first byte (we need a signed value for this)
 	highAddress uint8 // second byte
 	lowAddress  uint8 // third byte
 
@@ -168,6 +168,9 @@ type dll struct {
 	// address from which it was loaded
 	ct     int
 	origin uint16
+
+	// working offset is an integer because we want to use negative values
+	workingOffset int
 }
 
 func (dll *dll) Status() string {
@@ -176,7 +179,7 @@ func (dll *dll) Status() string {
 	s.WriteString(fmt.Sprintf("dli=%v ", dll.dli))
 	s.WriteString(fmt.Sprintf("h16=%v ", dll.h16))
 	s.WriteString(fmt.Sprintf("h8=%v\n", dll.h8))
-	s.WriteString(fmt.Sprintf("offset=%d ", dll.offset))
+	s.WriteString(fmt.Sprintf("offset=%02x ", dll.offset))
 	s.WriteString(fmt.Sprintf("high=%02x ", dll.highAddress))
 	s.WriteString(fmt.Sprintf("low=%02x ", dll.lowAddress))
 	return s.String()
@@ -186,9 +189,9 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 	if reset {
 		mar.DLL.ct = 0
 	} else {
-		mar.DLL.offset--
-		if mar.DLL.offset >= 0 {
-			return mar.DLL.dli && mar.DLL.offset == 0, nil
+		mar.DLL.workingOffset--
+		if mar.DLL.workingOffset >= 0 {
+			return mar.DLL.dli && mar.DLL.workingOffset == 0, nil
 		}
 		mar.DLL.ct++
 	}
@@ -202,7 +205,10 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 	mar.DLL.dli = d&0x80 == 0x80
 	mar.DLL.h16 = d&0x40 == 0x40
 	mar.DLL.h8 = d&0x20 == 0x20
-	mar.DLL.offset = int(d & 0x0f)
+	mar.DLL.offset = d & 0x0f
+
+	// working offset is an integer because we want to use negative values
+	mar.DLL.workingOffset = int(mar.DLL.offset)
 
 	mar.DLL.highAddress, err = mar.mem.Read(mar.DLL.origin + 1)
 	if err != nil {

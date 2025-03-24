@@ -101,8 +101,5 @@ func (r *Result) Reset() {
 // instructions executed inside of an interrupt are written with two leading
 // exclamation points
 func (r *Result) String() string {
-	if r.InInterrupt {
-		return fmt.Sprintf("!! %04x %s %s %04x", r.Address, r.Defn.Operator, r.Defn.AddressingMode, r.InstructionData)
-	}
 	return fmt.Sprintf("%04x %s %s %04x", r.Address, r.Defn.Operator, r.Defn.AddressingMode, r.InstructionData)
 }

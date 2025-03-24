@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jetsetilly/test7800/debugger/dbg"
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/hardware"
-	"github.com/jetsetilly/test7800/hardware/cpu/execution"
 	"github.com/jetsetilly/test7800/hardware/maria"
 )
 
@@ -34,6 +34,8 @@ type input struct {
 }
 
 type debugger struct {
+	ctx dbg.Context
+
 	externalQuit chan bool
 	sig          chan os.Signal
 	input        chan input
@@ -49,9 +51,6 @@ type debugger struct {
 
 	// printing styles
 	styles styles
-
-	// keep a short history of execution to show when RUN stops
-	immediateHistory []execution.Result
 }
 
 func (m *debugger) reset() {
@@ -98,23 +97,39 @@ func (m *debugger) step() {
 		fmt.Println(m.styles.err.Render(
 			err.Error(),
 		))
-	} else {
-		m.last()
-		fmt.Println(m.styles.cpu.Render(
-			m.console.MC.String(),
-		))
-		s := m.console.LastAreaStatus()
-		if len(s) > 0 {
-			fmt.Println(m.styles.mem.Render(s))
-		}
+		return
 	}
+
+	// print any context breaks
+	for _, b := range m.ctx.Breaks {
+		fmt.Println(m.styles.breakpoint.Render(b))
+	}
+	m.ctx.Breaks = m.ctx.Breaks[:0]
+
+	// print general status of the emulation
+	m.last()
+
+	fmt.Println(m.styles.cpu.Render(
+		m.console.MC.String(),
+	))
+
+	if s := m.console.LastAreaStatus(); len(s) > 0 {
+		fmt.Println(m.styles.mem.Render(s))
+	}
+}
+
+func (m *debugger) printInstruction(res *disassembly.Entry) {
+	if res.Result.InInterrupt {
+		fmt.Print(m.styles.instruction.Render("!! "))
+	}
+	fmt.Println(m.styles.instruction.Render(
+		strings.TrimSpace(fmt.Sprintf("%s %s %s", res.Address, res.Operator, res.Operand))),
+	)
 }
 
 func (m *debugger) last() {
 	res := disassembly.FormatResult(m.console.MC.LastResult)
-	fmt.Println(m.styles.instruction.Render(
-		strings.TrimSpace(fmt.Sprintf("%s %s %s", res.Address, res.Operator, res.Operand))),
-	)
+	m.printInstruction(res)
 }
 
 // returns true if quit signal has been received
@@ -144,17 +159,21 @@ func (m *debugger) run() bool {
 
 		// output last instruction
 		if m.console.MC.LastResult.Final {
-			const immediateHistoryLen = 50
-			m.immediateHistory = append(m.immediateHistory, m.console.MC.LastResult)
-			if len(m.immediateHistory) > immediateHistoryLen {
-				m.immediateHistory = m.immediateHistory[1:]
-			}
+			m.ctx.AddRecent(m.console.MC.LastResult)
+			m.ctx.AddTrace(m.console.MC.LastResult)
 		}
 
 		instructionCt++
 
 		if m.console.MC.Killed {
 			return fmt.Errorf("CPU in KIL state")
+		}
+
+		if len(m.ctx.Breaks) > 0 {
+			defer func() {
+				m.ctx.Breaks = m.ctx.Breaks[:0]
+			}()
+			return fmt.Errorf("%w: %s", breakpointErr, strings.Join(m.ctx.Breaks, "\n"))
 		}
 
 		pcAddr := m.console.MC.PC.Address()
@@ -180,13 +199,21 @@ func (m *debugger) run() bool {
 		return true
 	}
 
-	// output immediate history on end
-	if len(m.immediateHistory) > 0 {
-		for _, x := range m.immediateHistory {
+	// output recent CPU instructons on end
+	if len(m.ctx.Recent) > 0 {
+		fmt.Println(m.styles.debugger.Render("most recent CPU instructions"))
+		for _, x := range m.ctx.Recent {
 			res := disassembly.FormatResult(x)
-			fmt.Println(m.styles.instruction.Render(
-				strings.TrimSpace(fmt.Sprintf("%s %s %s", res.Address, res.Operator, res.Operand))),
-			)
+			m.printInstruction(res)
+		}
+	}
+
+	// output traced CPU instructons on end
+	if len(m.ctx.Trace) > 0 {
+		fmt.Println(m.styles.debugger.Render("traced CPU instructions"))
+		for _, x := range m.ctx.Trace {
+			res := disassembly.FormatResult(x)
+			m.printInstruction(res)
 		}
 	}
 
@@ -420,7 +447,6 @@ func Launch(externalQuit chan bool, rendering chan *image.RGBA, args []string) e
 		externalQuit: externalQuit,
 		sig:          make(chan os.Signal, 1),
 		input:        make(chan input, 1),
-		console:      hardware.Create(rendering),
 		bootfile:     bootfile,
 		styles: styles{
 			instruction: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(3)),
@@ -433,6 +459,7 @@ func Launch(externalQuit chan bool, rendering chan *image.RGBA, args []string) e
 		},
 		breakpoints: make(map[uint16]bool),
 	}
+	m.console = hardware.Create(&m.ctx, rendering)
 
 	signal.Notify(m.sig, syscall.SIGINT)
 

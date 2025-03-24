@@ -6,6 +6,8 @@ import (
 	"image"
 	"image/color"
 	"strings"
+
+	"github.com/jetsetilly/test7800/debugger/dbg"
 )
 
 type mariaCtrl struct {
@@ -40,6 +42,8 @@ func (ctrl *mariaCtrl) String() string {
 var WarningErr = errors.New("warning")
 
 type Maria struct {
+	ctx *dbg.Context
+
 	bg       uint8
 	wsync    bool
 	palette  [8][3]uint8
@@ -84,8 +88,9 @@ type Memory interface {
 	Write(address uint16, data uint8) error
 }
 
-func Create(mem Memory, spec string, rendering chan *image.RGBA) *Maria {
+func Create(ctx *dbg.Context, mem Memory, spec string, rendering chan *image.RGBA) *Maria {
 	mar := &Maria{
+		ctx:       ctx,
 		mem:       mem,
 		rendering: rendering,
 	}
@@ -375,7 +380,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 							if mar.DL.indirect {
 								a += (uint16(mar.charbase) << 8)
 							}
-							a += uint16(mar.DLL.offset) << 8
+							a += uint16(mar.DLL.workingOffset) << 8
 							a += uint16(w)
 
 							b, err := mar.mem.Read(a)

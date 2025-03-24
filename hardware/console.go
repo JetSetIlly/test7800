@@ -4,6 +4,7 @@ import (
 	"image"
 	"math/rand/v2"
 
+	"github.com/jetsetilly/test7800/debugger/dbg"
 	"github.com/jetsetilly/test7800/hardware/clocks"
 	"github.com/jetsetilly/test7800/hardware/cpu"
 	"github.com/jetsetilly/test7800/hardware/maria"
@@ -23,17 +24,17 @@ type Console struct {
 	halt bool
 }
 
-func Create(rendering chan *image.RGBA) Console {
-	con := Console{
-		TIA:  &tia.TIA{},
-		RIOT: &riot.RIOT{},
-	}
+func Create(ctx *dbg.Context, rendering chan *image.RGBA) Console {
+	var con Console
 
 	var addChips memory.AddChips
 	con.Mem, addChips = memory.Create()
 
-	con.MC = cpu.NewCPU(con.Mem)
-	con.MARIA = maria.Create(con.Mem, con.Mem.BIOS.Spec(), rendering)
+	con.MC = cpu.NewCPU(ctx, con.Mem)
+	con.MARIA = maria.Create(ctx, con.Mem, con.Mem.BIOS.Spec(), rendering)
+	con.TIA = tia.Create(ctx, con.Mem)
+	con.RIOT = riot.Create(ctx, con.Mem)
+
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
 	con.Reset(true)

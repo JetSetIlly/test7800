@@ -51,7 +51,7 @@ func (mem testMem) assert(t *testing.T, address uint16, value uint8) {
 
 // Clear sets all bytes in memory to zero.
 func (mem *testMem) Clear() {
-	for i := 0; i < len(mem.internal); i++ {
+	for i := range len(mem.internal) {
 		mem.internal[i] = 0
 	}
 }
@@ -95,24 +95,24 @@ func testStatusInstructions(t *testing.T, mc *cpu.CPU, mem *testMem) {
 	// SEC; CLC; CLI; SEI; SED; CLD; CLV
 	origin = mem.putInstructions(origin, 0x38, 0x18, 0x58, 0x78, 0xf8, 0xd8, 0xb8)
 	step(t, mc) // SEC
-	rtest.EquateRegisters(t, mc.Status, "sv-BdiZC")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdiZC")
 	step(t, mc) // CLC
-	rtest.EquateRegisters(t, mc.Status, "sv-BdiZc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdiZc")
 	step(t, mc) // CLI
-	rtest.EquateRegisters(t, mc.Status, "sv-BdiZc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdiZc")
 	step(t, mc) // SEI
-	rtest.EquateRegisters(t, mc.Status, "sv-BdIZc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdIZc")
 	step(t, mc) // SED
-	rtest.EquateRegisters(t, mc.Status, "sv-BDIZc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bDIZc")
 	step(t, mc) // CLD
-	rtest.EquateRegisters(t, mc.Status, "sv-BdIZc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdIZc")
 	step(t, mc) // CLV
-	rtest.EquateRegisters(t, mc.Status, "sv-BdIZc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdIZc")
 
 	// PHP; PLP
 	_ = mem.putInstructions(origin, 0x08, 0x28)
 	step(t, mc) // PHP
-	rtest.EquateRegisters(t, mc.Status, "sv-BdIZc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdIZc")
 	rtest.EquateRegisters(t, mc.SP.Data, 254)
 
 	// mangle status register
@@ -125,7 +125,7 @@ func testStatusInstructions(t *testing.T, mc *cpu.CPU, mem *testMem) {
 	rtest.EquateRegisters(t, mc.SP.Data, 255)
 
 	// break flag is always set on PLP
-	rtest.EquateRegisters(t, mc.Status, "sv-BdIZc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdIZc")
 }
 
 func testRegsiterArithmetic(t *testing.T, mc *cpu.CPU, mem *testMem) {
@@ -165,28 +165,28 @@ func testRegsiterBitwiseInstructions(t *testing.T, mc *cpu.CPU, mem *testMem) {
 	origin = mem.putInstructions(origin, 0x0a, 0x4a, 0x4a)
 	step(t, mc) // ASL
 	rtest.EquateRegisters(t, mc.A, 2)
-	rtest.EquateRegisters(t, mc.Status, "sv-Bdizc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdizc")
 	step(t, mc) // LSR
 	rtest.EquateRegisters(t, mc.A, 1)
-	rtest.EquateRegisters(t, mc.Status, "sv-Bdizc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdizc")
 	step(t, mc) // LSR
 	rtest.EquateRegisters(t, mc.A, 0)
-	rtest.EquateRegisters(t, mc.Status, "sv-BdiZC")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdiZC")
 
 	// ROL implied; ROR implied; ROR implied; ROR implied
 	_ = mem.putInstructions(origin, 0x2a, 0x6a, 0x6a, 0x6a)
 	step(t, mc) // ROL
 	rtest.EquateRegisters(t, mc.A, 1)
-	rtest.EquateRegisters(t, mc.Status, "sv-Bdizc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdizc")
 	step(t, mc) // ROR
 	rtest.EquateRegisters(t, mc.A, 0)
-	rtest.EquateRegisters(t, mc.Status, "sv-BdiZC")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdiZC")
 	step(t, mc) // ROR
 	rtest.EquateRegisters(t, mc.A, 128)
-	rtest.EquateRegisters(t, mc.Status, "Sv-Bdizc")
+	rtest.EquateRegisters(t, mc.Status, "Sv-bdizc")
 	step(t, mc) // ROR
 	rtest.EquateRegisters(t, mc.A, 64)
-	rtest.EquateRegisters(t, mc.Status, "sv-Bdizc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdizc")
 }
 
 func testImmediateImplied(t *testing.T, mc *cpu.CPU, mem *testMem) {
@@ -202,7 +202,7 @@ func testImmediateImplied(t *testing.T, mc *cpu.CPU, mem *testMem) {
 	rtest.EquateRegisters(t, mc.X, 6)
 	step(t, mc) // DEX
 	rtest.EquateRegisters(t, mc.X, 5)
-	rtest.EquateRegisters(t, mc.Status, "sv-Bdizc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdizc")
 
 	// PHA; LDA immediate; PLA
 	origin = mem.putInstructions(origin, 0xa9, 5, 0x48, 0xa9, 0, 0x68)
@@ -211,7 +211,7 @@ func testImmediateImplied(t *testing.T, mc *cpu.CPU, mem *testMem) {
 	rtest.EquateRegisters(t, mc.SP.Data, 254)
 	step(t, mc) // LDA #0
 	rtest.EquateRegisters(t, mc.A, 0)
-	rtest.EquateRegisters(t, mc.Status, "sv-BdiZc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdiZc")
 	step(t, mc) // PLA
 	rtest.EquateRegisters(t, mc.A, 5)
 
@@ -526,41 +526,41 @@ func testComparisonInstructions(t *testing.T, mc *cpu.CPU, mem *testMem) {
 	// CMP immediate (equality)
 	origin = mem.putInstructions(origin, 0xc9, 0x00)
 	step(t, mc) // CMP $00
-	rtest.EquateRegisters(t, mc.Status, "sv-BdiZC")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdiZC")
 
 	// LDA immediate; CMP immediate
 	origin = mem.putInstructions(origin, 0xa9, 0xf6, 0xc9, 0x18)
 	step(t, mc) // LDA $F6
 	step(t, mc) // CMP $10
-	rtest.EquateRegisters(t, mc.Status, "Sv-BdizC")
+	rtest.EquateRegisters(t, mc.Status, "Sv-bdizC")
 
 	// LDX immediate; CMP immediate
 	origin = mem.putInstructions(origin, 0xa2, 0xf6, 0xe0, 0x18)
 	step(t, mc) // LDX $F6
 	step(t, mc) // CMP $10
-	rtest.EquateRegisters(t, mc.Status, "Sv-BdizC")
+	rtest.EquateRegisters(t, mc.Status, "Sv-bdizC")
 
 	// LDY immediate; CMP immediate
 	origin = mem.putInstructions(origin, 0xa0, 0xf6, 0xc0, 0x18)
 	step(t, mc) // LDY $F6
 	step(t, mc) // CMP $10
-	rtest.EquateRegisters(t, mc.Status, "Sv-BdizC")
+	rtest.EquateRegisters(t, mc.Status, "Sv-bdizC")
 
 	// LDA immediate; CMP immediate
 	origin = mem.putInstructions(origin, 0xa9, 0x18, 0xc9, 0xf6)
 	step(t, mc) // LDA $F6
 	step(t, mc) // CMP $10
-	rtest.EquateRegisters(t, mc.Status, "sv-Bdizc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdizc")
 
 	// BIT zero page
 	origin = mem.putInstructions(origin, 0x24, 0x01)
 	step(t, mc) // BIT $01
-	rtest.EquateRegisters(t, mc.Status, "sv-BdiZc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdiZc")
 
 	// BIT immediate
 	_ = mem.putInstructions(origin, 0x24, 0x01)
 	step(t, mc) // BIT $01
-	rtest.EquateRegisters(t, mc.Status, "sv-BdiZc")
+	rtest.EquateRegisters(t, mc.Status, "sv-bdiZc")
 }
 
 func testSubroutineInstructions(t *testing.T, mc *cpu.CPU, mem *testMem) {
@@ -625,7 +625,7 @@ func testKIL(t *testing.T, mc *cpu.CPU, mem *testMem) {
 
 func TestCPU(t *testing.T) {
 	mem := newTestMem()
-	mc := cpu.NewCPU(mem)
+	mc := cpu.NewCPU(nil, mem)
 
 	testStatusInstructions(t, mc, mem)
 	testRegsiterArithmetic(t, mc, mem)

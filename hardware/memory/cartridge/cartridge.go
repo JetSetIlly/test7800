@@ -3,6 +3,7 @@ package cartridge
 import (
 	_ "embed"
 	"fmt"
+	"math/rand/v2"
 )
 
 const OriginCart = 0x3000
@@ -44,7 +45,14 @@ func (cart *Cartridge) Label() string {
 	return "Cartridge"
 }
 
+// whether to treat the embedded cartridge as ejected or inserted
+const ejected = true
+
 func (cart *Cartridge) Read(idx uint16) (uint8, error) {
+	if ejected {
+		return uint8(rand.IntN(255)), nil
+	}
+
 	// check that the mapping process hasn't given us an index that is an
 	// impossible address for the BIOS. this shouldn't ever happen
 	if int(idx) >= maxCartSize {
