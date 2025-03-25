@@ -59,6 +59,7 @@ func (con *Console) Reset(random bool) error {
 		con.MC.Y.Load(con.ctx.Rand8Bit())
 	}
 	con.Mem.Reset(random)
+	con.MARIA.Reset()
 
 	return con.MC.LoadPCIndirect(cpu.Reset)
 }

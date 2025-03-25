@@ -27,6 +27,14 @@ func Create() Context {
 	return ctx
 }
 
+func (ctx *Context) Reset() {
+	ctx.Breaks = ctx.Breaks[:0]
+	ctx.trace = 0
+	ctx.Trace = ctx.Trace[:0]
+	ctx.Recent = ctx.Recent[:0]
+	ctx.rand = rand.New(rand.NewPCG(0, 0))
+}
+
 func (ctx *Context) Rand8Bit() uint8 {
 	return uint8(ctx.rand.IntN(255))
 }

@@ -17,6 +17,15 @@ type mariaCtrl struct {
 	readMode   int // 0 to 3 only
 }
 
+func (ctrl *mariaCtrl) reset() {
+	ctrl.colourKill = false
+	ctrl.dma = 0
+	ctrl.charWidth = false
+	ctrl.border = false
+	ctrl.kanagroo = false
+	ctrl.readMode = 0
+}
+
 func (ctrl *mariaCtrl) write(data uint8) {
 	ctrl.colourKill = data&0x80 == 0x80
 	ctrl.dma = int((data >> 5) & 0x03)
@@ -107,6 +116,18 @@ func Create(mem Memory, spec string, rendering chan *image.RGBA) *Maria {
 
 	mar.currentFrame = mar.newImage()
 	return mar
+}
+
+func (mar *Maria) Reset() {
+	mar.Coords.Reset()
+	mar.bg = 0
+	mar.wsync = false
+	mar.dpph = 0
+	mar.dppl = 0
+	mar.charbase = 0
+	mar.offset = 0
+	mar.mstat = 0
+	mar.ctrl.reset()
 }
 
 func (mar *Maria) Label() string {

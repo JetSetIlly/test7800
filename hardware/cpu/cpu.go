@@ -220,6 +220,8 @@ func (mc *CPU) Reset() {
 	mc.LastResult.Reset()
 	mc.Exceptional = true
 	mc.Killed = false
+	mc.PhantomMemAccess = false
+	// not touching NoFlowControl
 
 	mc.PC.Load(0)
 	mc.A.Load(0)
@@ -233,7 +235,7 @@ func (mc *CPU) Reset() {
 	mc.RdyFlg = true
 	mc.cycleCallback = nil
 
-	// not touching NoFlowControl
+	mc.interruptDepth = 0
 }
 
 // HasReset checks whether the CPU has recently been reset.

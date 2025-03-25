@@ -54,6 +54,8 @@ type debugger struct {
 }
 
 func (m *debugger) reset() {
+	m.ctx.Reset()
+
 	// if a bootfile has been specified on the command line, resetting will use
 	// it as part of the reset process. ie. the console will be left in the
 	// state directed by the bootfile
