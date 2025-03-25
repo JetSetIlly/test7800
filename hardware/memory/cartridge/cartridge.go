@@ -3,7 +3,6 @@ package cartridge
 import (
 	_ "embed"
 	"fmt"
-	"math/rand/v2"
 )
 
 const OriginCart = 0x3000
@@ -22,6 +21,17 @@ var origin uint16
 var adjustment uint16
 
 type Cartridge struct {
+	ctx Context
+}
+
+type Context interface {
+	Rand8Bit() uint8
+}
+
+func Create(ctx Context) *Cartridge {
+	return &Cartridge{
+		ctx: ctx,
+	}
 }
 
 func init() {
@@ -50,7 +60,7 @@ const ejected = true
 
 func (cart *Cartridge) Read(idx uint16) (uint8, error) {
 	if ejected {
-		return uint8(rand.IntN(255)), nil
+		return cart.ctx.Rand8Bit(), nil
 	}
 
 	// check that the mapping process hasn't given us an index that is an

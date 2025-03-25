@@ -444,6 +444,7 @@ func Launch(externalQuit chan bool, rendering chan *image.RGBA, args []string) e
 	}
 
 	m := &debugger{
+		ctx:          dbg.Create(),
 		externalQuit: externalQuit,
 		sig:          make(chan os.Signal, 1),
 		input:        make(chan input, 1),

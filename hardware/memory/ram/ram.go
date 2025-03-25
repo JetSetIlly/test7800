@@ -2,17 +2,22 @@ package ram
 
 import (
 	"fmt"
-	"math/rand/v2"
 	"strings"
 )
 
 type RAM struct {
+	ctx   Context
 	label string
 	data  []uint8
 }
 
-func Create(label string, size int) *RAM {
+type Context interface {
+	Rand8Bit() uint8
+}
+
+func Create(ctx Context, label string, size int) *RAM {
 	return &RAM{
+		ctx:   ctx,
 		label: label,
 		data:  make([]uint8, size),
 	}
@@ -21,7 +26,7 @@ func Create(label string, size int) *RAM {
 func (r *RAM) Reset(random bool) {
 	if random {
 		for i := range len(r.data) {
-			r.data[i] = uint8(rand.IntN(255))
+			r.data[i] = r.ctx.Rand8Bit()
 		}
 	} else {
 		clear(r.data)

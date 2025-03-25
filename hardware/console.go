@@ -2,9 +2,7 @@ package hardware
 
 import (
 	"image"
-	"math/rand/v2"
 
-	"github.com/jetsetilly/test7800/debugger/dbg"
 	"github.com/jetsetilly/test7800/hardware/clocks"
 	"github.com/jetsetilly/test7800/hardware/cpu"
 	"github.com/jetsetilly/test7800/hardware/maria"
@@ -14,6 +12,8 @@ import (
 )
 
 type Console struct {
+	ctx Context
+
 	MC    *cpu.CPU
 	Mem   *memory.Memory
 	MARIA *maria.Maria
@@ -24,16 +24,25 @@ type Console struct {
 	halt bool
 }
 
-func Create(ctx *dbg.Context, rendering chan *image.RGBA) Console {
-	var con Console
+type Context interface {
+	cpu.Context
+	memory.Context
+	Rand8Bit() uint8
+	Rand16Bit() uint16
+}
+
+func Create(ctx Context, rendering chan *image.RGBA) Console {
+	con := Console{
+		ctx: ctx,
+	}
 
 	var addChips memory.AddChips
-	con.Mem, addChips = memory.Create()
+	con.Mem, addChips = memory.Create(ctx)
 
 	con.MC = cpu.NewCPU(ctx, con.Mem)
-	con.MARIA = maria.Create(ctx, con.Mem, con.Mem.BIOS.Spec(), rendering)
-	con.TIA = tia.Create(ctx, con.Mem)
-	con.RIOT = riot.Create(ctx, con.Mem)
+	con.MARIA = maria.Create(con.Mem, con.Mem.BIOS.Spec(), rendering)
+	con.TIA = tia.Create(con.Mem)
+	con.RIOT = riot.Create(con.Mem)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
@@ -44,10 +53,10 @@ func Create(ctx *dbg.Context, rendering chan *image.RGBA) Console {
 func (con *Console) Reset(random bool) error {
 	con.MC.Reset()
 	if random {
-		con.MC.PC.Load(uint16(rand.IntN(65535)))
-		con.MC.A.Load(uint8(rand.IntN(255)))
-		con.MC.X.Load(uint8(rand.IntN(255)))
-		con.MC.Y.Load(uint8(rand.IntN(255)))
+		con.MC.PC.Load(con.ctx.Rand16Bit())
+		con.MC.A.Load(con.ctx.Rand8Bit())
+		con.MC.X.Load(con.ctx.Rand8Bit())
+		con.MC.Y.Load(con.ctx.Rand8Bit())
 	}
 	con.Mem.Reset(random)
 

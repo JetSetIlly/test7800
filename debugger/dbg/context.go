@@ -1,6 +1,8 @@
 package dbg
 
 import (
+	"math/rand/v2"
+
 	"github.com/jetsetilly/test7800/hardware/cpu/execution"
 )
 
@@ -15,6 +17,22 @@ type Context struct {
 
 	Trace  []execution.Result
 	Recent []execution.Result
+
+	rand *rand.Rand
+}
+
+func Create() Context {
+	var ctx Context
+	ctx.rand = rand.New(rand.NewPCG(0, 0))
+	return ctx
+}
+
+func (ctx *Context) Rand8Bit() uint8 {
+	return uint8(ctx.rand.IntN(255))
+}
+
+func (ctx *Context) Rand16Bit() uint16 {
+	return uint16(ctx.rand.IntN(65535))
 }
 
 func (ctx *Context) Break(s string) {

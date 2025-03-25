@@ -24,17 +24,18 @@ import (
 	"github.com/jetsetilly/test7800/hardware/cpu/registers"
 )
 
-// Breaker allows the CPU to request a break to occur. Like adding a breakpoint
+// Context allows the CPU to request a break to occur. Like adding a breakpoint
 // and immediately triggering it. Or enabling a trace.
-type Breaker interface {
+type Context interface {
 	Break(string)
 	StartTrace(int)
+	EndTrace()
 }
 
 // CPU implements the 6507 found as found in the Atari 2600. Register logic is
 // implemented by the Register type in the registers sub-package.
 type CPU struct {
-	brk Breaker
+	ctx Context
 
 	PC     registers.ProgramCounter
 	A      registers.Data
@@ -121,9 +122,9 @@ type Memory interface {
 
 // NewCPU is the preferred method of initialisation for the CPU structure. Note
 // that the CPU will be initialised in a random state.
-func NewCPU(brk Breaker, mem Memory) *CPU {
+func NewCPU(ctx Context, mem Memory) *CPU {
 	return &CPU{
-		brk:    brk,
+		ctx:    ctx,
 		mem:    mem,
 		PC:     registers.NewProgramCounter(0),
 		A:      registers.NewData(0, "A"),
@@ -208,7 +209,6 @@ func (mc *CPU) Interrupt(nonMaskable bool) error {
 	}
 
 	if nonMaskable {
-		mc.brk.StartTrace(10)
 		return mc.LoadPCIndirect(NMI)
 	}
 	return mc.LoadPCIndirect(IRQ)
@@ -1518,12 +1518,12 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 				// no longer in the interrupt state. if however, the an interrupt
 				// happened whilst inside an interrupt, the count will still be >0
 				mc.interruptDepth--
-			} else if mc.brk != nil {
+			} else if mc.ctx != nil {
 				// this isn't really an error but it's doubtful that a program would
 				// want to call an RTI outisde of an interrupt. while we're
 				// debugging the interrupt implemention it's a good idea to flag
 				// this up to alert ourselves to check that we're working correctly
-				mc.brk.Break("RTI called outside of an interrupt")
+				mc.ctx.Break("RTI called outside of an interrupt")
 			}
 		}
 

@@ -21,13 +21,18 @@ type Memory struct {
 	Last      Area
 }
 
-func Create() (*Memory, AddChips) {
+type Context interface {
+	ram.Context
+	cartridge.Context
+}
+
+func Create(ctx Context) (*Memory, AddChips) {
 	mem := &Memory{
 		BIOS:      &bios.BIOS{},
 		INPTCTRL:  &inptctrl.INPTCTRL{},
-		RAM7800:   ram.Create("ram7800", 0x1000),
-		RAMRIOT:   ram.Create("ramRIOT", 0x0080),
-		cartridge: &cartridge.Cartridge{},
+		RAM7800:   ram.Create(ctx, "ram7800", 0x1000),
+		RAMRIOT:   ram.Create(ctx, "ramRIOT", 0x0080),
+		cartridge: cartridge.Create(ctx),
 	}
 	return mem, func(maria Area, tia Area, riot Area) {
 		mem.MARIA = maria
@@ -196,12 +201,8 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		}
 		return address, mem.MARIA
 	}
-	if address >= 0x0240 && address <= 0x02ff {
-		// RAM 7800 block 1
-		return address - 0x0240 + 0x0940, mem.RAM7800
-	}
 
-	// unsure
+	// it's not clear what addresses 0x0240 to 0x027f are mapped to
 
 	if address >= 0x0280 && address <= 0x02ff {
 		// RIOT
@@ -218,7 +219,33 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		}
 	}
 
-	// unsure
+	// page 4
+	if address >= 0x0300 && address <= 0x031f {
+		// INPTCTRL or TIA
+		address -= 0x0300
+		if mem.INPTCTRL.Lock() {
+			if read {
+				return address & maskReadTIA, mem.TIA
+			} else {
+				return address & maskWriteTIA, mem.TIA
+			}
+		}
+		return address, mem.INPTCTRL
+	}
+	if address >= 0x0320 && address <= 0x033f {
+		// MARIA or TIA
+		address -= 0x0300
+		if mem.INPTCTRL.Lock() && mem.INPTCTRL.TIA() {
+			if read {
+				return address & maskReadTIA, mem.TIA
+			} else {
+				return address & maskWriteTIA, mem.TIA
+			}
+		}
+		return address, mem.MARIA
+	}
+
+	// it's not clear what addresses 0x0340 to 0x037f are mapped to
 
 	if address >= 0x0380 && address <= 0x03ff {
 		// RIOT
@@ -235,14 +262,21 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		}
 	}
 
-	// unsure
+	// 0x0400 to 0x047f "available for mapping by external devices"
 
 	if address >= 0x0480 && address <= 0x04ff {
 		// RAM RIOT
 		return address - 0x0480, mem.RAMRIOT
 	}
 
-	// unsure
+	// 0x0500 to 0x057f "available for mapping by external devices"
+
+	if address >= 0x0580 && address <= 0x05ff {
+		// RAM RIOT (shadow)
+		return address - 0x0580, mem.RAMRIOT
+	}
+
+	// 0x0600 to 0x17ff "available for mapping by external devices"
 
 	if address >= 0x1800 && address <= 0x27ff {
 		// RAM 7800
