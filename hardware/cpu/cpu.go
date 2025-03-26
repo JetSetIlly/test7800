@@ -130,10 +130,12 @@ func (mc *CPU) Plumb(mem Memory) {
 }
 
 func (mc *CPU) String() string {
-	return fmt.Sprintf("%s=%s %s=%s %s=%s %s=%s %s=%s %s=%s",
+	return fmt.Sprintf("%s=%s %s=%s %s=%s %s=%s %s=%s %s=%s (intr=%d)",
 		mc.PC.Label(), mc.PC, mc.A.Label(), mc.A,
 		mc.X.Label(), mc.X, mc.Y.Label(), mc.Y,
-		mc.SP.Label(), mc.SP, mc.Status.Label(), mc.Status)
+		mc.SP.Label(), mc.SP, mc.Status.Label(), mc.Status,
+		mc.interruptDepth,
+	)
 }
 
 // SetRDY sets the CPU RDY flag. equivalent to pin 3 of the 6507
