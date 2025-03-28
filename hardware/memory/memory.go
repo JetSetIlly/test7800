@@ -202,7 +202,13 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		return address, mem.MARIA
 	}
 
-	// it's not clear what addresses 0x0240 to 0x027f are mapped to
+	// it's not clear what addresses 0x0240 to 0x027f are mapped to but for now,
+	// I'll assume it's a shadow of page 0 which means it's RAM 7800 block 0 but
+	// only part of it
+	if address >= 0x0240 && address <= 0x027f {
+		// RAM 7800 block 0 (partial)
+		return address - 0x0240 + 0x0840, mem.RAM7800
+	}
 
 	if address >= 0x0280 && address <= 0x02ff {
 		// RIOT
@@ -245,7 +251,13 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		return address, mem.MARIA
 	}
 
-	// it's not clear what addresses 0x0340 to 0x037f are mapped to
+	// it's not clear what addresses 0x0340 to 0x037f are mapped to but for now,
+	// I'll assume it's a shadow of page 1 which means it's RAM 7800 block 1 but
+	// only part of it
+	if address >= 0x0340 && address <= 0x037f {
+		// RAM 7800 block 1 (partial)
+		return address - 0x0340 + 0x0940, mem.RAM7800
+	}
 
 	if address >= 0x0380 && address <= 0x03ff {
 		// RIOT
