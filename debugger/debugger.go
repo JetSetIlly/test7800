@@ -2,9 +2,11 @@ package debugger
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"image"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"strings"
@@ -48,8 +50,8 @@ type debugger struct {
 	stepRule func() bool
 	postStep func()
 
-	// the boot file to load on console reset
-	bootfile string
+	// the file to load on console reset. can be a bootfile or cartridge
+	loader string
 
 	// script of commands
 	script []string
@@ -61,34 +63,55 @@ type debugger struct {
 func (m *debugger) reset() {
 	m.ctx.Reset()
 
-	// if a bootfile has been specified on the command line, resetting will use
-	// it as part of the reset process. ie. the console will be left in the
-	// state directed by the bootfile
-	if m.bootfile != "" {
-		fmt.Println(m.styles.debugger.Render(
-			fmt.Sprintf("booting from %s", m.bootfile),
-		))
+	// load file specified by loader
+	if m.loader != "" {
+		d, err := ioutil.ReadFile(m.loader)
+		if err != nil {
+			fmt.Println(m.styles.err.Render(
+				fmt.Sprintf("error loading %s: %s", m.loader, err.Error()),
+			))
+		} else {
+			// byte fingerprint contained by all 7800 cartridge dumps starting at byte 1
+			var fingerprint = []byte("ATARI7800")
 
-		var err error
-		m.script, err = m.bootFromFile(m.bootfile)
-		if err == nil {
-			return
+			if bytes.Compare(d[1:1+len(fingerprint)], fingerprint) == 0 {
+				fmt.Println(m.styles.debugger.Render(
+					fmt.Sprintf("inserting cartridge named %s", m.loader),
+				))
+				err = m.console.Mem.External.Insert(d)
+				if err != nil {
+					fmt.Println(m.styles.err.Render(err.Error()))
+				}
+
+			} else {
+				// file is not a cartridge dump so we'll assume it's a bootfile
+				fmt.Println(m.styles.debugger.Render(
+					fmt.Sprintf("booting from %s", m.loader),
+				))
+
+				m.script, err = m.bootFromFile(d)
+				if err == nil {
+					// resetting with a boot file is a bit different because we
+					// don't want to do a normal reset if the boot process was
+					// succesful
+					return
+				}
+
+				fmt.Println(m.styles.err.Render(err.Error()))
+
+				// forget about loader because we now know it doesn't work
+				m.loader = ""
+			}
 		}
-
-		// if there is an error from the bootFromFile() we output it and carry
-		// on with the reset as though the bootfile wasn't specified
-		fmt.Println(m.styles.err.Render(err.Error()))
-
-		// we also forget about the bootfile because we know it doesn't work
-		m.bootfile = ""
 	}
 
 	err := m.console.Reset(true)
 	if err != nil {
 		fmt.Println(m.styles.err.Render(err.Error()))
-		return
+	} else {
+		fmt.Println(m.styles.debugger.Render("console reset"))
 	}
-	fmt.Println(m.styles.debugger.Render("console reset"))
+
 	fmt.Println(m.styles.mem.Render(
 		m.console.Mem.BIOS.Status(),
 	))
@@ -525,7 +548,7 @@ func Launch(externalQuit chan bool, rendering chan *image.RGBA, args []string) e
 		externalQuit: externalQuit,
 		sig:          make(chan os.Signal, 1),
 		input:        make(chan input, 1),
-		bootfile:     bootfile,
+		loader:       bootfile,
 		styles: styles{
 			instruction: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(3)),
 			cpu:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(4)),

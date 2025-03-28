@@ -7,13 +7,8 @@ import (
 	"strings"
 )
 
-func (m *debugger) bootFromFile(bootfile string) ([]string, error) {
-	f, err := ioutil.ReadFile(bootfile)
-	if err != nil {
-		return []string{}, fmt.Errorf("cannot load bootfile")
-	}
-
-	lns := strings.Split(strings.TrimSpace(string(f)), "\n")
+func (m *debugger) bootFromFile(d []byte) ([]string, error) {
+	lns := strings.Split(strings.TrimSpace(string(d)), "\n")
 	if len(lns) < 1 {
 		return []string{}, fmt.Errorf("there must be at least one line in a bootfile")
 	}
@@ -27,7 +22,7 @@ func (m *debugger) bootFromFile(bootfile string) ([]string, error) {
 		return []string{}, fmt.Errorf("too few fields in bootfile")
 	}
 
-	err = m.bootParse(p)
+	err := m.bootParse(p)
 	if err != nil {
 		return []string{}, err
 	}

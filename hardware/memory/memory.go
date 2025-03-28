@@ -4,35 +4,51 @@ import (
 	"fmt"
 
 	"github.com/jetsetilly/test7800/hardware/memory/bios"
-	"github.com/jetsetilly/test7800/hardware/memory/cartridge"
+	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/hardware/memory/inptctrl"
 	"github.com/jetsetilly/test7800/hardware/memory/ram"
 )
 
 type Memory struct {
-	BIOS      *bios.BIOS
-	INPTCTRL  *inptctrl.INPTCTRL
-	RAM7800   *ram.RAM
-	RAMRIOT   *ram.RAM
-	MARIA     Area
-	TIA       Area
-	RIOT      Area
-	cartridge *cartridge.Cartridge
-	Last      Area
+	BIOS     *bios.BIOS
+	INPTCTRL *inptctrl.INPTCTRL
+	RAM7800  *ram.RAM
+	RAMRIOT  *ram.RAM
+	External *external.Device
+
+	MARIA Area
+	TIA   Area
+	RIOT  Area
+
+	// the last Area that was accessed
+	Last Area
 }
 
 type Context interface {
 	ram.Context
-	cartridge.Context
+	external.Context
+}
+
+// AddChips is returned by the Create() function and should be called to
+// finalise the memory creation process
+type AddChips func(maria Area, tia Area, riot Area)
+
+type Area interface {
+	// for some areas the index field is the address adjust for the origin
+	// address of the area. the exception to this is the external.Device area
+	// whic works with an unadjusted address
+	Read(idx uint16) (uint8, error)
+	Write(idx uint16, data uint8) error
+	Label() string
 }
 
 func Create(ctx Context) (*Memory, AddChips) {
 	mem := &Memory{
-		BIOS:      &bios.BIOS{},
-		INPTCTRL:  &inptctrl.INPTCTRL{},
-		RAM7800:   ram.Create(ctx, "ram7800", 0x1000),
-		RAMRIOT:   ram.Create(ctx, "ramRIOT", 0x0080),
-		cartridge: cartridge.Create(ctx),
+		BIOS:     &bios.BIOS{},
+		INPTCTRL: &inptctrl.INPTCTRL{},
+		RAM7800:  ram.Create(ctx, "ram7800", 0x1000),
+		RAMRIOT:  ram.Create(ctx, "ramRIOT", 0x0080),
+		External: external.Create(ctx),
 	}
 	return mem, func(maria Area, tia Area, riot Area) {
 		mem.MARIA = maria
@@ -45,20 +61,6 @@ func (mem *Memory) Reset(random bool) {
 	mem.INPTCTRL.Reset()
 	mem.RAM7800.Reset(random)
 	mem.RAMRIOT.Reset(random)
-}
-
-// AddChips is returned by the Create() function and should be called to
-// finalise the memory creation process
-type AddChips func(maria Area, tia Area, riot Area)
-
-type Area interface {
-	// read and write both take an index value. this is an address in the area
-	// but with the area origin removed. in other words, the area doesn't need
-	// to know about it's location in memory, only the relative placement of
-	// addresses within the area
-	Read(idx uint16) (uint8, error)
-	Write(idx uint16, data uint8) error
-	Label() string
 }
 
 const (
@@ -275,6 +277,10 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	}
 
 	// 0x0400 to 0x047f "available for mapping by external devices"
+	if address >= 0x0400 && address <= 0x047f {
+		// external
+		return address, mem.External
+	}
 
 	if address >= 0x0480 && address <= 0x04ff {
 		// RAM RIOT
@@ -282,6 +288,10 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	}
 
 	// 0x0500 to 0x057f "available for mapping by external devices"
+	if address >= 0x0500 && address <= 0x057f {
+		// external
+		return address, mem.External
+	}
 
 	if address >= 0x0580 && address <= 0x05ff {
 		// RAM RIOT (shadow)
@@ -289,6 +299,10 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	}
 
 	// 0x0600 to 0x17ff "available for mapping by external devices"
+	if address >= 0x0600 && address <= 0x17ff {
+		// external
+		return address, mem.External
+	}
 
 	if address >= 0x1800 && address <= 0x27ff {
 		// RAM 7800
@@ -302,12 +316,8 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		}
 	}
 
-	if address >= cartridge.OriginCart && address <= 0xffff {
-		// cartridge
-		return address - cartridge.OriginCart, mem.cartridge
-	}
-
-	return 0, nil
+	// everything else can be handled by the external package
+	return address, mem.External
 }
 
 func (mem *Memory) Read(address uint16) (uint8, error) {
