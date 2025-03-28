@@ -42,7 +42,7 @@ func (dl *dl) Status() string {
 	s.WriteString(fmt.Sprintf("low=%02x\n", dl.lowAddress))
 	s.WriteString(fmt.Sprintf("palette=%03b ", dl.palette))
 	s.WriteString(fmt.Sprintf("width=%05b\n", dl.width))
-	s.WriteString(fmt.Sprintf("pos=%02x\n", dl.horizontalPosition))
+	s.WriteString(fmt.Sprintf("pos=%02x", dl.horizontalPosition))
 	return s.String()
 }
 
@@ -171,6 +171,10 @@ type dll struct {
 
 	// working offset is an integer because we want to use negative values
 	workingOffset int
+}
+
+func (dll *dll) ID() string {
+	return fmt.Sprintf("ct=%d origin=%04x\n", dll.ct, dll.origin)
 }
 
 func (dll *dll) Status() string {
