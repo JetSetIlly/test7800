@@ -29,8 +29,8 @@ func (ctrl *mariaCtrl) write(data uint8) {
 	ctrl.colourKill = data&0x80 == 0x80
 	ctrl.dma = int((data >> 5) & 0x03)
 	ctrl.charWidth = data&0x10 == 0x10
-	ctrl.border = data&0x80 == 0x80
-	ctrl.kanagroo = data&0x40 == 0x40
+	ctrl.border = data&0x08 == 0x08
+	ctrl.kanagroo = data&0x04 == 0x04
 	ctrl.readMode = int(data & 0x03)
 }
 
@@ -407,7 +407,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 									if c > 0 {
 										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.spec.palette[p[c-1]])
 									} else if mar.ctrl.kanagroo {
-										// mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.spec.palette[mar.bg])
+										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.spec.palette[mar.bg])
 									}
 								}
 							} else {
@@ -418,7 +418,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 									if c > 0 {
 										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.spec.palette[p[c-1]])
 									} else if mar.ctrl.kanagroo {
-										// mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.spec.palette[mar.bg])
+										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.spec.palette[mar.bg])
 									}
 								}
 							}
