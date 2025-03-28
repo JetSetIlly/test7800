@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/color"
 	"strings"
 )
 
@@ -83,8 +82,8 @@ type Maria struct {
 	currentFrame *image.RGBA
 	rendering    chan *image.RGBA
 
-	// the selected rgba palette to use when rendering the screen
-	rgba [256]color.RGBA
+	// the current spec (decided via the BIOS)
+	spec spec
 
 	// creating a new image depends on the tv specification. the newImage()
 	// function returns an appropriately sized image for the specification
@@ -105,17 +104,15 @@ func Create(ctx Context, mem Memory, spec string, rendering chan *image.RGBA) *M
 
 	switch strings.ToUpper(spec) {
 	case "NTSC":
-		mar.rgba = ntscPalette
-		mar.newImage = func() *image.RGBA {
-			return image.NewRGBA(image.Rect(0, 0, clksVisible, ntscVisibleBottom-ntscVisibleTop))
-		}
+		mar.spec = ntsc
 	case "PAL":
-		mar.rgba = palPalette
-		mar.newImage = func() *image.RGBA {
-			return image.NewRGBA(image.Rect(0, 0, clksVisible, palVisibleBottom-palVisibleTop))
-		}
+		mar.spec = pal
 	default:
 		panic("currently unsupported specification")
+	}
+
+	mar.newImage = func() *image.RGBA {
+		return image.NewRGBA(image.Rect(0, 0, clksVisible, mar.spec.visibleBottom-mar.spec.visibleTop))
 	}
 
 	mar.currentFrame = mar.newImage()
@@ -319,14 +316,13 @@ func (mar *Maria) Write(idx uint16, data uint8) error {
 func (mar *Maria) Tick() (halt bool, nmi bool) {
 	var dli bool
 
-	// assuming ntsc for now
 	mar.Coords.Clk++
 	if mar.Coords.Clk > clksScanline {
 		mar.Coords.Clk = 0
 		mar.Coords.Scanline++
 		mar.wsync = false
 
-		if mar.Coords.Scanline > ntscAbsoluteBottom {
+		if mar.Coords.Scanline > mar.spec.absoluteBottom {
 			mar.Coords.Scanline = 0
 			mar.Coords.Frame++
 
@@ -342,7 +338,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 			// this can almost certainly be improved in efficiency
 			mar.currentFrame = mar.newImage()
 
-		} else if mar.Coords.Scanline == ntscVisibleTop {
+		} else if mar.Coords.Scanline == mar.spec.visibleTop {
 			// enable DMA at start of visible screen
 			mar.mstat = 0x00
 
@@ -352,7 +348,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 				mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 			}
 
-		} else if mar.Coords.Scanline > ntscVisibleBottom {
+		} else if mar.Coords.Scanline > mar.spec.visibleBottom {
 			mar.mstat = 0x80
 
 		} else {
@@ -367,9 +363,9 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 		if mar.mstat == 0x00 {
 			// set entire scanline to background colour. individual pixels will
 			// be changed according to the display lists
-			sl := mar.Coords.Scanline - ntscVisibleTop
+			sl := mar.Coords.Scanline - mar.spec.visibleTop
 			for clk := range clksVisible {
-				mar.currentFrame.Set(clk, sl, mar.rgba[mar.bg])
+				mar.currentFrame.Set(clk, sl, mar.spec.palette[mar.bg])
 			}
 
 			switch mar.ctrl.dma {
@@ -409,9 +405,9 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 									pi := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
 									p := mar.palette[pi]
 									if c > 0 {
-										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.rgba[p[c-1]])
+										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.spec.palette[p[c-1]])
 									} else if mar.ctrl.kanagroo {
-										// mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.rgba[mar.bg])
+										// mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.spec.palette[mar.bg])
 									}
 								}
 							} else {
@@ -420,9 +416,9 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 								for i := range 4 {
 									c := (b >> ((3 - i) * 2)) & 0x03
 									if c > 0 {
-										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.rgba[p[c-1]])
+										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.spec.palette[p[c-1]])
 									} else if mar.ctrl.kanagroo {
-										// mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.rgba[mar.bg])
+										// mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.spec.palette[mar.bg])
 									}
 								}
 							}
