@@ -65,10 +65,10 @@ func (con *Console) Reset(random bool) error {
 }
 
 func (con *Console) Step() error {
-	var nmiNextInstruction bool
+	var interruptNext bool
 
 	defer func() {
-		if nmiNextInstruction {
+		if interruptNext {
 			_ = con.MC.Interrupt(true)
 		}
 	}()
@@ -81,9 +81,9 @@ func (con *Console) Step() error {
 		//
 		// TODO: handle slowing down of CPU
 		for range clocks.MariaCycles {
-			var nmi bool
-			con.halt, nmi = con.MARIA.Tick()
-			nmiNextInstruction = nmiNextInstruction || nmi
+			var interrupt bool
+			con.halt, interrupt = con.MARIA.Tick()
+			interruptNext = interruptNext || interrupt
 		}
 		return nil
 	}

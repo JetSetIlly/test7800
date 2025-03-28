@@ -6,6 +6,8 @@ import (
 	"image"
 	"strings"
 	"time"
+
+	"github.com/jetsetilly/test7800/hardware/clocks"
 )
 
 type mariaCtrl struct {
@@ -53,6 +55,13 @@ type Context interface {
 
 // the wrapping error for any errors passed to Context.Break()
 var ContextError = errors.New("maria")
+
+// the values taken by mstat to indicate VBLANK. vblank is the only bit stored
+// in mstat so a simple equate is sufficient
+const (
+	vblankEnable  = 0x80
+	vblankDisable = 0x00
+)
 
 type Maria struct {
 	ctx Context
@@ -135,7 +144,7 @@ func (mar *Maria) Reset() {
 	mar.dppl = 0
 	mar.charbase = 0
 	mar.offset = 0
-	mar.mstat = 0
+	mar.mstat = vblankDisable
 	mar.ctrl.reset()
 }
 
@@ -320,8 +329,12 @@ func (mar *Maria) Write(idx uint16, data uint8) error {
 	return nil
 }
 
+// Appendix 3: "DMA does not begin until 7 CPU (1.79 MHz) cycles into each
+// scan line"
+const preDMA = 7 * clocks.MariaCycles
+
 // returns true if CPU is to be halted and true if DLL has requested an interrupt
-func (mar *Maria) Tick() (halt bool, nmi bool) {
+func (mar *Maria) Tick() (halt bool, interrupt bool) {
 	var dli bool
 
 	mar.Coords.Clk++
@@ -349,28 +362,31 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 			mar.currentFrame = mar.newImage()
 
 		} else if mar.Coords.Scanline == mar.spec.visibleTop {
-			// enable DMA at start of visible screen
-			mar.mstat = 0x00
-
-			// start DLL reads
-			_, err := mar.nextDLL(true)
-			if err != nil {
-				mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
-			}
-
-		} else if mar.Coords.Scanline > mar.spec.visibleBottom {
-			mar.mstat = 0x80
-
-		} else {
-			var err error
-			dli, err = mar.nextDLL(false)
-			if err != nil {
-				mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
-			}
+			mar.mstat = vblankDisable
+		} else if mar.Coords.Scanline == mar.spec.visibleBottom {
+			mar.mstat = vblankEnable
 		}
+	}
 
-		// draw entire scanline in one go if DMA is enabled after the scanline increase
-		if mar.mstat == 0x00 {
+	// scanline build is done at the start of DMA
+	if mar.Coords.Clk == preDMA {
+		// DMA is only ever active when VBLANK is disabled
+		if mar.mstat == vblankDisable {
+
+			// advance to the
+			if mar.Coords.Scanline == mar.spec.visibleTop {
+				_, err := mar.nextDLL(true)
+				if err != nil {
+					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+				}
+			} else {
+				var err error
+				dli, err = mar.nextDLL(false)
+				if err != nil {
+					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+				}
+			}
+
 			// set entire scanline to background colour. individual pixels will
 			// be changed according to the display lists
 			sl := mar.Coords.Scanline - mar.spec.visibleTop
@@ -398,7 +414,6 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 
 							b, err := mar.mem.Read(a)
 							if err != nil {
-								panic(err)
 								mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
 							}
 
@@ -451,5 +466,5 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 	}
 
 	// return HALT signal if either WSYNC or DMA signal is enabled
-	return mar.wsync || (mar.mstat == 0x00 && mar.Coords.Clk > clksHBLANK), dli
+	return mar.wsync || (mar.mstat == vblankDisable && mar.Coords.Clk >= preDMA), dli
 }
