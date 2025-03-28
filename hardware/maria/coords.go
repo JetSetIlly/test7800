@@ -5,23 +5,23 @@ import (
 )
 
 type coords struct {
-	frame    int
-	scanline int
-	clk      int
+	Frame    int
+	Scanline int
+	Clk      int
 }
 
 func (c *coords) String() string {
-	return fmt.Sprintf("frame: %d, scanline: %d, clk: %d", c.frame, c.scanline, c.clk)
+	return fmt.Sprintf("frame: %d, scanline: %d, clk: %d", c.Frame, c.Scanline, c.Clk)
 }
 
 func (c *coords) ShortString() string {
-	return fmt.Sprintf("%d/%03d/%03d", c.frame, c.scanline, c.clk)
+	return fmt.Sprintf("%d/%03d/%03d", c.Frame, c.Scanline, c.Clk)
 }
 
 func (c *coords) Reset() {
-	c.frame = 0
-	c.scanline = 0
-	c.clk = 0
+	c.Frame = 0
+	c.Scanline = 0
+	c.Clk = 0
 }
 
 const (

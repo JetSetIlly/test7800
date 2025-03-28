@@ -7,6 +7,7 @@ import (
 	"image"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -42,6 +43,10 @@ type debugger struct {
 
 	console     hardware.Console
 	breakpoints map[uint16]bool
+
+	// rule for stepping. by default (the field is nil) the step will move
+	// forward one instruction
+	stepRule func() bool
 
 	// the boot file to load on console reset
 	bootfile string
@@ -92,21 +97,48 @@ func (m *debugger) reset() {
 	))
 }
 
-// step advances the emulation on CPU instruction
-func (m *debugger) step() {
-	err := m.console.Step()
-	if err != nil {
-		fmt.Println(m.styles.err.Render(
-			err.Error(),
-		))
-		return
+// step advances the emulation on CPU instruction according to the current step
+// the step rule will be reset after the step has completed
+//
+// returns true if quit signal has been received
+func (m *debugger) step() bool {
+	// loop until the step rule returns true
+	var done bool
+	for !done {
+		select {
+		case <-m.sig:
+			done = true
+			continue // for loop
+		case <-m.externalQuit:
+			return true
+		default:
+		}
+
+		err := m.console.Step()
+		if err != nil {
+			fmt.Println(m.styles.err.Render(
+				err.Error(),
+			))
+			return false
+		}
+
+		// print any context breaks
+		for _, b := range m.ctx.Breaks {
+			fmt.Println(m.styles.breakpoint.Render(b))
+			done = true
+		}
+		m.ctx.Breaks = m.ctx.Breaks[:0]
+
+		// apply step rule
+		if m.stepRule == nil {
+			done = true
+		} else {
+			done = m.stepRule()
+		}
 	}
 
-	// print any context breaks
-	for _, b := range m.ctx.Breaks {
-		fmt.Println(m.styles.breakpoint.Render(b))
-	}
-	m.ctx.Breaks = m.ctx.Breaks[:0]
+	// reset step rule
+	m.stepRule = nil
 
 	// print general status of the emulation
 	m.last()
@@ -118,6 +150,8 @@ func (m *debugger) step() {
 	if s := m.console.LastAreaStatus(); len(s) > 0 {
 		fmt.Println(m.styles.mem.Render(s))
 	}
+
+	return false
 }
 
 func (m *debugger) printInstruction(res *disassembly.Entry) {
@@ -277,15 +311,62 @@ func (m *debugger) loop() {
 				fmt.Println(m.styles.err.Render(err.Error()))
 				break // switch
 			}
-		case "R":
-			// shortcut for "RUN"
-			m.run()
-		case "RUN":
+		case "R", "RUN":
 			if m.run() {
 				return
 			}
-		case "STEP":
-			m.step()
+		case "ST", "STEP":
+			// rough support for step rule definition
+			if len(cmd) > 1 {
+				rule := strings.ToUpper(cmd[1])
+				if rule == "FRAME" || rule == "FR" {
+					var tgt int
+					if len(cmd) > 2 {
+						var err error
+						tgt, err = strconv.Atoi(cmd[2])
+						if err != nil {
+							fmt.Println(m.styles.err.Render(err.Error()))
+							break // switch
+						}
+						if tgt <= m.console.MARIA.Coords.Frame {
+							fmt.Println(m.styles.err.Render(fmt.Sprintf("FRAME %d is in the past", tgt)))
+							break // switch
+						}
+					} else {
+						tgt = m.console.MARIA.Coords.Frame + 1
+					}
+					m.stepRule = func() bool {
+						return m.console.MARIA.Coords.Frame == tgt
+					}
+				} else if rule == "SCANLINE" || rule == "SL" {
+					var tgt int
+					if len(cmd) > 2 {
+						var err error
+						tgt, err = strconv.Atoi(cmd[2])
+						if err != nil {
+							fmt.Println(m.styles.err.Render(err.Error()))
+							break // switch
+						}
+						if tgt <= m.console.MARIA.Coords.Scanline {
+							fmt.Println(m.styles.err.Render(fmt.Sprintf("SCANLINE %d is in the past", tgt)))
+							break // switch
+						}
+					} else {
+						tgt = m.console.MARIA.Coords.Scanline + 1
+					}
+					m.stepRule = func() bool {
+						return m.console.MARIA.Coords.Scanline == tgt
+					}
+				} else {
+					m.stepRule = func() bool {
+						op := strings.ToUpper(m.console.MC.LastResult.Defn.Operator.String())
+						return op == rule
+					}
+				}
+			}
+			if m.step() {
+				return
+			}
 		case "RESET":
 			m.reset()
 		case "CPU":

@@ -327,15 +327,15 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 	mar.Error = nil
 
 	// assuming ntsc for now
-	mar.Coords.clk++
-	if mar.Coords.clk > clksScanline {
-		mar.Coords.clk = 0
-		mar.Coords.scanline++
+	mar.Coords.Clk++
+	if mar.Coords.Clk > clksScanline {
+		mar.Coords.Clk = 0
+		mar.Coords.Scanline++
 		mar.wsync = false
 
-		if mar.Coords.scanline > ntscAbsoluteBottom {
-			mar.Coords.scanline = 0
-			mar.Coords.frame++
+		if mar.Coords.Scanline > ntscAbsoluteBottom {
+			mar.Coords.Scanline = 0
+			mar.Coords.Frame++
 
 			// send current frame to renderer
 			select {
@@ -349,7 +349,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 			// this can almost certainly be improved in efficiency
 			mar.currentFrame = mar.newImage()
 
-		} else if mar.Coords.scanline == ntscVisibleTop {
+		} else if mar.Coords.Scanline == ntscVisibleTop {
 			// enable DMA at start of visible screen
 			mar.mstat = 0x00
 
@@ -359,7 +359,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 				mar.Error = err
 			}
 
-		} else if mar.Coords.scanline > ntscVisibleBottom {
+		} else if mar.Coords.Scanline > ntscVisibleBottom {
 			mar.mstat = 0x80
 
 		} else {
@@ -374,7 +374,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 		if mar.mstat == 0x00 {
 			// set entire scanline to background colour. individual pixels will
 			// be changed according to the display lists
-			sl := mar.Coords.scanline - ntscVisibleTop
+			sl := mar.Coords.Scanline - ntscVisibleTop
 			for clk := range clksVisible {
 				mar.currentFrame.Set(clk, sl, mar.rgba[mar.bg])
 			}
@@ -453,5 +453,5 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 	}
 
 	// return HALT signal if either WSYNC or DMA signal is enabled
-	return mar.wsync || (mar.mstat == 0x00 && mar.Coords.clk > clksHBLANK), dli
+	return mar.wsync || (mar.mstat == 0x00 && mar.Coords.Clk > clksHBLANK), dli
 }
