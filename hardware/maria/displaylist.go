@@ -104,11 +104,15 @@ func (mar *Maria) nextDL(reset bool) error {
 			return err
 		}
 
+		// palette and width are both contained in the second third byte
 		d, err := mar.mem.Read(mar.DL.origin + 3)
 		if err != nil {
 			return err
 		}
+
 		mar.DL.palette = (d & 0xe0) >> 5
+
+		// width is two's complement
 		mar.DL.width = d & 0x1f
 		mar.DL.width ^= 0x1f
 		mar.DL.width += 1
@@ -137,6 +141,8 @@ func (mar *Maria) nextDL(reset bool) error {
 		// in direct mode the second byte forms the palette and width values.
 		// we've already read the second byte into the mode variable
 		mar.DL.palette = (mode & 0xe0) >> 5
+
+		// width is two's complement
 		mar.DL.width = mode & 0x1f
 		mar.DL.width ^= 0x1f
 		mar.DL.width += 1
@@ -183,7 +189,7 @@ func (dll *dll) Status() string {
 	s.WriteString(fmt.Sprintf("dli=%v ", dll.dli))
 	s.WriteString(fmt.Sprintf("h16=%v ", dll.h16))
 	s.WriteString(fmt.Sprintf("h8=%v\n", dll.h8))
-	s.WriteString(fmt.Sprintf("offset=%02x ", dll.offset))
+	s.WriteString(fmt.Sprintf("offset=%02x/%02x ", int(dll.offset)-dll.workingOffset, dll.offset))
 	s.WriteString(fmt.Sprintf("high=%02x ", dll.highAddress))
 	s.WriteString(fmt.Sprintf("low=%02x ", dll.lowAddress))
 	return s.String()
@@ -195,7 +201,7 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 	} else {
 		mar.DLL.workingOffset--
 		if mar.DLL.workingOffset >= 0 {
-			return mar.DLL.dli && mar.DLL.workingOffset == 0, nil
+			return false, nil
 		}
 		mar.DLL.ct++
 	}
@@ -206,6 +212,7 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	mar.DLL.dli = d&0x80 == 0x80
 	mar.DLL.h16 = d&0x40 == 0x40
 	mar.DLL.h8 = d&0x20 == 0x20
@@ -224,5 +231,8 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 		return false, err
 	}
 
-	return false, nil
+	// "One of the bits of a DLL entry tells MARIA to generate a Display List
+	// Interrupt (DLI) for that zone. The interrupt will actually occur
+	// following DMA on the last line of the PREVIOUS zone."
+	return mar.DLL.dli, nil
 }
