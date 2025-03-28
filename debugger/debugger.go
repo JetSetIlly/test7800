@@ -97,6 +97,36 @@ func (m *debugger) reset() {
 	))
 }
 
+func (m *debugger) contextBreaks() error {
+	if len(m.ctx.Breaks) == 0 {
+		return nil
+	}
+
+	// filter errors to only deal with the ones we're interested in
+	// TODO: configurable filters
+	var f []error
+	for _, e := range m.ctx.Breaks {
+		if !errors.Is(e, maria.ContextError) {
+			f = append(f, e)
+		}
+	}
+
+	// breaks have been processed and so are now cleared
+	m.ctx.Breaks = m.ctx.Breaks[:0]
+
+	if len(f) == 0 {
+		return nil
+	}
+
+	// concatenate filtered errors for possible display
+	err := f[0]
+	for _, e := range f[1:] {
+		err = fmt.Errorf("%w\n%w", err, e)
+	}
+
+	return err
+}
+
 // step advances the emulation on CPU instruction according to the current step
 // the step rule will be reset after the step has completed
 //
@@ -125,12 +155,11 @@ func (m *debugger) step() bool {
 			return false
 		}
 
-		// print any context breaks
-		for _, b := range m.ctx.Breaks {
-			fmt.Println(m.styles.breakpoint.Render(b))
-			done = true
+		err = m.contextBreaks()
+		if err != nil {
+			fmt.Println(m.styles.breakpoint.Render(err.Error()))
+			return false
 		}
-		m.ctx.Breaks = m.ctx.Breaks[:0]
 
 		// apply step rule
 		if m.stepRule == nil {
@@ -193,6 +222,7 @@ func (m *debugger) run() bool {
 	// sentinal errors to
 	var (
 		breakpointErr = errors.New("breakpoint")
+		contextErr    = errors.New("context")
 		endRunErr     = errors.New("end run")
 		quitErr       = errors.New("quit")
 	)
@@ -219,24 +249,14 @@ func (m *debugger) run() bool {
 			return fmt.Errorf("CPU in KIL state")
 		}
 
-		if len(m.ctx.Breaks) > 0 {
-			defer func() {
-				m.ctx.Breaks = m.ctx.Breaks[:0]
-			}()
-			return fmt.Errorf("%w: %s", breakpointErr, strings.Join(m.ctx.Breaks, "\n"))
+		err := m.contextBreaks()
+		if err != nil {
+			return fmt.Errorf("%w%w", contextErr, err)
 		}
 
 		pcAddr := m.console.MC.PC.Address()
 		if _, ok := m.breakpoints[pcAddr]; ok {
 			return fmt.Errorf("%w: %04x", breakpointErr, pcAddr)
-		}
-
-		if m.console.MARIA.Error != nil {
-			if errors.Is(m.console.MARIA.Error, maria.WarningErr) {
-				// TODO: output warning
-			} else {
-				return m.console.MARIA.Error
-			}
 		}
 
 		return nil
@@ -273,6 +293,9 @@ func (m *debugger) run() bool {
 		)
 	} else if errors.Is(err, breakpointErr) {
 		fmt.Println(m.styles.breakpoint.Render(err.Error()))
+	} else if errors.Is(err, contextErr) {
+		s := strings.TrimPrefix(err.Error(), contextErr.Error())
+		fmt.Println(m.styles.err.Render(s))
 	} else if err != nil {
 		fmt.Println(m.styles.err.Render(err.Error()))
 	}

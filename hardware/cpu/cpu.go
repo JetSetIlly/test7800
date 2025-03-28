@@ -24,10 +24,9 @@ import (
 	"github.com/jetsetilly/test7800/hardware/cpu/registers"
 )
 
-// Context allows the CPU to request a break to occur. Like adding a breakpoint
-// and immediately triggering it. Or enabling a trace.
+// Context allows the CPU to signal a break or to enable/disable tracing
 type Context interface {
-	Break(string)
+	Break(error)
 	StartTrace(int)
 	EndTrace()
 }
@@ -1525,7 +1524,7 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 				// want to call an RTI outisde of an interrupt. while we're
 				// debugging the interrupt implemention it's a good idea to flag
 				// this up to alert ourselves to check that we're working correctly
-				mc.ctx.Break("RTI called outside of an interrupt")
+				mc.ctx.Break(errors.New("RTI called outside of an interrupt"))
 			}
 		}
 

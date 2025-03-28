@@ -46,9 +46,17 @@ func (ctrl *mariaCtrl) String() string {
 	return s.String()
 }
 
-var WarningErr = errors.New("warning")
+// Context allows Maria to signal a break
+type Context interface {
+	Break(error)
+}
+
+// the wrapping error for any errors passed to Context.Break()
+var ContextError = errors.New("maria")
 
 type Maria struct {
+	ctx Context
+
 	bg       uint8
 	wsync    bool
 	palette  [8][3]uint8
@@ -71,11 +79,6 @@ type Maria struct {
 	// the current coordinates of the TV image
 	Coords coords
 
-	// any error from the most recent tick. errors are caused when the maria
-	// can't continue in a normal fashion. for example, if dpph/dppl do not
-	// point to a valid RAM area
-	Error error
-
 	// pixels for current frame
 	currentFrame *image.RGBA
 	rendering    chan *image.RGBA
@@ -93,8 +96,9 @@ type Memory interface {
 	Write(address uint16, data uint8) error
 }
 
-func Create(mem Memory, spec string, rendering chan *image.RGBA) *Maria {
+func Create(ctx Context, mem Memory, spec string, rendering chan *image.RGBA) *Maria {
 	mar := &Maria{
+		ctx:       ctx,
 		mem:       mem,
 		rendering: rendering,
 	}
@@ -147,14 +151,6 @@ func (mar *Maria) Status() string {
 		for c := range mar.palette[p] {
 			s.WriteString(fmt.Sprintf(" %d=%#02x", c, mar.palette[p][c]))
 		}
-	}
-	if mar.Error != nil {
-		if errors.Is(mar.Error, WarningErr) {
-			s.WriteString("warning: ")
-		} else {
-			s.WriteString("error: ")
-		}
-		s.WriteString(mar.Error.Error())
 	}
 	return s.String()
 }
@@ -323,9 +319,6 @@ func (mar *Maria) Write(idx uint16, data uint8) error {
 func (mar *Maria) Tick() (halt bool, nmi bool) {
 	var dli bool
 
-	// error is reset and will be set again as appropriate in this function
-	mar.Error = nil
-
 	// assuming ntsc for now
 	mar.Coords.Clk++
 	if mar.Coords.Clk > clksScanline {
@@ -356,7 +349,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 			// start DLL reads
 			_, err := mar.nextDLL(true)
 			if err != nil {
-				mar.Error = err
+				mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 			}
 
 		} else if mar.Coords.Scanline > ntscVisibleBottom {
@@ -366,7 +359,7 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 			var err error
 			dli, err = mar.nextDLL(false)
 			if err != nil {
-				mar.Error = err
+				mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 			}
 		}
 
@@ -381,11 +374,9 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 
 			switch mar.ctrl.dma {
 			case 0x00:
-				// treat as DMA being off but record a warning
-				mar.Error = fmt.Errorf("%w: dma value of 0x00 in ctrl register is undefined", WarningErr)
+				mar.ctx.Break(fmt.Errorf("%w: dma value of 0x00 in ctrl register is undefined", ContextError))
 			case 0x01:
-				// treat as DMA being off but record a warning
-				mar.Error = fmt.Errorf("%w: dma value of 0x01 in ctrl register is undefined", WarningErr)
+				mar.ctx.Break(fmt.Errorf("%w: dma value of 0x01 in ctrl register is undefined", ContextError))
 			case 0x02:
 				mar.nextDL(true)
 				for !mar.DL.isEnd {
@@ -401,7 +392,8 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 
 							b, err := mar.mem.Read(a)
 							if err != nil {
-								mar.Error = fmt.Errorf("%w: failed to read graphics byte", err)
+								panic(err)
+								mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
 							}
 
 							if mar.DLL.h16 && (a&0x9000 == 0x9000) {
@@ -437,11 +429,11 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 						}
 
 					case 1:
-						mar.Error = fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", WarningErr)
+						mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", ContextError))
 					case 2:
-						mar.Error = fmt.Errorf("%w: readmode value of 0x02 in ctrl register is not fully emulated", WarningErr)
+						mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is not fully emulated", ContextError))
 					case 3:
-						mar.Error = fmt.Errorf("%w: readmode value of 0x03 in ctrl register is not fully emulated", WarningErr)
+						mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is not fully emulated", ContextError))
 					}
 
 					mar.nextDL(false)

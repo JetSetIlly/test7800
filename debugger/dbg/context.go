@@ -12,11 +12,12 @@ const (
 )
 
 type Context struct {
-	Breaks []string
-	trace  int
-
-	Trace  []execution.Result
 	Recent []execution.Result
+
+	Breaks []error
+
+	trace int
+	Trace []execution.Result
 
 	rand *rand.Rand
 }
@@ -43,8 +44,8 @@ func (ctx *Context) Rand16Bit() uint16 {
 	return uint16(ctx.rand.IntN(65535))
 }
 
-func (ctx *Context) Break(s string) {
-	ctx.Breaks = append(ctx.Breaks, s)
+func (ctx *Context) Break(e error) {
+	ctx.Breaks = append(ctx.Breaks, e)
 }
 
 // start trace specifying desired length. a length of -1 means trace until

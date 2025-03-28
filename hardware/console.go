@@ -40,7 +40,7 @@ func Create(ctx Context, rendering chan *image.RGBA) Console {
 	con.Mem, addChips = memory.Create(ctx)
 
 	con.MC = cpu.NewCPU(ctx, con.Mem)
-	con.MARIA = maria.Create(con.Mem, con.Mem.BIOS.Spec(), rendering)
+	con.MARIA = maria.Create(ctx, con.Mem, con.Mem.BIOS.Spec(), rendering)
 	con.TIA = tia.Create(con.Mem)
 	con.RIOT = riot.Create(con.Mem)
 
