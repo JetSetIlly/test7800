@@ -49,6 +49,7 @@ func Launch(endGui chan bool, rendering chan *image.RGBA) error {
 	ebiten.SetVsyncEnabled(true)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowPosition(10, 10)
+	ebiten.SetTPS(ebiten.SyncWithFPS)
 
 	return ebiten.RunGame(&gui{
 		endGui:    endGui,

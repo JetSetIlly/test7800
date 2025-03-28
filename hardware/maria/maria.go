@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"strings"
+	"time"
 )
 
 type mariaCtrl struct {
@@ -85,6 +86,9 @@ type Maria struct {
 	// the current spec (decided via the BIOS)
 	spec spec
 
+	// frame limiter
+	limiter *time.Ticker
+
 	// creating a new image depends on the tv specification. the newImage()
 	// function returns an appropriately sized image for the specification
 	newImage func() *image.RGBA
@@ -110,6 +114,10 @@ func Create(ctx Context, mem Memory, spec string, rendering chan *image.RGBA) *M
 	default:
 		panic("currently unsupported specification")
 	}
+
+	// calculate refresh rate and start frame limiter
+	hz := mar.spec.horizScan / float64(mar.spec.absoluteBottom)
+	mar.limiter = time.NewTicker(time.Second / time.Duration(hz))
 
 	mar.newImage = func() *image.RGBA {
 		return image.NewRGBA(image.Rect(0, 0, clksVisible, mar.spec.visibleBottom-mar.spec.visibleTop))
@@ -325,6 +333,8 @@ func (mar *Maria) Tick() (halt bool, nmi bool) {
 		if mar.Coords.Scanline > mar.spec.absoluteBottom {
 			mar.Coords.Scanline = 0
 			mar.Coords.Frame++
+
+			<-mar.limiter.C
 
 			// send current frame to renderer
 			select {

@@ -15,14 +15,6 @@ var ntscRaw []byte
 //go:embed "palettes/PAL_A7800_CRTTV.pal"
 var palRaw []byte
 
-const (
-	ntscHorizScan  = 15734.26
-	palHorizScan   = 15625.00
-	pal60HorizScan = 15625.00
-	palMHorizScan  = 15734.26
-	secamHorizScan = 15625.00
-)
-
 const clksScanline = 227
 const clksHBLANK = 67
 const clksVisible = 160
@@ -32,6 +24,7 @@ type spec struct {
 	visibleTop     int
 	visibleBottom  int
 	absoluteBottom int
+	horizScan      float64
 }
 
 var ntsc spec
@@ -45,6 +38,7 @@ func init() {
 		visibleTop:     16,
 		visibleBottom:  258,
 		absoluteBottom: 263,
+		horizScan:      15734.26,
 	}
 
 	pal = spec{
@@ -54,6 +48,7 @@ func init() {
 		visibleTop:     16,
 		visibleBottom:  308,
 		absoluteBottom: 313,
+		horizScan:      15625.00,
 	}
 
 	if len(ntscRaw) != 768 {
