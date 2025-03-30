@@ -7,6 +7,7 @@ import (
 	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/hardware/memory/inptctrl"
 	"github.com/jetsetilly/test7800/hardware/memory/ram"
+	"github.com/jetsetilly/test7800/hardware/tia"
 )
 
 type Memory struct {
@@ -20,8 +21,11 @@ type Memory struct {
 	TIA   Area
 	RIOT  Area
 
-	// the last Area that was accessed
-	Last Area
+	// the last Area that was written to
+	LastWrite Area
+
+	// was last memory cycle an access of a TIA address
+	isTIA bool
 }
 
 type Context interface {
@@ -55,6 +59,12 @@ func Create(ctx Context) (*Memory, AddChips) {
 		mem.TIA = tia
 		mem.RIOT = riot
 	}
+}
+
+func (mem *Memory) IsTIA() bool {
+	isTIA := mem.isTIA
+	mem.isTIA = false
+	return isTIA
 }
 
 func (mem *Memory) Reset(random bool) {
@@ -325,6 +335,7 @@ func (mem *Memory) Read(address uint16) (uint8, error) {
 	if area == nil {
 		return 0, fmt.Errorf("read unmapped address: %04x", address)
 	}
+	_, mem.isTIA = area.(*tia.TIA)
 	v, err := area.Read(idx)
 	if err != nil {
 		return 0, fmt.Errorf("read %04x: %w", address, err)
@@ -337,7 +348,8 @@ func (mem *Memory) Write(address uint16, data uint8) error {
 	if area == nil {
 		return fmt.Errorf("write unmapped address: %04x", address)
 	}
-	mem.Last = area
+	_, mem.isTIA = area.(*tia.TIA)
+	mem.LastWrite = area
 	err := area.Write(idx, data)
 	if err != nil {
 		return fmt.Errorf("write %04x: %w", address, err)

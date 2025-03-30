@@ -132,7 +132,7 @@ func Create(ctx Context, mem Memory, spec string, rendering chan *image.RGBA) *M
 	mar.limiter = time.NewTicker(time.Second / time.Duration(hz))
 
 	mar.newImage = func() *image.RGBA {
-		return image.NewRGBA(image.Rect(0, 0, clksVisible, mar.spec.visibleBottom-mar.spec.visibleTop))
+		return image.NewRGBA(image.Rect(0, 0, clksVisible, mar.spec.absoluteBottom))
 	}
 
 	mar.currentFrame = mar.newImage()
@@ -339,15 +339,20 @@ const preDMA = 7 * clocks.MariaCycles
 const (
 	dmaStart           = 16
 	dmaStartLastInZone = 24
-	dmaDirectDL        = 8
-	dmaIndirectDL      = 10
-	dmaDirect          = 3
-	dmaIndirect160     = 6
-	dmaIndirect320     = 9
+	dmaDLHeader        = 8
+	dmaLongDLHeader    = 10
+	dmaDirectGfx       = 3
+	dmaIndirectGfx     = 6
+	dmaIndirectWideGfx = 9
 )
 
 // returns true if CPU is to be halted and true if DLL has requested an interrupt
+//
+// note that the interrupt request will be returned at the beginning of DMA
+// rather than at the end (which is when it would really occur). this doesn't
+// matter however because the CPU will be stalled until the end of DMA
 func (mar *Maria) Tick() (halt bool, interrupt bool) {
+	// whether the current DLL indicates that an interrupt should occur
 	var dli bool
 
 	mar.Coords.Clk++
@@ -393,7 +398,7 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 				mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 			}
 
-			// DMA accumulation
+			// DMA cycle counting
 			if mar.DLL.offset == 0 {
 				mar.requiredDMACycles = dmaStartLastInZone
 			} else {
@@ -415,50 +420,60 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 			case 0x02:
 				mar.nextDL(true)
 				for !mar.DL.isEnd {
-
-					// DMA accumulation
+					// DMA cycle counting
+					if mar.DL.long {
+						mar.requiredDMACycles += dmaLongDLHeader
+					} else {
+						mar.requiredDMACycles += dmaDLHeader
+					}
 					if mar.DL.indirect {
-						mar.requiredDMACycles += dmaIndirectDL
-						if mar.ctrl.readMode&0x10 == 0x10 {
-							mar.requiredDMACycles += int(mar.DL.width) * dmaIndirect320
+						if mar.ctrl.charWidth {
+							mar.requiredDMACycles += int(mar.DL.width) * dmaIndirectWideGfx
 						} else {
-							mar.requiredDMACycles += int(mar.DL.width) * dmaIndirect160
+							mar.requiredDMACycles += int(mar.DL.width) * dmaIndirectGfx
 						}
 					} else {
-						mar.requiredDMACycles += dmaDirectDL
-						mar.requiredDMACycles += int(mar.DL.width) * dmaDirectDL
+						mar.requiredDMACycles += int(mar.DL.width) * dmaDirectGfx
 					}
 
 					switch mar.ctrl.readMode {
 					case 0:
 						for w := range mar.DL.width {
 							a := ((uint16(mar.DL.highAddress) << 8) | uint16(mar.DL.lowAddress))
-							if mar.DL.indirect {
-								a += (uint16(mar.charbase) << 8)
-							}
 
-							// "Each time graphics data is to be fetched OFFSET is added to the specified
-							// High address byte, to determine the actual address where the data should
-							// be found"
-							a += uint16(mar.DLL.workingOffset) << 8
-
-							// width of the
+							// width of the display list
 							a += uint16(w)
+
+							if !mar.DL.indirect {
+								// "Each time graphics data is to be fetched OFFSET is added to the specified
+								// High address byte, to determine the actual address where the data should
+								// be found"
+								a += uint16(mar.DLL.workingOffset) << 8
+
+								if mar.DLL.inHole(a) {
+									continue // for width loop
+								}
+							}
 
 							b, err := mar.mem.Read(a)
 							if err != nil {
 								mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
 							}
 
-							// "Holey DMA has been aimed at 8 or 16 raster zones, but will have the same
-							// effect for other zone sizes. MARIA can be told to interpret odd 4K blocks as
-							// zeros, for 16 high zones, or odd 2K blocks as zeros for 8 high zones. This
-							// will only work for addresses above x '8000'"
-							if a > 0x8000 {
-								if mar.DLL.h16 && (a&0x9000 == 0x9000) {
+							if mar.DL.indirect {
+								a = (uint16(mar.charbase) << 8) | uint16(b)
+
+								// we'll be reading graphics data with this address so we add the working
+								// offset to the high address byte (see comment above)
+								a += uint16(mar.DLL.workingOffset) << 8
+
+								if mar.DLL.inHole(a) {
 									continue // for width loop
-								} else if mar.DLL.h8 && (a&0x8800 == 0x8800) {
-									continue // for width loop
+								}
+
+								b, err = mar.mem.Read(a)
+								if err != nil {
+									mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
 								}
 							}
 
@@ -508,9 +523,8 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 		mar.ctx.Break(fmt.Errorf("%w: number of required DMA cycles is too much (%d)", ContextError, mar.requiredDMACycles))
 	}
 
-	// return HALT signal if either WSYNC or DMA signal is enabled
-	return mar.wsync ||
-		(mar.mstat == vblankDisable &&
-			mar.Coords.Clk >= preDMA &&
-			mar.Coords.Clk <= (preDMA+mar.requiredDMACycles)), dli
+	// return HALT signal if either WSYNC or DMA is enabled
+	return mar.wsync || (mar.mstat == vblankDisable &&
+		mar.Coords.Clk >= preDMA &&
+		mar.Coords.Clk <= (preDMA+mar.requiredDMACycles)), dli
 }

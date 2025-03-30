@@ -74,13 +74,17 @@ func (con *Console) Step() error {
 	}()
 
 	tick := func() error {
+		// the CPU slows down when TIA memory has been accessed
+		mariaCycles := clocks.MariaCycles
+		if con.Mem.IsTIA() {
+			mariaCycles = clocks.MariaCycles_for_TIA
+		}
+
 		// this function is called once per CPU cycle. MARIA runs faster than
 		// the CPU and so there are multiple ticks of the MARIA per CPU cycle
 		//
 		// if the TIA bus is active then the CPU runs at a slower clock
-		//
-		// TODO: handle slowing down of CPU
-		for range clocks.MariaCycles {
+		for range mariaCycles {
 			var interrupt bool
 			con.halt, interrupt = con.MARIA.Tick()
 			interruptNext = interruptNext || interrupt
@@ -129,14 +133,14 @@ type lastArea interface {
 // Once this function has been executed, the last memory area information is gone
 // and it will return nothing until the next memory write.
 func (con *Console) LastAreaStatus() string {
-	if con.Mem.Last == nil {
+	if con.Mem.LastWrite == nil {
 		return ""
 	}
 	var s string
-	l, ok := con.Mem.Last.(lastArea)
+	l, ok := con.Mem.LastWrite.(lastArea)
 	if ok {
 		s = l.Status()
 	}
-	con.Mem.Last = nil
+	con.Mem.LastWrite = nil
 	return s
 }

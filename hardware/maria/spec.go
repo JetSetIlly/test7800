@@ -23,6 +23,8 @@ type spec struct {
 	palette        [256]color.RGBA
 	visibleTop     int
 	visibleBottom  int
+	safeTop        int
+	safeBottom     int
 	absoluteBottom int
 	horizScan      float64
 }
@@ -37,6 +39,8 @@ func init() {
 		// starts on raster 16 and ends on raster 258."
 		visibleTop:     16,
 		visibleBottom:  258,
+		safeTop:        41,
+		safeBottom:     233,
 		absoluteBottom: 263,
 		horizScan:      15734.26,
 	}
@@ -47,6 +51,8 @@ func init() {
 		// 	308"
 		visibleTop:     16,
 		visibleBottom:  308,
+		safeTop:        41,
+		safeBottom:     233,
 		absoluteBottom: 313,
 		horizScan:      15625.00,
 	}

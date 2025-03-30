@@ -6,12 +6,14 @@ import (
 )
 
 type dl struct {
-	// if the indirect bit is set then the size of the header is 5 bytes rather than 4
-	indirect bool
+	// if the indirect bit is set then the size of the header is 5 bytes rather than 4 bytes
+	long bool
 
-	// writemode is not present in a 4 byte header
+	// writemode and indirect are not present in a 4 byte header
 	writemode bool
+	indirect  bool
 
+	// these fields are common to both the 4 and 5 byte header
 	lowAddress         uint8
 	highAddress        uint8
 	palette            uint8
@@ -55,14 +57,15 @@ func (mar *Maria) nextDL(reset bool) error {
 		mar.DL.ct = 0
 	} else {
 		mar.DL.ct++
-		if mar.DL.indirect {
+		if mar.DL.long {
 			prevSize = 5
 		} else {
 			prevSize = 4
 		}
 	}
 
-	mar.DL.origin = (uint16(mar.DLL.highAddress) << 8) | (uint16(mar.DLL.lowAddress) + uint16(mar.DL.ct*prevSize))
+	mar.DL.origin = (uint16(mar.DLL.highAddress) << 8) | uint16(mar.DLL.lowAddress)
+	mar.DL.origin += uint16(mar.DL.ct * prevSize)
 
 	var err error
 
@@ -81,6 +84,7 @@ func (mar *Maria) nextDL(reset bool) error {
 
 	// return early if this the end of the DLL
 	if mar.DL.isEnd {
+		mar.DL.long = false
 		mar.DL.indirect = false
 		mar.DL.writemode = false
 		mar.DL.lowAddress = 0
@@ -91,13 +95,19 @@ func (mar *Maria) nextDL(reset bool) error {
 		return nil
 	}
 
-	// the size of the DL header is different for indirect and direct modes
-	mar.DL.indirect = mode&0x1f == 0x00
-	if mar.DL.indirect {
-		// for indirect mode the header is 5bytes long
+	setWidth := func(v uint8) {
+		// width is two's complement
+		mar.DL.width = v ^ 0x1f
+		mar.DL.width += 1
+		mar.DL.width &= 0x1f
+	}
 
+	// the size of the DL header is different for indirect and direct modes
+	mar.DL.long = mode&0x5f == 0x40
+	if mar.DL.long {
 		// the write bit is also part of the second byte, along with the indirect bit
 		mar.DL.writemode = mode&0x80 == 0x80
+		mar.DL.indirect = mode&0x20 == 0x20
 
 		mar.DL.highAddress, err = mar.mem.Read(mar.DL.origin + 2)
 		if err != nil {
@@ -111,12 +121,7 @@ func (mar *Maria) nextDL(reset bool) error {
 		}
 
 		mar.DL.palette = (d & 0xe0) >> 5
-
-		// width is two's complement
-		mar.DL.width = d & 0x1f
-		mar.DL.width ^= 0x1f
-		mar.DL.width += 1
-		mar.DL.width &= 0x1f
+		setWidth(d & 0x1f)
 
 		// "There is an added bonus to five byte headers. Because the end of DMA is
 		// indicated by the presence of a zero in the second byte of a header, and
@@ -137,16 +142,13 @@ func (mar *Maria) nextDL(reset bool) error {
 		}
 	} else {
 		// for direct mode the header is 4bytes long
+		mar.DL.writemode = false
+		mar.DL.indirect = false
 
 		// in direct mode the second byte forms the palette and width values.
 		// we've already read the second byte into the mode variable
 		mar.DL.palette = (mode & 0xe0) >> 5
-
-		// width is two's complement
-		mar.DL.width = mode & 0x1f
-		mar.DL.width ^= 0x1f
-		mar.DL.width += 1
-		mar.DL.width &= 0x1f
+		setWidth(mode & 0x1f)
 
 		mar.DL.highAddress, err = mar.mem.Read(mar.DL.origin + 2)
 		if err != nil {
@@ -193,6 +195,22 @@ func (l *dll) Status() string {
 	s.WriteString(fmt.Sprintf("high=%02x ", l.highAddress))
 	s.WriteString(fmt.Sprintf("low=%02x ", l.lowAddress))
 	return s.String()
+}
+
+func (l *dll) inHole(a uint16) bool {
+	// "Holey DMA has been aimed at 8 or 16 raster zones, but will have the same
+	// effect for other zone sizes. MARIA can be told to interpret odd 4K blocks as
+	// zeros, for 16 high zones, or odd 2K blocks as zeros for 8 high zones. This
+	// will only work for addresses above '0x8000'"
+	if a > 0x8000 {
+		if l.h16 && (a&0x9000 == 0x9000) {
+			return true
+		}
+		if l.h8 && (a&0x8800 == 0x8800) {
+			return true
+		}
+	}
+	return false
 }
 
 func (mar *Maria) nextDLL(reset bool) (bool, error) {
