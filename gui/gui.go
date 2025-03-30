@@ -10,6 +10,8 @@ type gui struct {
 	endGui    chan bool
 	rendering chan *image.RGBA
 	frame     *ebiten.Image
+	width     int
+	height    int
 }
 
 func (g *gui) Update() error {
@@ -19,7 +21,9 @@ func (g *gui) Update() error {
 	case img := <-g.rendering:
 		dim := img.Bounds()
 		if g.frame == nil || (g.frame == nil && g.frame.Bounds() != dim) {
-			g.frame = ebiten.NewImage(dim.Dx(), dim.Dy())
+			g.width = dim.Dx()
+			g.height = dim.Dy()
+			g.frame = ebiten.NewImage(g.width, g.height)
 		}
 		g.frame.WritePixels(img.Pix)
 	default:
@@ -28,19 +32,21 @@ func (g *gui) Update() error {
 }
 
 const (
-	scaling    = 2
-	pixelWidth = 2 * scaling
+	pixelWidth = 2
 )
 
 func (g *gui) Draw(screen *ebiten.Image) {
 	if g.frame != nil {
 		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Scale(pixelWidth, scaling)
+		op.GeoM.Scale(pixelWidth, 1)
 		screen.DrawImage(g.frame, op)
 	}
 }
 
 func (g *gui) Layout(width, height int) (int, int) {
+	if g.frame != nil {
+		return g.width * pixelWidth, g.height
+	}
 	return width, height
 }
 

@@ -95,6 +95,9 @@ type Maria struct {
 	currentFrame *image.RGBA
 	rendering    chan *image.RGBA
 
+	// the top of the image is not necessarily scanline zero
+	imageTop int
+
 	// the current spec (decided via the BIOS)
 	spec spec
 
@@ -131,8 +134,10 @@ func Create(ctx Context, mem Memory, spec string, rendering chan *image.RGBA) *M
 	hz := mar.spec.horizScan / float64(mar.spec.absoluteBottom)
 	mar.limiter = time.NewTicker(time.Second / time.Duration(hz))
 
+	mar.imageTop = mar.spec.visibleTop
+
 	mar.newImage = func() *image.RGBA {
-		return image.NewRGBA(image.Rect(0, 0, clksVisible, mar.spec.absoluteBottom))
+		return image.NewRGBA(image.Rect(0, mar.imageTop, clksVisible, mar.spec.visibleBottom-mar.imageTop))
 	}
 
 	mar.currentFrame = mar.newImage()
@@ -405,9 +410,11 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 				mar.requiredDMACycles = dmaStart
 			}
 
+			// the scanline value adjusted by where the top of the image is located
+			sl := mar.Coords.Scanline - mar.imageTop
+
 			// set entire scanline to background colour. individual pixels will
 			// be changed according to the display lists
-			sl := mar.Coords.Scanline - mar.spec.visibleTop
 			for clk := range clksVisible {
 				mar.currentFrame.Set(clk, sl, mar.spec.palette[mar.bg])
 			}
