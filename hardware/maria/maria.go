@@ -79,6 +79,9 @@ type Maria struct {
 	DLL dll
 	DL  dl
 
+	// the number of DMA cycles required to construct the scanline
+	requiredDMACycles int
+
 	// read-only registers
 	mstat uint8 // bit 7 is true if VBLANK is enabled
 
@@ -333,6 +336,16 @@ func (mar *Maria) Write(idx uint16, data uint8) error {
 // scan line"
 const preDMA = 7 * clocks.MariaCycles
 
+const (
+	dmaStart           = 16
+	dmaStartLastInZone = 24
+	dmaDirectDL        = 8
+	dmaIndirectDL      = 10
+	dmaDirect          = 3
+	dmaIndirect160     = 6
+	dmaIndirect320     = 9
+)
+
 // returns true if CPU is to be halted and true if DLL has requested an interrupt
 func (mar *Maria) Tick() (halt bool, interrupt bool) {
 	var dli bool
@@ -373,18 +386,18 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 		// DMA is only ever active when VBLANK is disabled
 		if mar.mstat == vblankDisable {
 
-			// advance to the
-			if mar.Coords.Scanline == mar.spec.visibleTop {
-				_, err := mar.nextDLL(true)
-				if err != nil {
-					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
-				}
+			// whether to trigger an interrupt at the end of the display list
+			var err error
+			dli, err = mar.nextDLL(mar.Coords.Scanline == mar.spec.visibleTop)
+			if err != nil {
+				mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+			}
+
+			// DMA accumulation
+			if mar.DLL.offset == 0 {
+				mar.requiredDMACycles = dmaStartLastInZone
 			} else {
-				var err error
-				dli, err = mar.nextDLL(false)
-				if err != nil {
-					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
-				}
+				mar.requiredDMACycles = dmaStart
 			}
 
 			// set entire scanline to background colour. individual pixels will
@@ -402,6 +415,20 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 			case 0x02:
 				mar.nextDL(true)
 				for !mar.DL.isEnd {
+
+					// DMA accumulation
+					if mar.DL.indirect {
+						mar.requiredDMACycles += dmaIndirectDL
+						if mar.ctrl.readMode&0x10 == 0x10 {
+							mar.requiredDMACycles += int(mar.DL.width) * dmaIndirect320
+						} else {
+							mar.requiredDMACycles += int(mar.DL.width) * dmaIndirect160
+						}
+					} else {
+						mar.requiredDMACycles += dmaDirectDL
+						mar.requiredDMACycles += int(mar.DL.width) * dmaDirectDL
+					}
+
 					switch mar.ctrl.readMode {
 					case 0:
 						for w := range mar.DL.width {
@@ -409,7 +436,13 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 							if mar.DL.indirect {
 								a += (uint16(mar.charbase) << 8)
 							}
+
+							// "Each time graphics data is to be fetched OFFSET is added to the specified
+							// High address byte, to determine the actual address where the data should
+							// be found"
 							a += uint16(mar.DLL.workingOffset) << 8
+
+							// width of the
 							a += uint16(w)
 
 							b, err := mar.mem.Read(a)
@@ -417,10 +450,16 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 								mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
 							}
 
-							if mar.DLL.h16 && (a&0x9000 == 0x9000) {
-								continue // for width loop
-							} else if mar.DLL.h8 && (a&0x8800 == 0x8800) {
-								continue // for width loop
+							// "Holey DMA has been aimed at 8 or 16 raster zones, but will have the same
+							// effect for other zone sizes. MARIA can be told to interpret odd 4K blocks as
+							// zeros, for 16 high zones, or odd 2K blocks as zeros for 8 high zones. This
+							// will only work for addresses above x '8000'"
+							if a > 0x8000 {
+								if mar.DLL.h16 && (a&0x9000 == 0x9000) {
+									continue // for width loop
+								} else if mar.DLL.h8 && (a&0x8800 == 0x8800) {
+									continue // for width loop
+								}
 							}
 
 							if mar.DL.writemode {
@@ -465,6 +504,13 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 		}
 	}
 
+	if mar.requiredDMACycles+preDMA > clksScanline {
+		mar.ctx.Break(fmt.Errorf("%w: number of required DMA cycles is too much (%d)", ContextError, mar.requiredDMACycles))
+	}
+
 	// return HALT signal if either WSYNC or DMA signal is enabled
-	return mar.wsync || (mar.mstat == vblankDisable && mar.Coords.Clk >= preDMA), dli
+	return mar.wsync ||
+		(mar.mstat == vblankDisable &&
+			mar.Coords.Clk >= preDMA &&
+			mar.Coords.Clk <= (preDMA+mar.requiredDMACycles)), dli
 }

@@ -28,21 +28,21 @@ type dl struct {
 	origin uint16
 }
 
-func (dl *dl) Status() string {
+func (l *dl) Status() string {
 	var s strings.Builder
-	s.WriteString(fmt.Sprintf("ct=%d origin=%04x\n", dl.ct, dl.origin))
-	if dl.isEnd {
+	s.WriteString(fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin))
+	if l.isEnd {
 		s.WriteString("end")
 		return s.String()
 	}
-	if dl.indirect {
-		s.WriteString(fmt.Sprintf("indirect=%v writebit=%v\n", dl.indirect, dl.writemode))
+	if l.indirect {
+		s.WriteString(fmt.Sprintf("indirect=%v writebit=%v\n", l.indirect, l.writemode))
 	}
-	s.WriteString(fmt.Sprintf("high=%02x ", dl.highAddress))
-	s.WriteString(fmt.Sprintf("low=%02x\n", dl.lowAddress))
-	s.WriteString(fmt.Sprintf("palette=%03b ", dl.palette))
-	s.WriteString(fmt.Sprintf("width=%05b\n", dl.width))
-	s.WriteString(fmt.Sprintf("pos=%02x", dl.horizontalPosition))
+	s.WriteString(fmt.Sprintf("high=%02x ", l.highAddress))
+	s.WriteString(fmt.Sprintf("low=%02x\n", l.lowAddress))
+	s.WriteString(fmt.Sprintf("palette=%03b ", l.palette))
+	s.WriteString(fmt.Sprintf("width=%05b\n", l.width))
+	s.WriteString(fmt.Sprintf("pos=%02x", l.horizontalPosition))
 	return s.String()
 }
 
@@ -179,19 +179,19 @@ type dll struct {
 	workingOffset int
 }
 
-func (dll *dll) ID() string {
-	return fmt.Sprintf("ct=%d origin=%04x\n", dll.ct, dll.origin)
+func (l *dll) ID() string {
+	return fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin)
 }
 
-func (dll *dll) Status() string {
+func (l *dll) Status() string {
 	var s strings.Builder
-	s.WriteString(fmt.Sprintf("ct=%d origin=%04x\n", dll.ct, dll.origin))
-	s.WriteString(fmt.Sprintf("dli=%v ", dll.dli))
-	s.WriteString(fmt.Sprintf("h16=%v ", dll.h16))
-	s.WriteString(fmt.Sprintf("h8=%v\n", dll.h8))
-	s.WriteString(fmt.Sprintf("offset=%02x/%02x ", int(dll.offset)-dll.workingOffset, dll.offset))
-	s.WriteString(fmt.Sprintf("high=%02x ", dll.highAddress))
-	s.WriteString(fmt.Sprintf("low=%02x ", dll.lowAddress))
+	s.WriteString(fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin))
+	s.WriteString(fmt.Sprintf("dli=%v ", l.dli))
+	s.WriteString(fmt.Sprintf("h16=%v ", l.h16))
+	s.WriteString(fmt.Sprintf("h8=%v\n", l.h8))
+	s.WriteString(fmt.Sprintf("offset=%02x/%02x ", int(l.offset)-l.workingOffset, l.offset))
+	s.WriteString(fmt.Sprintf("high=%02x ", l.highAddress))
+	s.WriteString(fmt.Sprintf("low=%02x ", l.lowAddress))
 	return s.String()
 }
 
@@ -199,14 +199,39 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 	if reset {
 		mar.DLL.ct = 0
 	} else {
+		// "Included in each entry is a value called OFFSET, which indicates how many
+		// rasters should use the specified Display List. OFFSET is decremented at the
+		// end of each raster until it becomes negative, which indicates that the next
+		// DLL entry should now be read and used."
+		//
+		// to implement this we're using a second field separate from the original
+		// value. this is so we can display the original value if we need to via the
+		// Status() function; and also so we can work with negative values which is
+		// clearer than dealing with underflowed uint8
 		mar.DLL.workingOffset--
-		if mar.DLL.workingOffset >= 0 {
+
+		if mar.DLL.workingOffset > 0 {
 			return false, nil
 		}
+
+		// "One of the bits of a DLL entry tells MARIA to generate a Display List
+		// Interrupt (DLI) for that zone. The interrupt will actually occur
+		// following DMA on the last line of the PREVIOUS zone."
+		if mar.DLL.workingOffset == 0 {
+			preview := mar.DLL.origin + uint16(3)
+			d, err := mar.mem.Read(preview)
+			if err != nil {
+				return false, err
+			}
+			return d&0x80 == 0x80, nil
+		}
+
+		// workingOffset is less than zero so we read the next DLL
 		mar.DLL.ct++
 	}
 
-	mar.DLL.origin = (uint16(mar.dpph) << 8) | (uint16(mar.dppl) + uint16(mar.DLL.ct*3))
+	mar.DLL.origin = (uint16(mar.dpph) << 8) | uint16(mar.dppl)
+	mar.DLL.origin += uint16(mar.DLL.ct * 3)
 
 	d, err := mar.mem.Read(mar.DLL.origin)
 	if err != nil {
@@ -231,8 +256,5 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 		return false, err
 	}
 
-	// "One of the bits of a DLL entry tells MARIA to generate a Display List
-	// Interrupt (DLI) for that zone. The interrupt will actually occur
-	// following DMA on the last line of the PREVIOUS zone."
-	return mar.DLL.dli, nil
+	return false, nil
 }
