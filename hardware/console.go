@@ -9,10 +9,12 @@ import (
 	"github.com/jetsetilly/test7800/hardware/memory"
 	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
+	"github.com/jetsetilly/test7800/io"
 )
 
 type Console struct {
 	ctx Context
+	inp chan io.Input
 
 	MC    *cpu.CPU
 	Mem   *memory.Memory
@@ -31,9 +33,10 @@ type Context interface {
 	Rand16Bit() uint16
 }
 
-func Create(ctx Context, rendering chan *image.RGBA) Console {
+func Create(ctx Context, rendering chan *image.RGBA, inp chan io.Input) Console {
 	con := Console{
 		ctx: ctx,
+		inp: inp,
 	}
 
 	var addChips memory.AddChips
@@ -65,6 +68,53 @@ func (con *Console) Reset(random bool) error {
 }
 
 func (con *Console) Step() error {
+	// handle input (left stick only)
+	var drained bool
+	for !drained {
+		select {
+		default:
+			drained = true
+		case inp := <-con.inp:
+			switch inp.Action {
+			case io.StickButtonA:
+				if inp.Release {
+					con.TIA.Write(0x0c, 0x80)
+				} else {
+					con.TIA.Write(0x0c, 0x00)
+				}
+			case io.StickLeft:
+				r, _ := con.RIOT.Read(0x00)
+				if inp.Release {
+					con.RIOT.Write(0x00, r&0xbf|0x40)
+				} else {
+					con.RIOT.Write(0x00, r&0xbf)
+				}
+				r, _ = con.RIOT.Read(0x00)
+			case io.StickUp:
+				r, _ := con.RIOT.Read(0x00)
+				if inp.Release {
+					con.RIOT.Write(0x00, r&0xef|0x10)
+				} else {
+					con.RIOT.Write(0x00, r&0xef)
+				}
+			case io.StickRight:
+				r, _ := con.RIOT.Read(0x00)
+				if inp.Release {
+					con.RIOT.Write(0x00, r&0x7f|0x80)
+				} else {
+					con.RIOT.Write(0x00, r&0x7f)
+				}
+			case io.StickDown:
+				r, _ := con.RIOT.Read(0x00)
+				if inp.Release {
+					con.RIOT.Write(0x00, r&0xdf|0x20)
+				} else {
+					con.RIOT.Write(0x00, r&0xdf)
+				}
+			}
+		}
+	}
+
 	var interruptNext bool
 
 	defer func() {
@@ -110,6 +160,16 @@ func (con *Console) Step() error {
 }
 
 func (con *Console) Run(hook func() error) error {
+	// drain input channel
+	var drained bool
+	for !drained {
+		select {
+		case <-con.inp:
+		default:
+			drained = true
+		}
+	}
+
 	for {
 		err := con.Step()
 		if err != nil {

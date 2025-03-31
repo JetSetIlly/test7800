@@ -7,6 +7,7 @@ import (
 
 	"github.com/jetsetilly/test7800/debugger"
 	"github.com/jetsetilly/test7800/gui"
+	"github.com/jetsetilly/test7800/io"
 )
 
 func main() {
@@ -29,13 +30,16 @@ func main() {
 	var rendering chan *image.RGBA
 	rendering = make(chan *image.RGBA, 1)
 
+	var inp chan io.Input
+	inp = make(chan io.Input, 10)
+
 	go func() {
-		resultGui <- gui.Launch(endGui, rendering)
+		resultGui <- gui.Launch(endGui, rendering, inp)
 		endDebugger <- true
 	}()
 
 	go func() {
-		resultDebugger <- debugger.Launch(endDebugger, rendering, os.Args[1:])
+		resultDebugger <- debugger.Launch(endDebugger, rendering, inp, os.Args[1:])
 		endGui <- true
 	}()
 

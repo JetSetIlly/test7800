@@ -18,6 +18,7 @@ import (
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/hardware"
 	"github.com/jetsetilly/test7800/hardware/maria"
+	"github.com/jetsetilly/test7800/io"
 )
 
 type styles struct {
@@ -534,7 +535,7 @@ func (m *debugger) loop() {
 	}
 }
 
-func Launch(externalQuit chan bool, rendering chan *image.RGBA, args []string) error {
+func Launch(externalQuit chan bool, rendering chan *image.RGBA, inp chan io.Input, args []string) error {
 	var bootfile string
 
 	if len(args) == 1 {
@@ -560,7 +561,7 @@ func Launch(externalQuit chan bool, rendering chan *image.RGBA, args []string) e
 		},
 		breakpoints: make(map[uint16]bool),
 	}
-	m.console = hardware.Create(&m.ctx, rendering)
+	m.console = hardware.Create(&m.ctx, rendering, inp)
 
 	signal.Notify(m.sig, syscall.SIGINT)
 
