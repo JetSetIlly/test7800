@@ -39,8 +39,8 @@ type AddChips func(maria Area, tia Area, riot Area)
 
 type Area interface {
 	// for some areas the index field is the address adjust for the origin
-	// address of the area. the exception to this is the external.Device area
-	// whic works with an unadjusted address
+	// address of the area. the exceptions to this are the external.Device area
+	// and the BIOS, which both work with unadjusted addresses
 	Read(idx uint16) (uint8, error)
 	Write(idx uint16, data uint8) error
 	Label() string
@@ -94,6 +94,10 @@ const (
 //
 // Also, RAM7800 is always returned as an area even if MARIA is disabled. I'm
 // pretty sure this isn't strictly correct but it shouldn't cause any harm.
+//
+// The returned numeric value is the index into the memory area, with the
+// exception of the BIOS and external devices where the unaltered address is
+// returned
 func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	// map taken from "7800 Software Guide":
 	//
@@ -224,7 +228,6 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 
 	if address >= 0x0280 && address <= 0x02ff {
 		// RIOT
-		address -= 0x0280
 		if read {
 			if address&maskReadRIOT_timer == maskReadRIOT_timer {
 				return address & maskReadRIOT_timer_correction, mem.RIOT
@@ -273,7 +276,6 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 
 	if address >= 0x0380 && address <= 0x03ff {
 		// RIOT
-		address -= 0x0380
 		if read {
 			if address&maskReadRIOT_timer == maskReadRIOT_timer {
 				return address & maskReadRIOT_timer_correction, mem.RIOT
@@ -319,10 +321,15 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		return address - 0x1800, mem.RAM7800
 	}
 
-	if mem.INPTCTRL.BIOS() {
-		// BIOS
-		if address >= bios.OriginBIOS && address <= 0xffff {
-			return address - bios.OriginBIOS, mem.BIOS
+	if address >= 0x2800 && address <= 0x2fff {
+		// 0x2800 to 0x2fff is considered to be an unreliable mirror of RAM 7800
+		// https://forums.atariage.com/topic/370030-does-anyone-abuse-the-ram-mirrors/?tab=comments
+		return 0, nil
+	}
+
+	if address >= 0x8000 && address <= 0xffff {
+		if mem.INPTCTRL.BIOS() {
+			return address, mem.BIOS
 		}
 	}
 
@@ -335,11 +342,14 @@ func (mem *Memory) Read(address uint16) (uint8, error) {
 	if area == nil {
 		return 0, fmt.Errorf("read unmapped address: %04x", address)
 	}
+
 	_, mem.isTIA = area.(*tia.TIA)
+
 	v, err := area.Read(idx)
 	if err != nil {
 		return 0, fmt.Errorf("read %04x: %w", address, err)
 	}
+
 	return v, nil
 }
 
@@ -348,11 +358,14 @@ func (mem *Memory) Write(address uint16, data uint8) error {
 	if area == nil {
 		return fmt.Errorf("write unmapped address: %04x", address)
 	}
+
 	_, mem.isTIA = area.(*tia.TIA)
 	mem.LastWrite = area
+
 	err := area.Write(idx, data)
 	if err != nil {
 		return fmt.Errorf("write %04x: %w", address, err)
 	}
+
 	return nil
 }

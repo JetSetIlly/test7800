@@ -88,24 +88,11 @@ func (b *BIOS) Status() string {
 	return fmt.Sprintf("%dk %s BIOS at %#04x", len(biosrom)/1024, spec, origin)
 }
 
-func (b *BIOS) Read(idx uint16) (uint8, error) {
-	// check that the mapping process hasn't given us an index that is an
-	// impossible address for the BIOS. this shouldn't ever happen
-	if int(idx) >= maxBIOSsize {
-		return 0x00, fmt.Errorf("bios address out of range")
+func (b *BIOS) Read(address uint16) (uint8, error) {
+	if address < origin {
+		return 0, nil
 	}
-
-	idx -= adjustment
-
-	// check that index is inside the acutal size of the loaded bios. if it is
-	// not then return 0x00 without error. this is correct because the index is
-	// still pointing to a BIOS address, we just don't have any data for it.
-	// it's unclear what value the real hardware returns but whatever it is,
-	// it's not an error
-	if int(idx) >= len(biosrom) {
-		return 0x00, nil
-	}
-
+	idx := address - OriginBIOS - adjustment
 	return biosrom[idx], nil
 }
 
