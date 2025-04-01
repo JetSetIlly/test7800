@@ -161,6 +161,14 @@ func (mc *CPU) SetRDY(rdy bool) {
 	mc.RdyFlg = rdy
 }
 
+// InInterrupt returns true if executed instructions will be between an NMI/IRQ
+// and an RTI. Remember that it's possible for an NMI to interrupt on an ongoing
+// interrupt handler, so an RTI will not necessarily cause InInterrupt to return
+// false on the next call
+func (mc *CPU) InInterrupt() bool {
+	return mc.interruptDepth > 0
+}
+
 // Interrupt loads the PC with the 16bit value at the NMI address (when
 // NMI is true) or at the IRQ address
 func (mc *CPU) Interrupt(nonMaskable bool) error {
