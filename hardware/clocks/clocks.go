@@ -24,9 +24,9 @@ const (
 )
 
 const (
-	NTSC  = NTSC_MARIA / 4 // 1.79MHz
-	PAL   = PAL_MARIA / 4
-	PAL60 = PAL60_MARIA / 4
-	PAL_M = PAL_M_MARIA / 4
-	SECAM = SECAM_MARIA / 4
+	NTSC  = NTSC_MARIA / MariaCycles // 1.79MHz
+	PAL   = PAL_MARIA / MariaCycles
+	PAL60 = PAL60_MARIA / MariaCycles
+	PAL_M = PAL_M_MARIA / MariaCycles
+	SECAM = SECAM_MARIA / MariaCycles
 )

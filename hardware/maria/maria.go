@@ -337,11 +337,11 @@ func (mar *Maria) Write(idx uint16, data uint8) error {
 	return nil
 }
 
-// Appendix 3: "DMA does not begin until 7 CPU (1.79 MHz) cycles into each
-// scan line"
-const preDMA = 7 * clocks.MariaCycles
-
 const (
+	// Appendix 3: "DMA does not begin until 7 CPU (1.79 MHz) cycles into each scan line"
+	preDMA = 7 * clocks.MariaCycles
+
+	// from the table "DMA Timing"
 	dmaStart           = 16
 	dmaStartLastInZone = 24
 	dmaDLHeader        = 8
@@ -349,6 +349,17 @@ const (
 	dmaDirectGfx       = 3
 	dmaIndirectGfx     = 6
 	dmaIndirectWideGfx = 9
+
+	// "If holey DMA is enabled and graphics reads would reside in a DMA hole,
+	// only 3 cycles of penalty for the graphic read is incurred, whatever the
+	// sprite width is"
+	dmaHoleyRead = 3
+
+	// "The end of VBLANK is made up of a DMA startup plus a Long shutdown."
+	dmaEndofVBLANK = dmaStartLastInZone
+
+	// the maximum number of cycles available in DMA before the HSYNC
+	dmaMaxCycles = clksScanline * 2
 )
 
 // returns true if CPU is to be halted and true if DLL has requested an interrupt
@@ -386,6 +397,10 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 
 		} else if mar.Coords.Scanline == mar.spec.visibleTop {
 			mar.mstat = vblankDisable
+
+			// "The end of VBLANK is made up of a DMA startup plus a Long shutdown."
+			mar.requiredDMACycles += dmaEndofVBLANK
+
 		} else if mar.Coords.Scanline == mar.spec.visibleBottom {
 			mar.mstat = vblankEnable
 		}
@@ -427,25 +442,34 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 			case 0x02:
 				mar.nextDL(true)
 				for !mar.DL.isEnd {
-					// DMA cycle counting
+					// the DMA can't go on too long so we exit early if appropriate
+					if mar.requiredDMACycles > dmaMaxCycles {
+						break // for loop
+					}
+
+					// DMA cycle accumulation for DL header
 					if mar.DL.long {
 						mar.requiredDMACycles += dmaLongDLHeader
 					} else {
 						mar.requiredDMACycles += dmaDLHeader
 					}
-					if mar.DL.indirect {
-						if mar.ctrl.charWidth {
-							mar.requiredDMACycles += int(mar.DL.width) * dmaIndirectWideGfx
-						} else {
-							mar.requiredDMACycles += int(mar.DL.width) * dmaIndirectGfx
-						}
-					} else {
-						mar.requiredDMACycles += int(mar.DL.width) * dmaDirectGfx
-					}
+
+					// the required DMA cycles value is adjusted once we know if the read will be
+					// in holey memory
+
+					// should there be a check here for execessive DMA cycles?
+					//
+					// if we add this check then then we need to take into account the possibility
+					// of holey memory, which means we should also change the method of accumulation
 
 					switch mar.ctrl.readMode {
 					case 0:
 						for w := range mar.DL.width {
+							// the DMA can't go on too long so we exit early if appropriate
+							if mar.requiredDMACycles > dmaMaxCycles {
+								break // for loop
+							}
+
 							a := ((uint16(mar.DL.highAddress) << 8) | uint16(mar.DL.lowAddress))
 
 							// width of the display list
@@ -457,9 +481,15 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 								// be found"
 								a += uint16(mar.DLL.workingOffset) << 8
 
+								// if this address is in a hole then all addresses in the DL will
+								// be in the hole also
 								if mar.DLL.inHole(a) {
-									continue // for width loop
+									mar.requiredDMACycles += dmaHoleyRead
+									break // for width loop
 								}
+
+								// DMA accumulation for direct gfx reads is simple
+								mar.requiredDMACycles += dmaDirectGfx
 							}
 
 							b, err := mar.mem.Read(a)
@@ -474,8 +504,18 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 								// offset to the high address byte (see comment above)
 								a += uint16(mar.DLL.workingOffset) << 8
 
+								// if this address is in a hole then all addresses in the DL will
+								// be in the hole also
 								if mar.DLL.inHole(a) {
-									continue // for width loop
+									mar.requiredDMACycles += dmaHoleyRead
+									break // for width loop
+								}
+
+								// for indirect gfx reads DMA accumulation depends on charwidth
+								if mar.ctrl.charWidth {
+									mar.requiredDMACycles += dmaIndirectWideGfx
+								} else {
+									mar.requiredDMACycles += dmaIndirectGfx
 								}
 
 								b, err = mar.mem.Read(a)

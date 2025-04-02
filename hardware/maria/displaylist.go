@@ -211,10 +211,10 @@ func (l *dll) inHole(a uint16) bool {
 	// zeros, for 16 high zones, or odd 2K blocks as zeros for 8 high zones. This
 	// will only work for addresses above '0x8000'"
 	if a > 0x8000 {
-		if l.h16 && (a&0x9000 == 0x9000) {
+		if l.h16 && (a&0x1000 == 0x1000) {
 			return true
 		}
-		if l.h8 && (a&0x8800 == 0x8800) {
+		if l.h8 && (a&0x0800 == 0x0800) {
 			return true
 		}
 	}
