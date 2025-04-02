@@ -132,6 +132,11 @@ func Create(ctx Context, mem Memory, spec string, rendering chan *image.RGBA) *M
 
 	// calculate refresh rate and start frame limiter
 	hz := mar.spec.horizScan / float64(mar.spec.absoluteBottom)
+
+	// increase in refresh rate so that it better syncs with the audio. this is
+	// definitely not ideal but it's okay for now
+	// TODO: better interaction between frame limiter and audio
+	hz *= 1.20
 	mar.limiter = time.NewTicker(time.Second / time.Duration(hz))
 
 	mar.imageTop = mar.spec.visibleTop

@@ -3,11 +3,12 @@ package main
 import (
 	"fmt"
 	"image"
+	"io"
 	"os"
 
 	"github.com/jetsetilly/test7800/debugger"
 	"github.com/jetsetilly/test7800/gui"
-	"github.com/jetsetilly/test7800/io"
+	"github.com/jetsetilly/test7800/ui"
 )
 
 func main() {
@@ -30,16 +31,21 @@ func main() {
 	var rendering chan *image.RGBA
 	rendering = make(chan *image.RGBA, 1)
 
-	var inp chan io.Input
-	inp = make(chan io.Input, 10)
+	// audio channel
+	var snd chan io.Reader
+	snd = make(chan io.Reader, 1)
+
+	// user input (from joysticks etc.)
+	var inp chan ui.Input
+	inp = make(chan ui.Input, 1)
 
 	go func() {
-		resultGui <- gui.Launch(endGui, rendering, inp)
+		resultGui <- gui.Launch(endGui, rendering, snd, inp)
 		endDebugger <- true
 	}()
 
 	go func() {
-		resultDebugger <- debugger.Launch(endDebugger, rendering, inp, os.Args[1:])
+		resultDebugger <- debugger.Launch(endDebugger, rendering, snd, inp, os.Args[1:])
 		endGui <- true
 	}()
 

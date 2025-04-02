@@ -2,10 +2,11 @@ package gui
 
 import (
 	"image"
+	"io"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/jetsetilly/test7800/io"
+	"github.com/jetsetilly/test7800/ui"
 )
 
 type gui struct {
@@ -13,7 +14,8 @@ type gui struct {
 
 	endGui    chan bool
 	rendering chan *image.RGBA
-	inp       chan io.Input
+	inp       chan ui.Input
+	sound     *sound
 
 	image  *ebiten.Image
 	width  int
@@ -29,30 +31,30 @@ func (g *gui) input() {
 	for _, p := range pressed {
 		switch p {
 		case ebiten.KeyArrowLeft:
-			g.inp <- io.Input{Action: io.StickLeft}
+			g.inp <- ui.Input{Action: ui.StickLeft}
 		case ebiten.KeyArrowRight:
-			g.inp <- io.Input{Action: io.StickRight}
+			g.inp <- ui.Input{Action: ui.StickRight}
 		case ebiten.KeyArrowUp:
-			g.inp <- io.Input{Action: io.StickUp}
+			g.inp <- ui.Input{Action: ui.StickUp}
 		case ebiten.KeyArrowDown:
-			g.inp <- io.Input{Action: io.StickDown}
+			g.inp <- ui.Input{Action: ui.StickDown}
 		case ebiten.KeySpace:
-			g.inp <- io.Input{Action: io.StickButtonA}
+			g.inp <- ui.Input{Action: ui.StickButtonA}
 		}
 	}
 
 	for _, r := range released {
 		switch r {
 		case ebiten.KeyArrowLeft:
-			g.inp <- io.Input{Action: io.StickLeft, Release: true}
+			g.inp <- ui.Input{Action: ui.StickLeft, Release: true}
 		case ebiten.KeyArrowRight:
-			g.inp <- io.Input{Action: io.StickRight, Release: true}
+			g.inp <- ui.Input{Action: ui.StickRight, Release: true}
 		case ebiten.KeyArrowUp:
-			g.inp <- io.Input{Action: io.StickUp, Release: true}
+			g.inp <- ui.Input{Action: ui.StickUp, Release: true}
 		case ebiten.KeyArrowDown:
-			g.inp <- io.Input{Action: io.StickDown, Release: true}
+			g.inp <- ui.Input{Action: ui.StickDown, Release: true}
 		case ebiten.KeySpace:
-			g.inp <- io.Input{Action: io.StickButtonA, Release: true}
+			g.inp <- ui.Input{Action: ui.StickButtonA, Release: true}
 		}
 	}
 }
@@ -71,8 +73,10 @@ func (g *gui) Update() error {
 			g.image = ebiten.NewImage(g.width, g.height)
 		}
 		g.image.WritePixels(img.Pix)
+
 	default:
 	}
+
 	return nil
 }
 
@@ -95,7 +99,7 @@ func (g *gui) Layout(width, height int) (int, int) {
 	return width, height
 }
 
-func Launch(endGui chan bool, rendering chan *image.RGBA, inp chan io.Input) error {
+func Launch(endGui chan bool, rendering chan *image.RGBA, snd chan io.Reader, inp chan ui.Input) error {
 	ebiten.SetWindowTitle("test7800")
 	ebiten.SetVsyncEnabled(true)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
@@ -106,6 +110,7 @@ func Launch(endGui chan bool, rendering chan *image.RGBA, inp chan io.Input) err
 		endGui:    endGui,
 		rendering: rendering,
 		inp:       inp,
+		sound:     createAudio(snd),
 	}
 
 	return ebiten.RunGame(g)

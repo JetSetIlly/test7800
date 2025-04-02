@@ -1,4 +1,4 @@
-package io
+package ui
 
 type Action int
 

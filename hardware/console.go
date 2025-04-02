@@ -2,6 +2,7 @@ package hardware
 
 import (
 	"image"
+	"io"
 
 	"github.com/jetsetilly/test7800/hardware/clocks"
 	"github.com/jetsetilly/test7800/hardware/cpu"
@@ -9,12 +10,12 @@ import (
 	"github.com/jetsetilly/test7800/hardware/memory"
 	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
-	"github.com/jetsetilly/test7800/io"
+	"github.com/jetsetilly/test7800/ui"
 )
 
 type Console struct {
 	ctx Context
-	inp chan io.Input
+	inp chan ui.Input
 
 	MC    *cpu.CPU
 	Mem   *memory.Memory
@@ -33,7 +34,7 @@ type Context interface {
 	Rand16Bit() uint16
 }
 
-func Create(ctx Context, rendering chan *image.RGBA, inp chan io.Input) Console {
+func Create(ctx Context, rendering chan *image.RGBA, snd chan io.Reader, inp chan ui.Input) Console {
 	con := Console{
 		ctx: ctx,
 		inp: inp,
@@ -44,7 +45,7 @@ func Create(ctx Context, rendering chan *image.RGBA, inp chan io.Input) Console 
 
 	con.MC = cpu.NewCPU(ctx, con.Mem)
 	con.MARIA = maria.Create(ctx, con.Mem, con.Mem.BIOS.Spec(), rendering)
-	con.TIA = tia.Create(con.Mem)
+	con.TIA = tia.Create(con.Mem, snd)
 	con.RIOT = riot.Create(con.Mem)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
@@ -76,13 +77,13 @@ func (con *Console) Step() error {
 			drained = true
 		case inp := <-con.inp:
 			switch inp.Action {
-			case io.StickButtonA:
+			case ui.StickButtonA:
 				if inp.Release {
 					con.TIA.Write(0x0c, 0x80)
 				} else {
 					con.TIA.Write(0x0c, 0x00)
 				}
-			case io.StickLeft:
+			case ui.StickLeft:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
 					con.RIOT.Write(0x00, r&0xbf|0x40)
@@ -90,21 +91,21 @@ func (con *Console) Step() error {
 					con.RIOT.Write(0x00, r&0xbf)
 				}
 				r, _ = con.RIOT.Read(0x00)
-			case io.StickUp:
+			case ui.StickUp:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
 					con.RIOT.Write(0x00, r&0xef|0x10)
 				} else {
 					con.RIOT.Write(0x00, r&0xef)
 				}
-			case io.StickRight:
+			case ui.StickRight:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
 					con.RIOT.Write(0x00, r&0x7f|0x80)
 				} else {
 					con.RIOT.Write(0x00, r&0x7f)
 				}
-			case io.StickDown:
+			case ui.StickDown:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
 					con.RIOT.Write(0x00, r&0xdf|0x20)
@@ -139,6 +140,9 @@ func (con *Console) Step() error {
 			con.halt, interrupt = con.MARIA.Tick()
 			interruptNext = interruptNext || interrupt
 		}
+
+		con.TIA.Tick()
+
 		return nil
 	}
 
