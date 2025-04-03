@@ -55,6 +55,7 @@ func (mar *Maria) nextDL(reset bool) error {
 
 	if reset {
 		mar.DL.ct = 0
+		mar.DL.origin = (uint16(mar.DLL.highAddress) << 8) | uint16(mar.DLL.lowAddress)
 	} else {
 		mar.DL.ct++
 		if mar.DL.long {
@@ -62,10 +63,8 @@ func (mar *Maria) nextDL(reset bool) error {
 		} else {
 			prevSize = 4
 		}
+		mar.DL.origin += uint16(prevSize)
 	}
-
-	mar.DL.origin = (uint16(mar.DLL.highAddress) << 8) | uint16(mar.DLL.lowAddress)
-	mar.DL.origin += uint16(mar.DL.ct * prevSize)
 
 	var err error
 
@@ -102,7 +101,7 @@ func (mar *Maria) nextDL(reset bool) error {
 		mar.DL.width &= 0x1f
 	}
 
-	// the size of the DL header is different for indirect and direct modes
+	// Check if 4 or 5 byte header.
 	mar.DL.long = mode&0x5f == 0x40
 	if mar.DL.long {
 		// the write bit is also part of the second byte, along with the indirect bit
@@ -141,8 +140,9 @@ func (mar *Maria) nextDL(reset bool) error {
 			return err
 		}
 	} else {
-		// for direct mode the header is 4bytes long
-		mar.DL.writemode = false
+		// 4 byte header
+		// writemode is unchanged
+		// always direct mode
 		mar.DL.indirect = false
 
 		// in direct mode the second byte forms the palette and width values.
