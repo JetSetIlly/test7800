@@ -15,6 +15,6 @@ func NewUI() *UI {
 	return &UI{
 		SetImage:      make(chan *image.RGBA, 1),
 		RegisterAudio: make(chan io.Reader, 1),
-		UserInput:     make(chan Input, 1),
+		UserInput:     make(chan Input, 10),
 	}
 }

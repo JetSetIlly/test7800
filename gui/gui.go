@@ -25,33 +25,47 @@ func (g *gui) input() {
 	pressed = inpututil.AppendJustPressedKeys(pressed)
 	released = inpututil.AppendJustReleasedKeys(released)
 
-	for _, p := range pressed {
-		switch p {
-		case ebiten.KeyArrowLeft:
-			g.ui.UserInput <- ui.Input{Action: ui.StickLeft}
-		case ebiten.KeyArrowRight:
-			g.ui.UserInput <- ui.Input{Action: ui.StickRight}
-		case ebiten.KeyArrowUp:
-			g.ui.UserInput <- ui.Input{Action: ui.StickUp}
-		case ebiten.KeyArrowDown:
-			g.ui.UserInput <- ui.Input{Action: ui.StickDown}
-		case ebiten.KeySpace:
-			g.ui.UserInput <- ui.Input{Action: ui.StickButtonA}
-		}
-	}
+	var inp ui.Input
 
 	for _, r := range released {
 		switch r {
 		case ebiten.KeyArrowLeft:
-			g.ui.UserInput <- ui.Input{Action: ui.StickLeft, Release: true}
+			inp = ui.Input{Action: ui.StickLeft, Release: true}
 		case ebiten.KeyArrowRight:
-			g.ui.UserInput <- ui.Input{Action: ui.StickRight, Release: true}
+			inp = ui.Input{Action: ui.StickRight, Release: true}
 		case ebiten.KeyArrowUp:
-			g.ui.UserInput <- ui.Input{Action: ui.StickUp, Release: true}
+			inp = ui.Input{Action: ui.StickUp, Release: true}
 		case ebiten.KeyArrowDown:
-			g.ui.UserInput <- ui.Input{Action: ui.StickDown, Release: true}
+			inp = ui.Input{Action: ui.StickDown, Release: true}
 		case ebiten.KeySpace:
-			g.ui.UserInput <- ui.Input{Action: ui.StickButtonA, Release: true}
+			inp = ui.Input{Action: ui.StickButtonA, Release: true}
+		}
+
+		select {
+		case g.ui.UserInput <- inp:
+		default:
+			return
+		}
+	}
+
+	for _, p := range pressed {
+		switch p {
+		case ebiten.KeyArrowLeft:
+			inp = ui.Input{Action: ui.StickLeft}
+		case ebiten.KeyArrowRight:
+			inp = ui.Input{Action: ui.StickRight}
+		case ebiten.KeyArrowUp:
+			inp = ui.Input{Action: ui.StickUp}
+		case ebiten.KeyArrowDown:
+			inp = ui.Input{Action: ui.StickDown}
+		case ebiten.KeySpace:
+			inp = ui.Input{Action: ui.StickButtonA}
+		}
+
+		select {
+		case g.ui.UserInput <- inp:
+		default:
+			return
 		}
 	}
 }
