@@ -10,8 +10,11 @@ type dl struct {
 	long bool
 
 	// writemode and indirect are not present in a 4 byte header
-	writemode bool
+	//
+	// but writemode is only changed by a 5 byte DL header. ie. it's value
+	// persists until it is explicitly changed
 	indirect  bool
+	writemode bool
 
 	// these fields are common to both the 4 and 5 byte header
 	lowAddress         uint8
@@ -85,12 +88,15 @@ func (mar *Maria) nextDL(reset bool) error {
 	if mar.DL.isEnd {
 		mar.DL.long = false
 		mar.DL.indirect = false
-		mar.DL.writemode = false
 		mar.DL.lowAddress = 0
 		mar.DL.highAddress = 0
 		mar.DL.palette = 0
 		mar.DL.width = 0
 		mar.DL.horizontalPosition = 0
+
+		// note that we're not reset the writemode field, which only changes
+		// when specified by a 5 byte DL header
+
 		return nil
 	}
 
@@ -101,7 +107,7 @@ func (mar *Maria) nextDL(reset bool) error {
 		mar.DL.width &= 0x1f
 	}
 
-	// Check if 4 or 5 byte header.
+	// check if 4 or 5 byte header
 	mar.DL.long = mode&0x5f == 0x40
 	if mar.DL.long {
 		// the write bit is also part of the second byte, along with the indirect bit
@@ -140,10 +146,12 @@ func (mar *Maria) nextDL(reset bool) error {
 			return err
 		}
 	} else {
-		// 4 byte header
-		// writemode is unchanged
-		// always direct mode
+		// for direct mode the header is 4 bytes long
 		mar.DL.indirect = false
+
+		// the value of writemode remains unchanged. this is good because it
+		// means for direct gfx modes, only 4 byte headers need to be used once
+		// the writemode bit has been set
 
 		// in direct mode the second byte forms the palette and width values.
 		// we've already read the second byte into the mode variable
