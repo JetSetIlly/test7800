@@ -28,7 +28,7 @@ func main() {
 	ui := ui.NewUI()
 
 	go func() {
-		resultGui <- gui.Launch(endGui, ui)
+		resultGui <- gui.Launch(endGui, ui, true)
 		endDebugger <- true
 	}()
 

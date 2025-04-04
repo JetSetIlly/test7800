@@ -9,6 +9,9 @@ type UI struct {
 	SetImage      chan *image.RGBA
 	RegisterAudio chan io.Reader
 	UserInput     chan Input
+
+	// optional function called by GUI during it's update loop
+	UpdateGUI func() error
 }
 
 func NewUI() *UI {

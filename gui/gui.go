@@ -1,6 +1,8 @@
 package gui
 
 import (
+	"fmt"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/jetsetilly/test7800/ui"
@@ -73,6 +75,13 @@ func (g *gui) input() {
 func (g *gui) Update() error {
 	g.input()
 
+	if g.ui.UpdateGUI != nil {
+		err := g.ui.UpdateGUI()
+		if err != nil {
+			return fmt.Errorf("ebiten: %w", err)
+		}
+	}
+
 	select {
 	case <-g.endGui:
 		return ebiten.Termination
@@ -110,7 +119,7 @@ func (g *gui) Layout(width, height int) (int, int) {
 	return width, height
 }
 
-func Launch(endGui chan bool, ui *ui.UI) error {
+func Launch(endGui chan bool, ui *ui.UI, useAudio bool) error {
 	ebiten.SetWindowTitle("test7800")
 	ebiten.SetVsyncEnabled(true)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
@@ -118,9 +127,12 @@ func Launch(endGui chan bool, ui *ui.UI) error {
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 
 	g := &gui{
-		endGui:      endGui,
-		ui:          ui,
-		audioPlayer: createAudioPlayer(ui),
+		endGui: endGui,
+		ui:     ui,
+	}
+
+	if useAudio {
+		g.audioPlayer = createAudioPlayer(ui)
 	}
 
 	return ebiten.RunGame(g)

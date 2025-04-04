@@ -38,9 +38,9 @@ type input struct {
 type debugger struct {
 	ctx dbg.Context
 
-	externalQuit chan bool
-	sig          chan os.Signal
-	input        chan input
+	guiQuit chan bool
+	sig     chan os.Signal
+	input   chan input
 
 	console     hardware.Console
 	breakpoints map[uint16]bool
@@ -165,7 +165,7 @@ func (m *debugger) step() bool {
 		case <-m.sig:
 			done = true
 			continue // for loop
-		case <-m.externalQuit:
+		case <-m.guiQuit:
 			return true
 		default:
 		}
@@ -255,7 +255,7 @@ func (m *debugger) run() bool {
 		select {
 		case <-m.sig:
 			return endRunErr
-		case <-m.externalQuit:
+		case <-m.guiQuit:
 			return quitErr
 		default:
 		}
@@ -352,7 +352,7 @@ func (m *debugger) loop() {
 		case <-m.sig:
 			fmt.Print("\r")
 			return
-		case <-m.externalQuit:
+		case <-m.guiQuit:
 			fmt.Print("\n")
 			return
 		}
@@ -534,7 +534,7 @@ func (m *debugger) loop() {
 	}
 }
 
-func Launch(externalQuit chan bool, ui *ui.UI, args []string) error {
+func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	var bootfile string
 
 	if len(args) == 1 {
@@ -544,11 +544,11 @@ func Launch(externalQuit chan bool, ui *ui.UI, args []string) error {
 	}
 
 	m := &debugger{
-		ctx:          dbg.Create(),
-		externalQuit: externalQuit,
-		sig:          make(chan os.Signal, 1),
-		input:        make(chan input, 1),
-		loader:       bootfile,
+		ctx:     dbg.Create(),
+		guiQuit: guiQuit,
+		sig:     make(chan os.Signal, 1),
+		input:   make(chan input, 1),
+		loader:  bootfile,
 		styles: styles{
 			instruction: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(3)),
 			cpu:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(4)),
