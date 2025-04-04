@@ -4,8 +4,8 @@ import (
 	"image"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/jetsetilly/test7800/io"
-	input "github.com/quasilyte/ebitengine-input"
 )
 
 type gui struct {
@@ -18,81 +18,46 @@ type gui struct {
 	image  *ebiten.Image
 	width  int
 	height int
-
-	inputHandler *input.Handler
-	inputSystem  input.System
-}
-
-const (
-	ActionStickLeft    = input.Action(io.StickLeft)
-	ActionStickUp      = input.Action(io.StickUp)
-	ActionStickRight   = input.Action(io.StickRight)
-	ActionStickDown    = input.Action(io.StickDown)
-	ActionStickButtonA = input.Action(io.StickButtonA)
-)
-
-func (g *gui) initialise() {
-	keymap := input.Keymap{
-		ActionStickLeft:    {input.KeyGamepadLeft, input.KeyLeft},
-		ActionStickUp:      {input.KeyGamepadUp, input.KeyUp},
-		ActionStickRight:   {input.KeyGamepadRight, input.KeyRight},
-		ActionStickDown:    {input.KeyGamepadDown, input.KeyDown},
-		ActionStickButtonA: {input.KeyGamepadA, input.KeySpace, input.KeyX},
-	}
-	g.inputHandler = g.inputSystem.NewHandler(uint8(0), keymap)
-	g.started = true
 }
 
 func (g *gui) input() {
-	g.inputSystem.Update()
+	var pressed []ebiten.Key
+	var released []ebiten.Key
+	pressed = inpututil.AppendJustPressedKeys(pressed)
+	released = inpututil.AppendJustReleasedKeys(released)
 
-	var inp io.Input
-
-	if g.inputHandler.ActionIsJustPressed(ActionStickLeft) {
-		inp = io.Input{Action: io.StickLeft}
-	}
-	if g.inputHandler.ActionIsJustPressed(ActionStickUp) {
-		inp = io.Input{Action: io.StickUp}
-	}
-	if g.inputHandler.ActionIsJustPressed(ActionStickRight) {
-		inp = io.Input{Action: io.StickRight}
-	}
-	if g.inputHandler.ActionIsJustPressed(ActionStickDown) {
-		inp = io.Input{Action: io.StickDown}
-	}
-	if g.inputHandler.ActionIsJustPressed(ActionStickButtonA) {
-		inp = io.Input{Action: io.StickButtonA}
-	}
-
-	if g.inputHandler.ActionIsJustReleased(ActionStickLeft) {
-		inp = io.Input{Action: io.StickLeft, Release: true}
-	}
-	if g.inputHandler.ActionIsJustReleased(ActionStickUp) {
-		inp = io.Input{Action: io.StickUp, Release: true}
-	}
-	if g.inputHandler.ActionIsJustReleased(ActionStickRight) {
-		inp = io.Input{Action: io.StickRight, Release: true}
-	}
-	if g.inputHandler.ActionIsJustReleased(ActionStickDown) {
-		inp = io.Input{Action: io.StickDown, Release: true}
-	}
-	if g.inputHandler.ActionIsJustReleased(ActionStickButtonA) {
-		inp = io.Input{Action: io.StickButtonA, Release: true}
+	for _, p := range pressed {
+		switch p {
+		case ebiten.KeyArrowLeft:
+			g.inp <- io.Input{Action: io.StickLeft}
+		case ebiten.KeyArrowRight:
+			g.inp <- io.Input{Action: io.StickRight}
+		case ebiten.KeyArrowUp:
+			g.inp <- io.Input{Action: io.StickUp}
+		case ebiten.KeyArrowDown:
+			g.inp <- io.Input{Action: io.StickDown}
+		case ebiten.KeySpace:
+			g.inp <- io.Input{Action: io.StickButtonA}
+		}
 	}
 
-	if inp.Action != io.Nothing {
-		select {
-		case g.inp <- inp:
-		default:
+	for _, r := range released {
+		switch r {
+		case ebiten.KeyArrowLeft:
+			g.inp <- io.Input{Action: io.StickLeft, Release: true}
+		case ebiten.KeyArrowRight:
+			g.inp <- io.Input{Action: io.StickRight, Release: true}
+		case ebiten.KeyArrowUp:
+			g.inp <- io.Input{Action: io.StickUp, Release: true}
+		case ebiten.KeyArrowDown:
+			g.inp <- io.Input{Action: io.StickDown, Release: true}
+		case ebiten.KeySpace:
+			g.inp <- io.Input{Action: io.StickButtonA, Release: true}
 		}
 	}
 }
 
 func (g *gui) Update() error {
-	if !g.started {
-		g.initialise()
-	}
-
 	g.input()
 
 	select {
@@ -142,10 +107,6 @@ func Launch(endGui chan bool, rendering chan *image.RGBA, inp chan io.Input) err
 		rendering: rendering,
 		inp:       inp,
 	}
-
-	g.inputSystem.Init(input.SystemConfig{
-		DevicesEnabled: input.AnyDevice,
-	})
 
 	return ebiten.RunGame(g)
 }
