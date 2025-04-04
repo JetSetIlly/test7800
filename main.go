@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"image"
-	"io"
 	"os"
 
 	"github.com/jetsetilly/test7800/debugger"
@@ -27,25 +25,15 @@ func main() {
 	resultGui = make(chan error, 1)
 	resultDebugger = make(chan error, 1)
 
-	// rendering channel is used to communicate images to the gui from the debugger
-	var rendering chan *image.RGBA
-	rendering = make(chan *image.RGBA, 1)
-
-	// audio channel
-	var snd chan io.Reader
-	snd = make(chan io.Reader, 1)
-
-	// user input (from joysticks etc.)
-	var inp chan ui.Input
-	inp = make(chan ui.Input, 1)
+	ui := ui.NewUI()
 
 	go func() {
-		resultGui <- gui.Launch(endGui, rendering, snd, inp)
+		resultGui <- gui.Launch(endGui, ui)
 		endDebugger <- true
 	}()
 
 	go func() {
-		resultDebugger <- debugger.Launch(endDebugger, rendering, snd, inp, os.Args[1:])
+		resultDebugger <- debugger.Launch(endDebugger, ui, os.Args[1:])
 		endGui <- true
 	}()
 

@@ -1,11 +1,11 @@
 package tia
 
 import (
-	"io"
 	"sync"
 
 	"github.com/jetsetilly/test7800/hardware/tia/audio"
 	"github.com/jetsetilly/test7800/hardware/tia/audio/mix"
+	"github.com/jetsetilly/test7800/ui"
 )
 
 type audioBuffer struct {
@@ -36,7 +36,7 @@ type Memory interface {
 	Write(address uint16, data uint8) error
 }
 
-func Create(mem Memory, snd chan io.Reader) *TIA {
+func Create(ui *ui.UI, mem Memory) *TIA {
 	tia := &TIA{
 		mem: mem,
 		aud: audio.NewAudio(),
@@ -50,7 +50,7 @@ func Create(mem Memory, snd chan io.Reader) *TIA {
 			0x80, 0x80,
 		},
 	}
-	snd <- tia.buf
+	ui.RegisterAudio <- tia.buf
 	return tia
 }
 

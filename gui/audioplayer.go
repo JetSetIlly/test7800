@@ -5,18 +5,19 @@ import (
 
 	"github.com/ebitengine/oto/v3"
 	"github.com/jetsetilly/test7800/hardware/tia/audio"
+	"github.com/jetsetilly/test7800/ui"
 )
 
-type sound struct {
+type audioPlayer struct {
 	p *oto.Player
 	r io.Reader
 }
 
-func (s *sound) Read(buf []uint8) (int, error) {
+func (s *audioPlayer) Read(buf []uint8) (int, error) {
 	return s.r.Read(buf)
 }
 
-func createAudio(snd chan io.Reader) *sound {
+func createAudioPlayer(ui *ui.UI) *audioPlayer {
 	ctx, ready, err := oto.NewContext(&oto.NewContextOptions{
 		SampleRate:   audio.AverageSampleFreq,
 		ChannelCount: 1,
@@ -29,8 +30,8 @@ func createAudio(snd chan io.Reader) *sound {
 
 	<-ready
 
-	s := &sound{
-		r: <-snd,
+	s := &audioPlayer{
+		r: <-ui.RegisterAudio,
 	}
 	s.p = ctx.NewPlayer(s)
 	s.p.Play()

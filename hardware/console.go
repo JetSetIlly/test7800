@@ -1,9 +1,6 @@
 package hardware
 
 import (
-	"image"
-	"io"
-
 	"github.com/jetsetilly/test7800/hardware/clocks"
 	"github.com/jetsetilly/test7800/hardware/cpu"
 	"github.com/jetsetilly/test7800/hardware/maria"
@@ -15,7 +12,7 @@ import (
 
 type Console struct {
 	ctx Context
-	inp chan ui.Input
+	ui  *ui.UI
 
 	MC    *cpu.CPU
 	Mem   *memory.Memory
@@ -34,18 +31,18 @@ type Context interface {
 	Rand16Bit() uint16
 }
 
-func Create(ctx Context, rendering chan *image.RGBA, snd chan io.Reader, inp chan ui.Input) Console {
+func Create(ctx Context, ui *ui.UI) Console {
 	con := Console{
 		ctx: ctx,
-		inp: inp,
+		ui:  ui,
 	}
 
 	var addChips memory.AddChips
 	con.Mem, addChips = memory.Create(ctx)
 
 	con.MC = cpu.NewCPU(ctx, con.Mem)
-	con.MARIA = maria.Create(ctx, con.Mem, con.Mem.BIOS.Spec(), rendering)
-	con.TIA = tia.Create(con.Mem, snd)
+	con.MARIA = maria.Create(ctx, ui, con.Mem, con.Mem.BIOS.Spec())
+	con.TIA = tia.Create(ui, con.Mem)
 	con.RIOT = riot.Create(con.Mem)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
@@ -75,7 +72,7 @@ func (con *Console) Step() error {
 		select {
 		default:
 			drained = true
-		case inp := <-con.inp:
+		case inp := <-con.ui.UserInput:
 			switch inp.Action {
 			case ui.StickButtonA:
 				if inp.Release {
@@ -168,7 +165,7 @@ func (con *Console) Run(hook func() error) error {
 	var drained bool
 	for !drained {
 		select {
-		case <-con.inp:
+		case <-con.ui.UserInput:
 		default:
 			drained = true
 		}

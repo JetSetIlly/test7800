@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"image"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -536,7 +534,7 @@ func (m *debugger) loop() {
 	}
 }
 
-func Launch(externalQuit chan bool, rendering chan *image.RGBA, snd chan io.Reader, inp chan ui.Input, args []string) error {
+func Launch(externalQuit chan bool, ui *ui.UI, args []string) error {
 	var bootfile string
 
 	if len(args) == 1 {
@@ -562,7 +560,7 @@ func Launch(externalQuit chan bool, rendering chan *image.RGBA, snd chan io.Read
 		},
 		breakpoints: make(map[uint16]bool),
 	}
-	m.console = hardware.Create(&m.ctx, rendering, snd, inp)
+	m.console = hardware.Create(&m.ctx, ui)
 
 	signal.Notify(m.sig, syscall.SIGINT)
 

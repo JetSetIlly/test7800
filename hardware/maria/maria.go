@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jetsetilly/test7800/hardware/clocks"
+	"github.com/jetsetilly/test7800/ui"
 )
 
 type mariaCtrl struct {
@@ -65,6 +66,7 @@ const (
 
 type Maria struct {
 	ctx Context
+	ui  *ui.UI
 
 	bg       uint8
 	wsync    bool
@@ -93,7 +95,6 @@ type Maria struct {
 
 	// pixels for current frame
 	currentFrame *image.RGBA
-	rendering    chan *image.RGBA
 
 	// the top of the image is not necessarily scanline zero
 	imageTop int
@@ -114,11 +115,11 @@ type Memory interface {
 	Write(address uint16, data uint8) error
 }
 
-func Create(ctx Context, mem Memory, spec string, rendering chan *image.RGBA) *Maria {
+func Create(ctx Context, ui *ui.UI, mem Memory, spec string) *Maria {
 	mar := &Maria{
-		ctx:       ctx,
-		mem:       mem,
-		rendering: rendering,
+		ctx: ctx,
+		ui:  ui,
+		mem: mem,
 	}
 
 	switch strings.ToUpper(spec) {
@@ -390,7 +391,7 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 
 			// send current frame to renderer
 			select {
-			case mar.rendering <- mar.currentFrame:
+			case mar.ui.SetImage <- mar.currentFrame:
 			default:
 			}
 
