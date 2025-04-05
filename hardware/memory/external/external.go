@@ -1,5 +1,7 @@
 package external
 
+import "github.com/jetsetilly/test7800/hardware/memory/external/elf"
+
 type Device struct {
 	ctx    Context
 	data   []byte
@@ -7,6 +9,7 @@ type Device struct {
 }
 
 type Context interface {
+	elf.Context
 	Rand8Bit() uint8
 }
 
