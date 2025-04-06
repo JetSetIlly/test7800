@@ -21,6 +21,16 @@ func (b *audioBuffer) Read(buf []uint8) (int, error) {
 	copy(buf, b.data[:n])
 	b.data = b.data[n:]
 
+	// return zero bytes is problematic for the WASM build of the emulator. we
+	// could get around this by returning a minimum of 4 bytes, however, this
+	// can cause the audio to drift out of sync with the video if too many of
+	// these are sent
+	//
+	// we could indicated just 1 byte but this means the sample data becomes
+	// unaligned. the number of bytes returned needs to be a multiple of two
+	// because of the sample format (2 channel, 16bit little-endian)
+	//
+	// https://github.com/ebitengine/oto/issues/261
 	return n, nil
 }
 
@@ -129,6 +139,7 @@ func (tia *TIA) Tick() {
 		tia.buf.crit.Lock()
 		defer tia.buf.crit.Unlock()
 
+		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
 		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
 	}
 }

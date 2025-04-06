@@ -1,25 +1,27 @@
 <!DOCTYPE html>
-
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>test7800</title>
-  </head>
-	<script src="wasm_exec.js"></script>
-	<script>
-	// Polyfill
-	if (!WebAssembly.instantiateStreaming) {
-		WebAssembly.instantiateStreaming = async (resp, importObject) => {
-			const source = await (await resp).arrayBuffer();
-			return await WebAssembly.instantiate(source, importObject);
-		};
-	}
+    <script src="wasm_exec.js"></script>
+    <script>
+      // Polyfill
+      if (!WebAssembly.instantiateStreaming) {
+        WebAssembly.instantiateStreaming = async (resp, importObject) => {
+          const source = await (await resp).arrayBuffer();
+          return await WebAssembly.instantiate(source, importObject);
+        };
+      }
 
-	const go = new Go();
-	WebAssembly.instantiateStreaming(fetch("test7800.wasm"), go.importObject).then(result => {
-		go.run(result.instance);
-	});
-	</script>
+      function startWasm() {
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch("test7800.wasm"), go.importObject).then(result => {
+          go.run(result.instance);
+        });
+      }
+    </script>
+  </head>
   <body>
+    <button onclick="startWasm()">Start WASM</button>
   </body>
 </html>

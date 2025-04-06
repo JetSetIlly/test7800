@@ -6,6 +6,10 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/jetsetilly/test7800/ui"
+
+	"github.com/hajimehoshi/ebiten/v2/audio"
+
+	tia "github.com/jetsetilly/test7800/hardware/tia/audio"
 )
 
 type gui struct {
@@ -17,8 +21,6 @@ type gui struct {
 	image  *ebiten.Image
 	width  int
 	height int
-
-	audioPlayer *audioPlayer
 }
 
 func (g *gui) input() {
@@ -132,7 +134,12 @@ func Launch(endGui chan bool, ui *ui.UI, useAudio bool) error {
 	}
 
 	if useAudio {
-		g.audioPlayer = createAudioPlayer(ui)
+		audioctx := audio.NewContext(tia.AverageSampleFreq)
+		p, err := audioctx.NewPlayer(<-ui.RegisterAudio)
+		if err != nil {
+			return err
+		}
+		p.Play()
 	}
 
 	return ebiten.RunGame(g)
