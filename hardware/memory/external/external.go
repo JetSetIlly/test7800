@@ -30,13 +30,14 @@ func Create(ctx Context) *Device {
 
 func (dev *Device) Insert(c CartridgeInsertor) error {
 	if c.creator == nil {
-		dev.inserted = nil
+		dev.Eject()
 		return nil
 	}
 
 	var err error
 	dev.inserted, err = c.creator(dev.ctx, c.data)
 	if err != nil {
+		dev.Eject()
 		return err
 	}
 

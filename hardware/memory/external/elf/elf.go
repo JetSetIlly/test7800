@@ -114,7 +114,7 @@ func NewElf(ctx Context, d []byte) (*Elf, error) {
 	cart.mem.arm = cart.arm
 	err = cart.mem.decode(ef)
 	if err != nil {
-		return nil, fmt.Errorf("ELF: %w", err)
+		return nil, err
 	}
 
 	cart.arm.SetByteOrder(ef.ByteOrder)

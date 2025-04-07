@@ -82,13 +82,13 @@ func (m *debugger) reset() {
 				err = m.console.Mem.External.Insert(c)
 				if err != nil {
 					fmt.Println(m.styles.err.Render(err.Error()))
+				} else {
+					fmt.Println(m.styles.debugger.Render(
+						fmt.Sprintf("%s cartridge from %s", m.console.Mem.External.Label(),
+							filepath.Base(m.loader)),
+					))
+					postResetProcedure = c.ResetProcedure()
 				}
-				fmt.Println(m.styles.debugger.Render(
-					fmt.Sprintf("%s cartridge from %s", m.console.Mem.External.Label(),
-						filepath.Base(m.loader)),
-				))
-
-				postResetProcedure = c.ResetProcedure()
 
 			} else {
 				// file is not a cartridge dump so we'll assume it's a bootfile
