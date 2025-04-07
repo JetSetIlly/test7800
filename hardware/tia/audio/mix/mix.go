@@ -43,6 +43,9 @@ var mono [maxVolume + 1]int16
 
 // Mono returns a single volume value.
 func Mono(channel0 uint8, channel1 uint8) int16 {
+	if int(channel0+channel1) >= len(mono) {
+		return 0
+	}
 	return mono[int16(channel0+channel1)] >> 1
 }
 
@@ -52,7 +55,7 @@ func Stereo(channel0 uint8, channel1 uint8) (int16, int16) {
 }
 
 func init() {
-	for vol := 0; vol < len(mono); vol++ {
+	for vol := range len(mono) {
 		mono[vol] = int16(0x7fff * float32(vol) / float32(maxVolume) * (30 + 1*float32(maxVolume)) / (30 + 1*float32(vol)))
 	}
 }
