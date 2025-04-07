@@ -19,6 +19,7 @@ import (
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
+	"github.com/jetsetilly/test7800/logger"
 	"github.com/jetsetilly/test7800/ui"
 )
 
@@ -524,6 +525,8 @@ func (m *debugger) loop() {
 			fmt.Println(m.styles.debugger.Render(
 				fmt.Sprintf("dropped breakpoint for $%04x", ma.address),
 			))
+		case "LOG":
+			logger.Tail(os.Stdout, -1)
 		case "QUIT":
 			return
 		default:
