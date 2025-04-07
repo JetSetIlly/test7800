@@ -22,7 +22,7 @@ type mariaCtrl struct {
 
 func (ctrl *mariaCtrl) reset() {
 	ctrl.colourKill = false
-	ctrl.dma = 0
+	ctrl.dma = 3
 	ctrl.charWidth = false
 	ctrl.border = false
 	ctrl.kanagroo = false
@@ -425,10 +425,12 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 		if mar.mstat == vblankDisable {
 
 			// whether to trigger an interrupt at the end of the display list
-			var err error
-			dli, err = mar.nextDLL(mar.Coords.Scanline == mar.spec.visibleTop)
-			if err != nil {
-				mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+			if mar.ctrl.dma != 3 {
+				var err error
+				dli, err = mar.nextDLL(mar.Coords.Scanline == mar.spec.visibleTop)
+				if err != nil {
+					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+				}
 			}
 
 			// DMA cycle counting

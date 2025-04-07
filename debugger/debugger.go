@@ -16,6 +16,7 @@ import (
 	"github.com/jetsetilly/test7800/debugger/dbg"
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/hardware"
+	"github.com/jetsetilly/test7800/hardware/cpu"
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
@@ -66,6 +67,8 @@ type debugger struct {
 func (m *debugger) reset() {
 	m.ctx.Reset()
 
+	var postResetProcedure external.CartridgeReset
+
 	// load file specified by loader
 	if m.loader != "" {
 		d, err := ioutil.ReadFile(m.loader)
@@ -84,6 +87,9 @@ func (m *debugger) reset() {
 					fmt.Sprintf("%s cartridge from %s", m.console.Mem.External.Label(),
 						filepath.Base(m.loader)),
 				))
+
+				postResetProcedure = c.ResetProcedure()
+
 			} else {
 				// file is not a cartridge dump so we'll assume it's a bootfile
 				fmt.Println(m.styles.debugger.Render(
@@ -111,6 +117,14 @@ func (m *debugger) reset() {
 		fmt.Println(m.styles.err.Render(err.Error()))
 	} else {
 		fmt.Println(m.styles.debugger.Render("console reset"))
+	}
+
+	if postResetProcedure.Custom {
+		m.console.Mem.INPTCTRL.Write(0x01, postResetProcedure.INPTCTRL)
+		fmt.Println(m.styles.cpu.Render(
+			m.console.Mem.INPTCTRL.Status(),
+		))
+		m.console.MC.LoadPCIndirect(cpu.Reset)
 	}
 
 	fmt.Println(m.styles.mem.Render(

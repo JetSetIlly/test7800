@@ -187,7 +187,7 @@ func (cart *Elf) Access(_ bool, addr uint16, _ uint8) (uint8, error) {
 			cart.runARM(addr)
 		}
 
-		if addr == cart.mem.stream.peek().addr&CartridgeBits {
+		if addr&CartridgeBits == cart.mem.stream.peek().addr&CartridgeBits {
 			e := cart.mem.stream.pull()
 			cart.mem.gpio.data[DATA_ODR] = e.data
 		}
