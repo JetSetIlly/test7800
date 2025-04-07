@@ -27,8 +27,15 @@ func (riot *RIOT) Status() string {
 	return riot.Label()
 }
 
-func (riot *RIOT) Read(address uint16) (uint8, error) {
-	switch address {
+func (riot *RIOT) Access(write bool, idx uint16, data uint8) (uint8, error) {
+	if write {
+		return data, riot.Write(idx, data)
+	}
+	return riot.Read(idx)
+}
+
+func (riot *RIOT) Read(idx uint16) (uint8, error) {
+	switch idx {
 	case 0x00:
 		return riot.swcha, nil
 	case 0x01:
@@ -50,8 +57,8 @@ func (riot *RIOT) Read(address uint16) (uint8, error) {
 	return 0, nil
 }
 
-func (riot *RIOT) Write(address uint16, data uint8) error {
-	switch address {
+func (riot *RIOT) Write(idx uint16, data uint8) error {
+	switch idx {
 	case 0x00:
 		riot.swcha = data
 	case 0x01:

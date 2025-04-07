@@ -17,6 +17,7 @@ import (
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/hardware"
 	"github.com/jetsetilly/test7800/hardware/maria"
+	"github.com/jetsetilly/test7800/hardware/memory"
 	"github.com/jetsetilly/test7800/ui"
 )
 
@@ -438,7 +439,7 @@ func (m *debugger) loop() {
 				break // switch
 			}
 
-			data, err := ma.area.Read(ma.idx)
+			data, err := memory.Read(ma.area, ma.idx)
 			if err != nil {
 				fmt.Println(m.styles.err.Render(
 					fmt.Sprintf("PEEK address is not readable: %s", cmd[1]),

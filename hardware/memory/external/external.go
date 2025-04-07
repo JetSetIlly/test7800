@@ -1,11 +1,20 @@
 package external
 
-import "github.com/jetsetilly/test7800/hardware/memory/external/elf"
+import (
+	"bytes"
+	"fmt"
+
+	"github.com/jetsetilly/test7800/hardware/memory/external/elf"
+)
+
+type cartridge interface {
+	Label() string
+	Access(write bool, address uint16, data uint8) (uint8, error)
+}
 
 type Device struct {
-	ctx    Context
-	data   []byte
-	origin uint16
+	ctx      Context
+	inserted cartridge
 }
 
 type Context interface {
@@ -17,42 +26,63 @@ func Create(ctx Context) *Device {
 	dev := &Device{
 		ctx: ctx,
 	}
-	dev.Eject()
 	return dev
 }
 
 func (dev *Device) Insert(d []byte) error {
-	dev.data = d
-	dev.origin = uint16(0x10000 - len(dev.data))
+	var err error
+
+	// basic fingerprint
+	if bytes.Contains(d, []byte{0x7f, 'E', 'L', 'F'}) {
+		dev.inserted, err = elf.NewElf(dev.ctx, d)
+	} else {
+		dev.inserted, err = NewStandard(dev.ctx, d)
+	}
+
+	if err != nil {
+		return fmt.Errorf("external: %s", err)
+	}
+
 	return nil
 }
 
 func (dev *Device) Eject() {
-	dev.data = dev.data[:0]
-	dev.origin = 0xffff
+	dev.inserted = nil
 }
 
 func (dev *Device) IsEjected() bool {
-	return len(dev.data) == 0
+	return dev.inserted == nil
 }
 
 func (dev *Device) Label() string {
 	if dev.IsEjected() {
 		return "Ejected"
 	}
-	return "Cartridge"
+	return fmt.Sprintf("External: %s", dev.inserted.Label())
 }
 
-func (dev *Device) Read(address uint16) (uint8, error) {
+func (dev *Device) Access(write bool, address uint16, data uint8) (uint8, error) {
 	if dev.IsEjected() {
 		return dev.ctx.Rand8Bit(), nil
 	}
-	if address < dev.origin {
-		return 0, nil
+
+	v, err := dev.inserted.Access(write, address, data)
+	if err != nil {
+		return 0, fmt.Errorf("external: %s", err)
 	}
-	return dev.data[address-dev.origin], nil
+
+	return v, nil
 }
 
-func (dev *Device) Write(_ uint16, data uint8) error {
+// external devices that are sensitive to changes in the address and data buses
+// of the console will implement this interface
+type busChangeSensitive interface {
+	BusChange(address uint16, data uint8) error
+}
+
+func (dev *Device) BusChange(address uint16, data uint8) error {
+	if d, ok := dev.inserted.(busChangeSensitive); ok {
+		d.BusChange(address, data)
+	}
 	return nil
 }

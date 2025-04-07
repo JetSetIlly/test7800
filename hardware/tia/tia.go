@@ -72,8 +72,15 @@ func (tia *TIA) Status() string {
 	return tia.Label()
 }
 
-func (tia *TIA) Read(address uint16) (uint8, error) {
-	switch address {
+func (tia *TIA) Access(write bool, idx uint16, data uint8) (uint8, error) {
+	if write {
+		return data, tia.Write(idx, data)
+	}
+	return tia.Read(idx)
+}
+
+func (tia *TIA) Read(idx uint16) (uint8, error) {
+	switch idx {
 	case 0x08:
 		return tia.inpt[0], nil
 	case 0x09:
@@ -102,8 +109,8 @@ func (tia *TIA) Read(address uint16) (uint8, error) {
 	return 0, nil
 }
 
-func (tia *TIA) Write(address uint16, data uint8) error {
-	switch address {
+func (tia *TIA) Write(idx uint16, data uint8) error {
+	switch idx {
 	case 0x08:
 		tia.inpt[0] = data
 	case 0x09:

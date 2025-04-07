@@ -26,6 +26,10 @@ type Memory struct {
 
 	// was last memory cycle an access of a TIA address
 	isTIA bool
+
+	// most recent state of the address and data buses
+	addressBus uint16
+	dataBus    uint8
 }
 
 type Context interface {
@@ -38,12 +42,41 @@ type Context interface {
 type AddChips func(maria Area, tia Area, riot Area)
 
 type Area interface {
-	// for some areas the index field is the address adjust for the origin
-	// address of the area. the exceptions to this are the external.Device area
-	// and the BIOS, which both work with unadjusted addresses
-	Read(idx uint16) (uint8, error)
-	Write(idx uint16, data uint8) error
 	Label() string
+
+	// all valid memory areas must have an implementation of the Access()
+	// function
+	//
+	// the write parameter represents the stats of the R/W line in the console.
+	// individual memory areas can ignore this if it is not required or not
+	// connected (2600 cartridge types)
+	//
+	// the address_or_idx parameter is either the raw unmapped address or an
+	// index relative to the origin of the memory area. implementations of the
+	// Area interface should make this clear by appropriate naming of the parameter.
+	// more practically, the value of address_or_idx can be obtained through the
+	// MapAddress() function
+	//
+	// the data parameter is the state of the data bus at the time of the call.
+	// the write parameter indicates if the bus is being driven by the CPU at
+	// the time of access (write will be true)
+	//
+	// the state of the data bus is returned along with an error. if the memory
+	// area is not driving the data bus then the supplied data bus value should
+	// be returned unchanged
+	//
+	// in rare cases where a memory area drives the data bus while the write
+	// parameter is true (ie. the CPU is also driving the data bus) the conflict
+	// should be resolved in the area implementation
+	//
+	// NOTE: the Access() function is provided instead of a separate Read/Write
+	// functions. individual areas may have Read/Write functions for other
+	// purposes (eg. the PEEK and POKE commands in a debugger) but these are not
+	// necessary for emulation of memory
+	//
+	// for the more direct type of access the package level Read() and Write()
+	// functions are provided
+	Access(write bool, address_or_idx uint16, data uint8) (uint8, error)
 }
 
 func Create(ctx Context) (*Memory, AddChips) {
@@ -82,8 +115,9 @@ const (
 	maskReadRIOT_timer_correction = uint16(0x285)
 )
 
-// MapAddress returns the memory "area" and index into the area corresponding
-// to the address.
+// MapAddress returns the memory "area" and a "mapped" address for the area
+// corresponding to the address. the "mapped" address can either be a normalised
+// address relative to $0000 or an index relative to the origin of the area.
 //
 // The result partially depends on the state of INPTCTRL. It will always return
 // INPTCTRL, MARIA, etc. unless the Lock() is true and TIA() is true, in which
@@ -91,13 +125,6 @@ const (
 //
 // It is possible for a nil Area to be returned. In which case, the index value
 // will be zero.
-//
-// Also, RAM7800 is always returned as an area even if MARIA is disabled. I'm
-// pretty sure this isn't strictly correct but it shouldn't cause any harm.
-//
-// The returned numeric value is the index into the memory area, with the
-// exception of the BIOS and external devices where the unaltered address is
-// returned
 func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	// map taken from "7800 Software Guide":
 	//
@@ -337,7 +364,18 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	return address, mem.External
 }
 
+// Read memory address as viewed by the CPU. This method of reading creates
+// side-effects to the memory system. For reading of memory without side-effects
+// use the package level Read() function
 func (mem *Memory) Read(address uint16) (uint8, error) {
+	if mem.addressBus != address {
+		mem.addressBus = address
+		err := mem.External.BusChange(mem.addressBus, mem.dataBus)
+		if err != nil {
+			return 0, fmt.Errorf("read: %w", err)
+		}
+	}
+
 	idx, area := mem.MapAddress(address, true)
 	if area == nil {
 		return 0, fmt.Errorf("read unmapped address: %04x", address)
@@ -345,15 +383,33 @@ func (mem *Memory) Read(address uint16) (uint8, error) {
 
 	_, mem.isTIA = area.(*tia.TIA)
 
-	v, err := area.Read(idx)
+	data, err := area.Access(false, idx, mem.dataBus)
 	if err != nil {
 		return 0, fmt.Errorf("read %04x: %w", address, err)
 	}
 
-	return v, nil
+	// data bus happens late for Read()
+	mem.dataBus = data
+
+	return data, nil
 }
 
+// Write memory address as driven by the CPU. This method of writing produces
+// side-effects to the memory system, in addition to the explicit writing of
+// data. For writing to memory without side-effects use the package level
+// Write() function
 func (mem *Memory) Write(address uint16, data uint8) error {
+	// data bus happens early for Write()
+	mem.dataBus = data
+
+	if mem.addressBus != address {
+		mem.addressBus = address
+		err := mem.External.BusChange(mem.addressBus, mem.dataBus)
+		if err != nil {
+			return fmt.Errorf("read: %w", err)
+		}
+	}
+
 	idx, area := mem.MapAddress(address, false)
 	if area == nil {
 		return fmt.Errorf("write unmapped address: %04x", address)
@@ -362,10 +418,31 @@ func (mem *Memory) Write(address uint16, data uint8) error {
 	_, mem.isTIA = area.(*tia.TIA)
 	mem.LastWrite = area
 
-	err := area.Write(idx, data)
+	data, err := area.Access(true, idx, data)
 	if err != nil {
 		return fmt.Errorf("write %04x: %w", address, err)
 	}
 
 	return nil
+}
+
+// Read memory of the specified area. This method of reading memory is for more
+// direct uses (eg. a debugger PEEK command) and does not effect the general
+// state of memory
+//
+// The area and address parameters should be acquired from the MapAddress()
+// function
+func Read(area Area, address uint16) (uint8, error) {
+	return area.Access(false, address, 0)
+}
+
+// Write a value to the specified address of the area. This method of writing
+// memory is for more direct uses (eg. a debugger POKE command) and does not
+// effect the general state of memory
+//
+// The area and address parameters should be acquired from the MapAddress()
+// function
+func Write(area Area, address uint16, data uint8) error {
+	_, err := area.Access(false, address, 0)
+	return err
 }

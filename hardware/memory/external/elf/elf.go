@@ -134,6 +134,10 @@ func NewElf(ctx Context, d []byte) (*Elf, error) {
 	return cart, nil
 }
 
+func (cart *Elf) Label() string {
+	return "ELF"
+}
+
 // reset is distinct from Reset(). this reset function is implied by the
 // reading of the reset address.
 func (cart *Elf) reset() {
@@ -179,7 +183,7 @@ func (cart *Elf) reset() {
 }
 
 // Access implements the mapper.CartMapper interface.
-func (cart *Elf) Access(addr uint16, _ bool) (uint8, uint8, error) {
+func (cart *Elf) Access(_ bool, addr uint16, _ uint8) (uint8, error) {
 	if cart.mem.stream.active {
 		if !cart.mem.stream.drain {
 			cart.runARM(addr)
@@ -192,12 +196,7 @@ func (cart *Elf) Access(addr uint16, _ bool) (uint8, uint8, error) {
 	}
 
 	cart.mem.busStuffDelay = true
-	return cart.mem.gpio.data[DATA_ODR], CartDrivenPins, nil
-}
-
-// AccessVolatile implements the mapper.CartMapper interface.
-func (cart *Elf) AccessVolatile(addr uint16, data uint8, _ bool) error {
-	return nil
+	return cart.mem.gpio.data[DATA_ODR], nil
 }
 
 // NumBanks implements the mapper.CartMapper interface.
@@ -246,8 +245,7 @@ func (cart *Elf) runARM(addr uint16) bool {
 	return true
 }
 
-// AccessPassive implements the mapper.CartMapper interface.
-func (cart *Elf) AccessPassive(addr uint16, data uint8) error {
+func (cart *Elf) BusChange(addr uint16, data uint8) error {
 	if cart.mem.stream.active && cart.mem.stream.drain {
 		return nil
 	}

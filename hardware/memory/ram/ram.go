@@ -46,11 +46,10 @@ func (r *RAM) Label() string {
 	return r.label
 }
 
-func (r *RAM) Read(idx uint16) (uint8, error) {
+func (r *RAM) Access(write bool, idx uint16, data uint8) (uint8, error) {
+	if write {
+		r.data[idx] = data
+		return data, nil
+	}
 	return r.data[idx], nil
-}
-
-func (r *RAM) Write(idx uint16, data uint8) error {
-	r.data[idx] = data
-	return nil
 }

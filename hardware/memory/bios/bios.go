@@ -88,14 +88,13 @@ func (b *BIOS) Status() string {
 	return fmt.Sprintf("%dk %s BIOS at %#04x", len(biosrom)/1024, spec, origin)
 }
 
-func (b *BIOS) Read(address uint16) (uint8, error) {
+func (b *BIOS) Access(write bool, address uint16, data uint8) (uint8, error) {
+	if write {
+		return data, nil
+	}
 	if address < origin {
 		return 0, nil
 	}
 	idx := address - OriginBIOS - adjustment
 	return biosrom[idx], nil
-}
-
-func (b *BIOS) Write(_ uint16, data uint8) error {
-	return nil
 }

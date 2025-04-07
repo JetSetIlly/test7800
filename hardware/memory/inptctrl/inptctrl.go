@@ -28,6 +28,13 @@ func (ic *INPTCTRL) Status() string {
 	return fmt.Sprintf("%s: lock=%v maria=%v bios=%v tia=%v", ic.Label(), ic.Lock(), ic.MARIA(), ic.BIOS(), ic.TIA())
 }
 
+func (ic *INPTCTRL) Access(write bool, idx uint16, data uint8) (uint8, error) {
+	if write {
+		return data, ic.Write(idx, data)
+	}
+	return ic.Read(idx)
+}
+
 func (ic *INPTCTRL) Read(idx uint16) (uint8, error) {
 	return ic.value, nil
 }

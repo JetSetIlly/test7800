@@ -183,6 +183,13 @@ func (mar *Maria) Status() string {
 	return s.String()
 }
 
+func (mar *Maria) Access(write bool, idx uint16, data uint8) (uint8, error) {
+	if write {
+		return data, mar.Write(idx, data)
+	}
+	return mar.Read(idx)
+}
+
 func (mar *Maria) Read(idx uint16) (uint8, error) {
 	switch idx {
 	case 0x020:

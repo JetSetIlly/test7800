@@ -75,7 +75,7 @@ func (m *debugger) boot(romfile string, origin mappedAddress, entry mappedAddres
 	// copy romfile into memory a the origin address. if the memory is read-only
 	// then the console has been reset
 	for i, b := range d {
-		err := origin.area.Write(origin.idx+uint16(i), b)
+		_, err := origin.area.Access(true, origin.idx+uint16(i), b)
 		if err != nil {
 			return err
 		}
