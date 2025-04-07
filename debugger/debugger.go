@@ -2,12 +2,12 @@ package debugger
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -18,6 +18,7 @@ import (
 	"github.com/jetsetilly/test7800/hardware"
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory"
+	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/ui"
 )
 
@@ -72,18 +73,16 @@ func (m *debugger) reset() {
 				fmt.Sprintf("error loading %s: %s", m.loader, err.Error()),
 			))
 		} else {
-			// byte fingerprint contained by all 7800 cartridge dumps starting at byte 1
-			var fingerprint = []byte("ATARI7800")
-
-			if bytes.Compare(d[1:1+len(fingerprint)], fingerprint) == 0 {
-				fmt.Println(m.styles.debugger.Render(
-					fmt.Sprintf("inserting cartridge named %s", m.loader),
-				))
-				err = m.console.Mem.External.Insert(d)
+			c := external.Fingerprint(d)
+			if c.Valid() {
+				err = m.console.Mem.External.Insert(c)
 				if err != nil {
 					fmt.Println(m.styles.err.Render(err.Error()))
 				}
-
+				fmt.Println(m.styles.debugger.Render(
+					fmt.Sprintf("%s cartridge from %s", m.console.Mem.External.Label(),
+						filepath.Base(m.loader)),
+				))
 			} else {
 				// file is not a cartridge dump so we'll assume it's a bootfile
 				fmt.Println(m.styles.debugger.Render(

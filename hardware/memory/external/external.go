@@ -1,7 +1,6 @@
 package external
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/jetsetilly/test7800/hardware/memory/external/elf"
@@ -29,18 +28,16 @@ func Create(ctx Context) *Device {
 	return dev
 }
 
-func (dev *Device) Insert(d []byte) error {
-	var err error
-
-	// basic fingerprint
-	if bytes.Contains(d, []byte{0x7f, 'E', 'L', 'F'}) {
-		dev.inserted, err = elf.NewElf(dev.ctx, d)
-	} else {
-		dev.inserted, err = NewStandard(dev.ctx, d)
+func (dev *Device) Insert(c CartridgeInsertor) error {
+	if c.creator == nil {
+		dev.inserted = nil
+		return nil
 	}
 
+	var err error
+	dev.inserted, err = c.creator(dev.ctx, c.data)
 	if err != nil {
-		return fmt.Errorf("external: %s", err)
+		return err
 	}
 
 	return nil
@@ -58,7 +55,7 @@ func (dev *Device) Label() string {
 	if dev.IsEjected() {
 		return "Ejected"
 	}
-	return fmt.Sprintf("External: %s", dev.inserted.Label())
+	return dev.inserted.Label()
 }
 
 func (dev *Device) Access(write bool, address uint16, data uint8) (uint8, error) {

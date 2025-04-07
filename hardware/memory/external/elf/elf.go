@@ -62,9 +62,7 @@ func (r *elfReaderAt) ReadAt(p []byte, start int64) (n int, err error) {
 	start += r.offset
 
 	end := start + int64(len(p))
-	if end > int64(len(r.data)) {
-		end = int64(len(r.data))
-	}
+	end = min(int64(len(r.data)), end)
 	copy(p, r.data[start:end])
 
 	n = int(end - start)
@@ -323,7 +321,6 @@ func (cart *Elf) ARMinterrupt(addr uint32, val1 uint32, val2 uint32) (arm.ARMint
 	return arm.ARMinterruptReturn{}, nil
 }
 
-// BusStuff implements the mapper.CartBusStuff interface.
 func (cart *Elf) BusStuff() (uint8, bool) {
 	if !cart.mem.usesBusStuffing {
 		return 0, false
