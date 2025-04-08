@@ -556,6 +556,18 @@ func (mem *elfMemory) decode(ef *elf.File) error {
 						function: vcsSetNextAddress,
 						support:  true,
 					})
+				case "vcsInjectDmaData":
+					tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
+						name:     sym.Name,
+						function: vcsInjectDmaData,
+						support:  false,
+					})
+				case "vcsSnoopRead":
+					tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
+						name:     sym.Name,
+						function: vcsSnoopRead,
+						support:  false,
+					})
 
 				// C library functions that are often not linked but required
 				case "randint":

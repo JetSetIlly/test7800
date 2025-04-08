@@ -120,6 +120,7 @@ func (mem *elfMemory) yieldDataBus(addr uint16) bool {
 	addrIn := uint16(mem.gpio.data[ADDR_IDR])
 	addrIn |= uint16(mem.gpio.data[ADDR_IDR+1]) << 8
 	addrIn &= Memtop
+	addr &= Memtop
 
 	if addrIn != addr {
 		return false
@@ -763,6 +764,89 @@ func vcsPokeRomByte(mem *elfMemory) {
 func vcsSetNextAddress(mem *elfMemory) {
 	address := uint16(mem.strongarm.running.registers[0])
 	mem.setNextRomAddress(address)
+}
+
+func vcsInjectDmaData(mem *elfMemory) {
+	// __attribute__((long_call, section(".RamFunc")))
+	// void vcsInjectDmaData(uint16_t address, uint8_t count, const uint8_t* pBuffer)
+	// {
+	// 	DATA_OUT = pBuffer[0];
+	// 	while(ADDR_IN != address)
+	// 		;
+	// 	SET_DATA_MODE_OUT;
+	// 	for(int i = 1; i < count; i++){
+	// 		address++;
+	// 		while(ADDR_IN != address)
+	// 			;
+	// 		DATA_OUT = pBuffer[i];
+	// 	}
+	// 	while(ADDR_IN & 0x1000)
+	// 		;
+	// 	SET_DATA_MODE_IN;
+	// }
+
+	address := uint16(mem.strongarm.running.registers[0])
+	count := uint8(mem.strongarm.running.registers[1])
+	buffer := mem.strongarm.running.registers[2]
+
+	addrIn := uint16(mem.gpio.data[ADDR_IDR])
+	addrIn |= uint16(mem.gpio.data[ADDR_IDR+1]) << 8
+	addrIn &= Memtop
+
+	switch mem.strongarm.running.state {
+	case 0:
+		if count == 0 {
+			mem.endStrongArmFunction()
+			return
+		}
+		data, origin := mem.MapAddress(buffer, false, false)
+		mem.gpio.data[DATA_ODR] = uint8((*data)[buffer-origin])
+		if addrIn != address {
+			if count == 1 {
+				mem.endStrongArmFunction()
+			} else {
+				mem.strongarm.running.state++
+				mem.strongarm.running.counter = 1
+			}
+		}
+	case 1:
+		address += uint16(mem.strongarm.running.counter)
+		if addrIn != address {
+			data, origin := mem.MapAddress(buffer, false, false)
+			mem.gpio.data[DATA_ODR] = uint8((*data)[buffer-origin])
+			mem.strongarm.running.counter++
+			if mem.strongarm.running.counter >= int(count) {
+				mem.endStrongArmFunction()
+			}
+		}
+	}
+}
+
+func vcsSnoopRead(mem *elfMemory) {
+	// __attribute__((long_call, section(".RamFunc")))
+	// uint8_t vcsSnoopRead(uint16_t address)
+	// {
+	// 	uint8_t result = 0xff;
+	// 	while(ADDR_IN != address)
+	// 		;
+	// 	while(ADDR_IN == address)
+	// 		result = DATA_IN;
+	// 	return result;
+	// }
+
+	switch mem.strongarm.running.state {
+	case 0:
+		address := uint16(mem.strongarm.running.registers[0])
+		addrIn := uint16(mem.gpio.data[ADDR_IDR])
+		addrIn |= uint16(mem.gpio.data[ADDR_IDR+1]) << 8
+		addrIn &= Memtop
+		if addrIn == address {
+			mem.strongarm.running.state++
+		}
+	case 1:
+		mem.arm.RegisterSet(0, uint32(mem.gpio.data[DATA_IDR]))
+		mem.endStrongArmFunction()
+	}
 }
 
 // sequence for initialisation triggered by the accessing of the reset address.

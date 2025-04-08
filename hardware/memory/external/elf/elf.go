@@ -29,7 +29,7 @@ const (
 	CartridgeBits  = 0x0fff
 	OriginCart     = 0xf000
 	CartDrivenPins = 0xff
-	Memtop         = 0xffff
+	Memtop         = 0x1fff
 
 	// preferences
 	random = true
@@ -37,6 +37,7 @@ const (
 
 type Context interface {
 	Rand8Bit() uint8
+	Break(e error)
 }
 
 type Elf struct {
@@ -140,7 +141,7 @@ func (cart *Elf) Label() string {
 // reading of the reset address.
 func (cart *Elf) reset() {
 	// stream bytes rather than injecting them into the VCS as they arrive
-	cart.mem.stream.active = !cart.mem.stream.disabled
+	cart.mem.stream.active = false //!cart.mem.stream.disabled
 
 	// initialise ROM for the VCS
 	if cart.mem.stream.active {
