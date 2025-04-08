@@ -84,7 +84,8 @@ func (m *debugger) boot(romfile string, origin mappedAddress, entry mappedAddres
 	// first instruction at entry point
 	m.console.MC.PC.Load(entry.address)
 
-	// disable BIOS and enable MARIA. not locking
+	// writing to the INPTCTRL twice to make sure the halt line has been enabled
+	m.console.Mem.INPTCTRL.Write(0x01, inptctrl)
 	m.console.Mem.INPTCTRL.Write(0x01, inptctrl)
 
 	fmt.Println(m.styles.debugger.Render(

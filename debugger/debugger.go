@@ -120,7 +120,10 @@ func (m *debugger) reset() {
 	}
 
 	if postResetProcedure.Custom {
+		// writing to the INPTCTRL twice to make sure the halt line has been enabled
 		m.console.Mem.INPTCTRL.Write(0x01, postResetProcedure.INPTCTRL)
+		m.console.Mem.INPTCTRL.Write(0x01, postResetProcedure.INPTCTRL)
+
 		fmt.Println(m.styles.cpu.Render(
 			m.console.Mem.INPTCTRL.Status(),
 		))
