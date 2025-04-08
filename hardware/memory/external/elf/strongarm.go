@@ -795,28 +795,16 @@ func vcsInjectDmaData(mem *elfMemory) {
 
 	switch mem.strongarm.running.state {
 	case 0:
-		if count == 0 {
-			mem.endStrongArmFunction()
-			return
-		}
-		data, origin := mem.MapAddress(buffer, false, false)
-		mem.gpio.data[DATA_ODR] = uint8((*data)[buffer-origin])
-		if addrIn != address {
-			if count == 1 {
-				mem.endStrongArmFunction()
-			} else {
-				mem.strongarm.running.state++
-				mem.strongarm.running.counter = 1
-			}
-		}
+		mem.strongarm.running.counter = 0
+		mem.strongarm.running.state++
 	case 1:
-		address += uint16(mem.strongarm.running.counter)
-		if addrIn != address {
+		if mem.strongarm.running.counter >= int(count) {
+			mem.endStrongArmFunction()
+		} else {
 			data, origin := mem.MapAddress(buffer, false, false)
-			mem.gpio.data[DATA_ODR] = uint8((*data)[buffer-origin])
-			mem.strongarm.running.counter++
-			if mem.strongarm.running.counter >= int(count) {
-				mem.endStrongArmFunction()
+			mem.strongarm.nextRomAddress = address + uint16(mem.strongarm.running.counter)
+			if mem.injectRomByte(uint8((*data)[buffer-origin+uint32(mem.strongarm.running.counter)])) {
+				mem.strongarm.running.counter++
 			}
 		}
 	}
