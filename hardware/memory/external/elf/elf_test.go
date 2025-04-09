@@ -23,6 +23,9 @@ func (c *Context) Rand8Bit() uint8 {
 	return 0
 }
 
+func (c *Context) Break(_ error) {
+}
+
 func TestELF(t *testing.T) {
 	e, err := elf.NewElf(&Context{}, testfile)
 	test.ExpectSuccess(t, err)
