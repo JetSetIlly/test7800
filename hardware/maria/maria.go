@@ -372,7 +372,7 @@ const (
 	dmaEndofVBLANK = dmaStartLastInZone
 
 	// the maximum number of cycles available in DMA before the HSYNC
-	dmaMaxCycles = clksScanline * 2
+	dmaMaxCycles = clksScanline
 )
 
 // returns true if CPU is to be halted and true if DLL has requested an interrupt
@@ -389,8 +389,9 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 		mar.Coords.Clk = 0
 		mar.Coords.Scanline++
 		mar.wsync = false
+		mar.requiredDMACycles = 0
 
-		if mar.Coords.Scanline > mar.spec.absoluteBottom {
+		if mar.Coords.Scanline >= mar.spec.absoluteBottom {
 			mar.Coords.Scanline = 0
 			mar.Coords.Frame++
 
@@ -435,9 +436,9 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 
 			// DMA cycle counting
 			if mar.DLL.offset == 0 {
-				mar.requiredDMACycles = dmaStartLastInZone
+				mar.requiredDMACycles += dmaStartLastInZone
 			} else {
-				mar.requiredDMACycles = dmaStart
+				mar.requiredDMACycles += dmaStart
 			}
 
 			// the scanline value adjusted by where the top of the image is located
@@ -546,9 +547,11 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 									pi := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
 									p := mar.palette[pi]
 									if c > 0 {
-										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.spec.palette[p[c-1]])
+										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2, sl, mar.spec.palette[p[c-1]])
+										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2+1, sl, mar.spec.palette[p[c-1]])
 									} else if mar.ctrl.kanagroo {
-										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*2)+i, sl, mar.spec.palette[mar.bg])
+										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2, sl, mar.spec.palette[mar.bg])
+										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2+1, sl, mar.spec.palette[mar.bg])
 									}
 								}
 							} else {
@@ -557,9 +560,11 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 								for i := range 4 {
 									c := (b >> ((3 - i) * 2)) & 0x03
 									if c > 0 {
-										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.spec.palette[p[c-1]])
+										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2, sl, mar.spec.palette[p[c-1]])
+										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2+1, sl, mar.spec.palette[p[c-1]])
 									} else if mar.ctrl.kanagroo {
-										mar.currentFrame.Set(int(mar.DL.horizontalPosition)+(int(w)*4)+i, sl, mar.spec.palette[mar.bg])
+										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2, sl, mar.spec.palette[mar.bg])
+										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2+1, sl, mar.spec.palette[mar.bg])
 									}
 								}
 							}

@@ -15,9 +15,9 @@ var ntscRaw []byte
 //go:embed "palettes/PAL_A7800_CRTTV.pal"
 var palRaw []byte
 
-const clksScanline = 227
-const clksHBLANK = 67
-const clksVisible = 160
+const clksScanline = 454
+const clksHBLANK = 134
+const clksVisible = 320
 
 type spec struct {
 	palette        [256]color.RGBA
