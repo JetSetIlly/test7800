@@ -1,7 +1,9 @@
 package dbg
 
 import (
+	"fmt"
 	"math/rand/v2"
+	"strings"
 
 	"github.com/jetsetilly/test7800/hardware/cpu/execution"
 )
@@ -12,6 +14,9 @@ const (
 )
 
 type Context struct {
+	console string
+	spec    string
+
 	Recent []execution.Result
 
 	Breaks []error
@@ -22,14 +27,30 @@ type Context struct {
 	rand *rand.Rand
 }
 
-func Create() Context {
-	var ctx Context
+func Create(console string, spec string) (Context, error) {
+	ctx := Context{
+		console: strings.ToUpper(console),
+		spec:    strings.ToUpper(spec),
+	}
+
+	if ctx.console != "7800" {
+		return ctx, fmt.Errorf("unsupported console type: %s", ctx.console)
+	}
+
+	if !(ctx.spec == "NTSC" || ctx.spec == "PAL") {
+		return ctx, fmt.Errorf("unsupported TV specification: %s", ctx.spec)
+	}
+
 	ctx.rand = rand.New(rand.NewPCG(0, 0))
-	return ctx
+	return ctx, nil
+}
+
+func (ctx *Context) Spec() string {
+	return ctx.spec
 }
 
 func (ctx *Context) IsAtari7800() bool {
-	return true
+	return ctx.console == "7800"
 }
 
 func (ctx *Context) Reset() {

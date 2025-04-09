@@ -9,7 +9,10 @@ import (
 
 func main() {
 	ui := ui.NewUI()
-	ctx := dbg.Create()
+	ctx, err := dbg.Create("7800", "PAL")
+	if err != nil {
+		panic(err)
+	}
 	con := hardware.Create(&ctx, ui)
 	ui.UpdateGUI = func() error {
 		fn := con.MARIA.Coords.Frame

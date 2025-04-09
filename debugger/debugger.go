@@ -3,6 +3,7 @@ package debugger
 import (
 	"bufio"
 	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -554,8 +555,19 @@ func (m *debugger) loop() {
 	}
 }
 
+const programName = "test7800"
+
 func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	var bootfile string
+	var spec string
+
+	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
+	flgs.StringVar(&spec, "spec", "NTSC", "TV specification of the console: NTSC or PAL")
+	err := flgs.Parse(args)
+	if err != nil {
+		return err
+	}
+	args = flgs.Args()
 
 	if len(args) == 1 {
 		bootfile = args[0]
@@ -563,8 +575,13 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 		return fmt.Errorf("too many arguments to debugger")
 	}
 
+	ctx, err := dbg.Create("7800", spec)
+	if err != nil {
+		return err
+	}
+
 	m := &debugger{
-		ctx:     dbg.Create(),
+		ctx:     ctx,
 		guiQuit: guiQuit,
 		sig:     make(chan os.Signal, 1),
 		input:   make(chan input, 1),

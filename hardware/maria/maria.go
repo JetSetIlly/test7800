@@ -52,6 +52,7 @@ func (ctrl *mariaCtrl) String() string {
 // Context allows Maria to signal a break
 type Context interface {
 	Break(error)
+	Spec() string
 }
 
 // the wrapping error for any errors passed to Context.Break()
@@ -115,14 +116,14 @@ type Memory interface {
 	Write(address uint16, data uint8) error
 }
 
-func Create(ctx Context, ui *ui.UI, mem Memory, spec string) *Maria {
+func Create(ctx Context, ui *ui.UI, mem Memory) *Maria {
 	mar := &Maria{
 		ctx: ctx,
 		ui:  ui,
 		mem: mem,
 	}
 
-	switch strings.ToUpper(spec) {
+	switch ctx.Spec() {
 	case "NTSC":
 		mar.spec = ntsc
 	case "PAL":

@@ -42,7 +42,7 @@ func Create(ctx Context, ui *ui.UI) Console {
 	con.Mem, addChips = memory.Create(ctx)
 
 	con.MC = cpu.NewCPU(ctx, con.Mem)
-	con.MARIA = maria.Create(ctx, ui, con.Mem, con.Mem.BIOS.Spec())
+	con.MARIA = maria.Create(ctx, ui, con.Mem)
 	con.TIA = tia.Create(ctx, ui, con.Mem)
 	con.RIOT = riot.Create(con.Mem)
 

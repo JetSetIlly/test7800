@@ -35,6 +35,7 @@ type Memory struct {
 type Context interface {
 	ram.Context
 	external.Context
+	Spec() string
 }
 
 // AddChips is returned by the Create() function and should be called to
@@ -80,8 +81,18 @@ type Area interface {
 }
 
 func Create(ctx Context) (*Memory, AddChips) {
+	var b bios.BIOS
+	switch ctx.Spec() {
+	case "PAL":
+		b = bios.NewPAL()
+	case "NTSC":
+		b = bios.NewNTSC()
+	default:
+		b = bios.NewNTSC()
+	}
+
 	mem := &Memory{
-		BIOS:     &bios.BIOS{},
+		BIOS:     &b,
 		INPTCTRL: &inptctrl.INPTCTRL{},
 		RAM7800:  ram.Create(ctx, "ram7800", 0x1000),
 		RAMRIOT:  ram.Create(ctx, "ramRIOT", 0x0080),

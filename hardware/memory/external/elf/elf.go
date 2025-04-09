@@ -37,9 +37,11 @@ const (
 type Context interface {
 	Rand8Bit() uint8
 	Break(e error)
+	Spec() string
 }
 
 type Elf struct {
+	ctx     Context
 	version string
 
 	arm *arm.ARM
@@ -106,6 +108,7 @@ func NewElf(ctx Context, d []byte) (*Elf, error) {
 	}
 
 	cart := &Elf{
+		ctx:       ctx,
 		yieldHook: coprocessor.StubCartYieldHook{},
 	}
 
@@ -160,16 +163,14 @@ func (cart *Elf) reset() {
 
 	// set arguments for initial execution of ARM program
 	systemType := argSystemType_NTSC
-	// switch cart.env.TV.GetFrameInfo().Spec.ID {
-	// case "NTSC":
-	// 	systemType = argSystemType_NTSC
-	// case "PAL":
-	// 	systemType = argSystemType_PAL
-	// case "PAL60":
-	// 	systemType = argSystemType_PAL60
-	// default:
-	// 	systemType = argSystemType_NTSC
-	// }
+	switch cart.ctx.Spec() {
+	case "NTSC":
+		systemType = argSystemType_NTSC
+	case "PAL":
+		systemType = argSystemType_PAL
+	case "PAL60":
+		systemType = argSystemType_PAL60
+	}
 
 	flags := argFlags_NoExit
 
