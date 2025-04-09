@@ -27,8 +27,6 @@ import (
 // Context allows the CPU to signal a break or to enable/disable tracing
 type Context interface {
 	Break(error)
-	StartTrace(int)
-	EndTrace()
 }
 
 // CPU implements the 6507 found as found in the Atari 2600. Register logic is

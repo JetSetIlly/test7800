@@ -18,6 +18,7 @@ import (
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/hardware"
 	"github.com/jetsetilly/test7800/hardware/cpu"
+	"github.com/jetsetilly/test7800/hardware/cpu/execution"
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
@@ -49,6 +50,9 @@ type debugger struct {
 
 	console     hardware.Console
 	breakpoints map[uint16]bool
+
+	// recent execution results to be printed on emulation halt
+	recent []execution.Result
 
 	// rule for stepping. by default (the field is nil) the step will move
 	// forward one instruction
@@ -281,8 +285,11 @@ func (m *debugger) run() bool {
 
 		// output last instruction
 		if m.console.MC.LastResult.Final {
-			m.ctx.AddRecent(m.console.MC.LastResult)
-			m.ctx.AddTrace(m.console.MC.LastResult)
+			const maxRecentLen = 10
+			m.recent = append(m.recent, m.console.MC.LastResult)
+			if len(m.recent) > maxRecentLen {
+				m.recent = m.recent[1:]
+			}
 		}
 
 		instructionCt++
@@ -312,18 +319,9 @@ func (m *debugger) run() bool {
 	}
 
 	// output recent CPU instructons on end
-	if len(m.ctx.Recent) > 0 {
+	if len(m.recent) > 0 {
 		fmt.Println(m.styles.debugger.Render("most recent CPU instructions"))
-		for _, x := range m.ctx.Recent {
-			res := disassembly.FormatResult(x)
-			m.printInstruction(res)
-		}
-	}
-
-	// output traced CPU instructons on end
-	if len(m.ctx.Trace) > 0 {
-		fmt.Println(m.styles.debugger.Render("traced CPU instructions"))
-		for _, x := range m.ctx.Trace {
+		for _, x := range m.recent {
 			res := disassembly.FormatResult(x)
 			m.printInstruction(res)
 		}
