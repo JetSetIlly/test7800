@@ -102,21 +102,16 @@ func (g *gui) Update() error {
 	return nil
 }
 
-const (
-	pixelWidth = 2
-)
-
 func (g *gui) Draw(screen *ebiten.Image) {
 	if g.image != nil {
 		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Scale(pixelWidth, 1)
 		screen.DrawImage(g.image, op)
 	}
 }
 
 func (g *gui) Layout(width, height int) (int, int) {
 	if g.image != nil {
-		return g.width * pixelWidth, g.height
+		return g.width, g.height
 	}
 	return width, height
 }

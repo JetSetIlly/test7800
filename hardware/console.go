@@ -27,6 +27,7 @@ type Console struct {
 type Context interface {
 	cpu.Context
 	memory.Context
+	tia.Context
 	Rand8Bit() uint8
 	Rand16Bit() uint16
 }
@@ -42,7 +43,7 @@ func Create(ctx Context, ui *ui.UI) Console {
 
 	con.MC = cpu.NewCPU(ctx, con.Mem)
 	con.MARIA = maria.Create(ctx, ui, con.Mem, con.Mem.BIOS.Spec())
-	con.TIA = tia.Create(ui, con.Mem)
+	con.TIA = tia.Create(ctx, ui, con.Mem)
 	con.RIOT = riot.Create(con.Mem)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)

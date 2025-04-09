@@ -176,7 +176,7 @@ type dll struct {
 	dli         bool
 	h16         bool
 	h8          bool
-	offset      uint8 // 4 bits of first byte (we need a signed value for this)
+	offset      uint8 // 4 bits of first byte
 	highAddress uint8 // second byte
 	lowAddress  uint8 // third byte
 

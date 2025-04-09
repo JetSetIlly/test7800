@@ -46,10 +46,14 @@ type Memory interface {
 	Write(address uint16, data uint8) error
 }
 
-func Create(ui *ui.UI, mem Memory) *TIA {
+type Context interface {
+	IsAtari7800() bool
+}
+
+func Create(ctx Context, ui *ui.UI, mem Memory) *TIA {
 	tia := &TIA{
 		mem: mem,
-		aud: audio.NewAudio(),
+		aud: audio.NewAudio(ctx.IsAtari7800()),
 		buf: &audioBuffer{
 			data: make([]uint8, 0, 4096),
 		},

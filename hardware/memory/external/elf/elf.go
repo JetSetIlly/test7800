@@ -26,10 +26,9 @@ import (
 )
 
 const (
-	CartridgeBits  = 0x0fff
-	OriginCart     = 0xf000
-	CartDrivenPins = 0xff
-	Memtop         = 0x1fff
+	CartridgeBits = 0x0fff
+	OriginCart    = 0xf000
+	Memtop        = 0x1fff
 
 	// preferences
 	random = true

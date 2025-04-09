@@ -28,6 +28,10 @@ func Create() Context {
 	return ctx
 }
 
+func (ctx *Context) IsAtari7800() bool {
+	return true
+}
+
 func (ctx *Context) Reset() {
 	ctx.Breaks = ctx.Breaks[:0]
 	ctx.trace = 0

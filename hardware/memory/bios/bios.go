@@ -18,7 +18,7 @@ const OriginBIOS = 0x8000
 // the largest BIOS size possible
 const maxBIOSsize = 0x10000 - OriginBIOS
 
-//go:embed "7800 BIOS (U).rom"
+//go:embed "7800 BIOS (E).rom"
 var biosrom []byte
 
 // list of known BIOS checksums (md5) and the name
