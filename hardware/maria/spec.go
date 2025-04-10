@@ -38,7 +38,7 @@ func init() {
 		// second). The 'visible' screen (during which MARIA attempts display)
 		// starts on raster 16 and ends on raster 258."
 		visibleTop:     16,
-		visibleBottom:  258,
+		visibleBottom:  259,
 		safeTop:        41,
 		safeBottom:     233,
 		absoluteBottom: 263,
@@ -50,9 +50,9 @@ func init() {
 		// 	per second). The 'visible' screen starts on raster 16 and ends on raster
 		// 	308"
 		visibleTop:     16,
-		visibleBottom:  308,
+		visibleBottom:  309,
 		safeTop:        41,
-		safeBottom:     233,
+		safeBottom:     283,
 		absoluteBottom: 313,
 		horizScan:      15625.00,
 	}
