@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"strings"
 	"time"
 
@@ -97,18 +98,15 @@ type Maria struct {
 	// pixels for current frame
 	currentFrame *image.RGBA
 
-	// the top of the image is not necessarily scanline zero
-	imageTop int
+	// lineram is implemented as a single line image. this isn't ideal but it's
+	// workable and produces adequate results for now
+	lineram *image.RGBA
 
 	// the current spec (decided via the BIOS)
 	spec spec
 
 	// frame limiter
 	limiter *time.Ticker
-
-	// creating a new image depends on the tv specification. the newImage()
-	// function returns an appropriately sized image for the specification
-	newImage func() *image.RGBA
 }
 
 type Memory interface {
@@ -141,13 +139,9 @@ func Create(ctx Context, ui *ui.UI, mem Memory) *Maria {
 	hz *= 1.20
 	mar.limiter = time.NewTicker(time.Second / time.Duration(hz))
 
-	mar.imageTop = mar.spec.visibleTop
+	mar.lineram = image.NewRGBA(image.Rect(0, 0, clksVisible, 1))
+	mar.newFrame()
 
-	mar.newImage = func() *image.RGBA {
-		return image.NewRGBA(image.Rect(0, mar.imageTop, clksVisible, mar.spec.visibleBottom-mar.imageTop))
-	}
-
-	mar.currentFrame = mar.newImage()
 	return mar
 }
 
@@ -376,6 +370,10 @@ const (
 	dmaMaxCycles = clksScanline
 )
 
+func (mar *Maria) newFrame() {
+	mar.currentFrame = image.NewRGBA(image.Rect(0, 0, clksVisible, mar.spec.visibleBottom-mar.spec.visibleTop))
+}
+
 // returns true if CPU is to be halted and true if DLL has requested an interrupt
 //
 // note that the interrupt request will be returned at the beginning of DMA
@@ -408,9 +406,9 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 			// new image to use for current frame
 			//
 			// this can almost certainly be improved in efficiency
-			mar.currentFrame = mar.newImage()
+			mar.newFrame()
 
-		} else if mar.Coords.Scanline == mar.spec.visibleTop {
+		} else if mar.Coords.Scanline == mar.spec.visibleTop-1 {
 			mar.mstat = vblankDisable
 
 			// "The end of VBLANK is made up of a DMA startup plus a Long shutdown."
@@ -443,12 +441,20 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 			}
 
 			// the scanline value adjusted by where the top of the image is located
-			sl := mar.Coords.Scanline - mar.imageTop
+			sl := mar.Coords.Scanline - mar.spec.visibleTop
 
-			// set entire scanline to background colour. individual pixels will
-			// be changed according to the display lists
 			for clk := range clksVisible {
+				// set entire scanline to background colour
 				mar.currentFrame.Set(clk, sl, mar.spec.palette[mar.bg])
+
+				// copy line ram over it where the line ram is not transparent
+				c := mar.lineram.RGBAAt(clk, 0)
+				if c.A != 0 {
+					mar.currentFrame.Set(clk, sl, c)
+				}
+
+				// clear line ram
+				mar.lineram.Set(clk, 0, color.Transparent)
 			}
 
 			switch mar.ctrl.dma {
@@ -548,11 +554,11 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 									pi := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
 									p := mar.palette[pi]
 									if c > 0 {
-										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2, sl, mar.spec.palette[p[c-1]])
-										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2+1, sl, mar.spec.palette[p[c-1]])
+										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2, 0, mar.spec.palette[p[c-1]])
+										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2+1, 0, mar.spec.palette[p[c-1]])
 									} else if mar.ctrl.kanagroo {
-										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2, sl, mar.spec.palette[mar.bg])
-										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2+1, sl, mar.spec.palette[mar.bg])
+										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2, 0, mar.spec.palette[mar.bg])
+										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2+1, 0, mar.spec.palette[mar.bg])
 									}
 								}
 							} else {
@@ -561,11 +567,11 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 								for i := range 4 {
 									c := (b >> ((3 - i) * 2)) & 0x03
 									if c > 0 {
-										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2, sl, mar.spec.palette[p[c-1]])
-										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2+1, sl, mar.spec.palette[p[c-1]])
+										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2, 0, mar.spec.palette[p[c-1]])
+										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2+1, 0, mar.spec.palette[p[c-1]])
 									} else if mar.ctrl.kanagroo {
-										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2, sl, mar.spec.palette[mar.bg])
-										mar.currentFrame.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2+1, sl, mar.spec.palette[mar.bg])
+										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2, 0, mar.spec.palette[mar.bg])
+										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2+1, 0, mar.spec.palette[mar.bg])
 									}
 								}
 							}

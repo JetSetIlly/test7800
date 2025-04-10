@@ -66,7 +66,7 @@ func init() {
 
 	for i := range 256 {
 		p := i * 3
-		ntsc.palette[i] = color.RGBA{R: ntscRaw[p], G: ntscRaw[p+1], B: ntscRaw[p+2]}
-		pal.palette[i] = color.RGBA{R: palRaw[p], G: palRaw[p+1], B: palRaw[p+2]}
+		ntsc.palette[i] = color.RGBA{R: ntscRaw[p], G: ntscRaw[p+1], B: ntscRaw[p+2], A: 255}
+		pal.palette[i] = color.RGBA{R: palRaw[p], G: palRaw[p+1], B: palRaw[p+2], A: 255}
 	}
 }
