@@ -187,10 +187,10 @@ type CartCoProc interface {
 	Peek(addr uint32) (uint32, bool)
 }
 
-// CartCoProcBus is implemented by cartridge mappers that have a coprocessor
-type CartCoProcBus interface {
+// CartCoProcHandler is implemented by cartridge mappers that have a coprocessor
+type CartCoProcHandler interface {
 	// return the actual coprocessor interface. if the cartridge implements the
-	// CartCoProcBus then it should always return a non-nil CartCoProc instance
+	// CartCoProcHandler then it should always return a non-nil CartCoProc instance
 	GetCoProc() CartCoProc
 
 	// set interface for cartridge yields

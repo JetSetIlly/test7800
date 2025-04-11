@@ -3,6 +3,7 @@ package external
 import (
 	"fmt"
 
+	"github.com/jetsetilly/test7800/coprocessor"
 	"github.com/jetsetilly/test7800/hardware/memory/external/elf"
 )
 
@@ -81,6 +82,13 @@ type busChangeSensitive interface {
 func (dev *Device) BusChange(address uint16, data uint8) error {
 	if d, ok := dev.inserted.(busChangeSensitive); ok {
 		d.BusChange(address, data)
+	}
+	return nil
+}
+
+func (dev *Device) GetCoProcHandler() coprocessor.CartCoProcHandler {
+	if d, ok := dev.inserted.(coprocessor.CartCoProcHandler); ok {
+		return d
 	}
 	return nil
 }

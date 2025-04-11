@@ -356,7 +356,7 @@ func (cart *Elf) ELFSection(name string) ([]uint8, uint32, bool) {
 	return nil, 0, false
 }
 
-// CoProcExecutionState implements the coprocessor.CartCoProcBus interface.
+// CoProcExecutionState implements the coprocessor.CartCoProcHandler interface.
 func (cart *Elf) CoProcExecutionState() coprocessor.CoProcExecutionState {
 	if cart.mem.parallelARM {
 		return coprocessor.CoProcExecutionState{
@@ -370,12 +370,12 @@ func (cart *Elf) CoProcExecutionState() coprocessor.CoProcExecutionState {
 	}
 }
 
-// CoProcRegister implements the coprocessor.CartCoProcBus interface.
+// CoProcRegister implements the coprocessor.CartCoProcHandler interface.
 func (cart *Elf) GetCoProc() coprocessor.CartCoProc {
 	return cart.arm
 }
 
-// SetYieldHook implements the coprocessor.CartCoProcBus interface.
+// SetYieldHook implements the coprocessor.CartCoProcHandler interface.
 func (cart *Elf) SetYieldHook(hook coprocessor.CartYieldHook) {
 	cart.yieldHook = hook
 }

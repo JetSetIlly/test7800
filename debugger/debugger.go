@@ -34,6 +34,7 @@ type styles struct {
 	err         lipgloss.Style
 	breakpoint  lipgloss.Style
 	debugger    lipgloss.Style
+	coproc      lipgloss.Style
 }
 
 type input struct {
@@ -53,6 +54,9 @@ type debugger struct {
 
 	// recent execution results to be printed on emulation halt
 	recent []execution.Result
+
+	// coprocessor disassembly
+	coprocDisasm coprocDisasm
 
 	// rule for stepping. by default (the field is nil) the step will move
 	// forward one instruction
@@ -283,7 +287,7 @@ func (m *debugger) run() bool {
 		default:
 		}
 
-		// output last instruction
+		// record last instruction
 		if m.console.MC.LastResult.Final {
 			const maxRecentLen = 10
 			m.recent = append(m.recent, m.console.MC.LastResult)
@@ -321,9 +325,31 @@ func (m *debugger) run() bool {
 	// output recent CPU instructons on end
 	if len(m.recent) > 0 {
 		fmt.Println(m.styles.debugger.Render("most recent CPU instructions"))
-		for _, x := range m.recent {
-			res := disassembly.FormatResult(x)
+		for _, e := range m.recent {
+			res := disassembly.FormatResult(e)
 			m.printInstruction(res)
+		}
+	}
+
+	// output most recent coproc disassembly if enabled
+	if m.coprocDisasm.enabled {
+		for _, e := range m.coprocDisasm.last {
+			fmt.Println(m.styles.coproc.Render(
+				e.String(),
+			))
+
+			// coprocessor disassemblies can be quite long so we allow it to be
+			// ended early with a ctrl-c signal
+			var sig bool
+			select {
+			case <-m.sig:
+				sig = true
+			default:
+			}
+			if sig {
+				fmt.Println(m.styles.err.Render("ended coproc disassembly early"))
+				break // for loop
+			}
 		}
 	}
 
@@ -541,6 +567,38 @@ func (m *debugger) loop() {
 			fmt.Println(m.styles.debugger.Render(
 				fmt.Sprintf("dropped breakpoint for $%04x", ma.address),
 			))
+		case "COPROC":
+			coproc := m.console.Mem.External.GetCoProcHandler()
+			if coproc == nil {
+				fmt.Println(m.styles.err.Render(
+					"external device does not have a coprocessor",
+				))
+				break // switch
+			}
+			switch len(cmd) {
+			case 1:
+				fmt.Println(m.styles.debugger.Render(
+					coproc.GetCoProc().ProcessorID(),
+				))
+			case 2:
+				c := strings.ToUpper(cmd[1])
+				switch c {
+				case "DISASM":
+					coproc.GetCoProc().SetDisassembler(&m.coprocDisasm)
+					m.coprocDisasm.enabled = true
+				case "END":
+					coproc.GetCoProc().SetDisassembler(nil)
+					m.coprocDisasm.enabled = false
+				default:
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("unrecognised argument for COPROC command: %s", c),
+					))
+				}
+			default:
+				fmt.Println(m.styles.err.Render(
+					"too many arguments to COPROC command",
+				))
+			}
 		case "LOG":
 			logger.Tail(os.Stdout, -1)
 		case "QUIT":
@@ -592,6 +650,7 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 			err:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(1)),
 			breakpoint:  lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(4)),
 			debugger:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(2)),
+			coproc:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(0)).Background(lipgloss.ANSIColor(3)),
 		},
 		breakpoints: make(map[uint16]bool),
 	}
