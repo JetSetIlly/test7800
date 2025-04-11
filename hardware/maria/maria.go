@@ -98,11 +98,12 @@ type Maria struct {
 	// pixels for current frame
 	currentFrame *image.RGBA
 
-	// lineram is implemented as a single line image. this isn't ideal but it's
-	// workable and produces adequate results for now
+	// lineram is implemented as a single line image. this isn't an exact
+	// representation of lineram but it's workable and produces adequate results
+	// for now
 	lineram *image.RGBA
 
-	// the current spec (decided via the BIOS)
+	// the current spec (NTSC, PAL, etc.)
 	spec spec
 
 	// frame limiter
@@ -139,6 +140,7 @@ func Create(ctx Context, ui *ui.UI, mem Memory) *Maria {
 	hz *= 1.20
 	mar.limiter = time.NewTicker(time.Second / time.Duration(hz))
 
+	// allocate images representing lineram and the frame to be displayed
 	mar.lineram = image.NewRGBA(image.Rect(0, 0, clksVisible, 1))
 	mar.newFrame()
 
@@ -372,6 +374,12 @@ const (
 
 func (mar *Maria) newFrame() {
 	mar.currentFrame = image.NewRGBA(image.Rect(0, 0, clksVisible, mar.spec.visibleBottom-mar.spec.visibleTop))
+
+	// make sure lineram is clear at beginning of new frame. probably not
+	// necessary but not an expensive operation
+	for clk := range clksVisible {
+		mar.lineram.Set(clk, 0, color.Transparent)
+	}
 }
 
 // returns true if CPU is to be halted and true if DLL has requested an interrupt
@@ -447,13 +455,13 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 				// set entire scanline to background colour
 				mar.currentFrame.Set(clk, sl, mar.spec.palette[mar.bg])
 
-				// copy line ram over it where the line ram is not transparent
+				// copy line ram over background where the line ram is not transparent
 				c := mar.lineram.RGBAAt(clk, 0)
 				if c.A != 0 {
 					mar.currentFrame.Set(clk, sl, c)
 				}
 
-				// clear line ram
+				// clear the part of line ram we just copied
 				mar.lineram.Set(clk, 0, color.Transparent)
 			}
 
