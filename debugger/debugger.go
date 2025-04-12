@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/jetsetilly/test7800/debugger/dbg"
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/hardware"
+	"github.com/jetsetilly/test7800/hardware/arm"
 	"github.com/jetsetilly/test7800/hardware/cpu"
 	"github.com/jetsetilly/test7800/hardware/cpu/execution"
 	"github.com/jetsetilly/test7800/hardware/maria"
@@ -25,17 +25,6 @@ import (
 	"github.com/jetsetilly/test7800/logger"
 	"github.com/jetsetilly/test7800/ui"
 )
-
-type styles struct {
-	instruction lipgloss.Style
-	cpu         lipgloss.Style
-	mem         lipgloss.Style
-	video       lipgloss.Style
-	err         lipgloss.Style
-	breakpoint  lipgloss.Style
-	debugger    lipgloss.Style
-	coproc      lipgloss.Style
-}
 
 type input struct {
 	s   string
@@ -55,8 +44,9 @@ type debugger struct {
 	// recent execution results to be printed on emulation halt
 	recent []execution.Result
 
-	// coprocessor disassembly
-	coprocDisasm coprocDisasm
+	// coprocessor disassembly and development environments
+	coprocDisasm *coprocDisasm
+	coprocDev    *coprocDev
 
 	// rule for stepping. by default (the field is nil) the step will move
 	// forward one instruction
@@ -118,6 +108,15 @@ func (m *debugger) reset() {
 				// forget about loader because we now know it doesn't work
 				m.loader = ""
 			}
+		}
+	}
+
+	// try and (re)attach coproc developer/disassembly to external device
+	coproc := m.console.Mem.External.GetCoProcHandler()
+	if coproc != nil {
+		coproc.GetCoProc().SetDeveloper(m.coprocDev)
+		if m.coprocDisasm.enabled {
+			coproc.GetCoProc().SetDisassembler(m.coprocDisasm)
 		}
 	}
 
@@ -205,6 +204,14 @@ func (m *debugger) step() bool {
 			return false
 		}
 
+		if m.coprocDev != nil {
+			if len(m.coprocDev.faults.Log) > 0 {
+				fmt.Println(m.styles.coprocErr.Render(
+					m.coprocDev.faults.Log[len(m.coprocDev.faults.Log)-1].String(),
+				))
+			}
+		}
+
 		err = m.contextBreaks()
 		if err != nil {
 			fmt.Println(m.styles.breakpoint.Render(err.Error()))
@@ -261,6 +268,10 @@ func (m *debugger) last() {
 	m.printInstruction(res)
 }
 
+// the number of recent instructions to record. also used to clip the number of
+// coproc instructions to output on error
+const maxRecentLen = 10
+
 // returns true if quit signal has been received
 func (m *debugger) run() bool {
 	fmt.Println(m.styles.debugger.Render("emulation running"))
@@ -271,6 +282,7 @@ func (m *debugger) run() bool {
 
 	// sentinal errors to
 	var (
+		coprocErr     = errors.New("coproc")
 		breakpointErr = errors.New("breakpoint")
 		contextErr    = errors.New("context")
 		endRunErr     = errors.New("end run")
@@ -289,7 +301,6 @@ func (m *debugger) run() bool {
 
 		// record last instruction
 		if m.console.MC.LastResult.Final {
-			const maxRecentLen = 10
 			m.recent = append(m.recent, m.console.MC.LastResult)
 			if len(m.recent) > maxRecentLen {
 				m.recent = m.recent[1:]
@@ -300,6 +311,12 @@ func (m *debugger) run() bool {
 
 		if m.console.MC.Killed {
 			return fmt.Errorf("CPU in KIL state")
+		}
+
+		if m.coprocDev != nil {
+			if len(m.coprocDev.faults.Log) > 0 {
+				return fmt.Errorf("%w%s", coprocErr, m.coprocDev.faults.Log[len(m.coprocDev.faults.Log)-1].String())
+			}
 		}
 
 		err := m.contextBreaks()
@@ -331,24 +348,33 @@ func (m *debugger) run() bool {
 		}
 	}
 
-	// output most recent coproc disassembly if enabled
-	if m.coprocDisasm.enabled {
-		for _, e := range m.coprocDisasm.last {
-			fmt.Println(m.styles.coproc.Render(
-				e.String(),
-			))
+	// output most recent coproc disassembly if enabled. we call this in the
+	// event of a coprocErr
+	outputCoprocDisasm := func() {
+		if m.coprocDisasm.enabled {
+			n := max(0, len(m.coprocDisasm.last)-maxRecentLen)
+			for _, e := range m.coprocDisasm.last[n:] {
+				// print processor specific information as appropriate
+				if a, ok := e.(arm.DisasmEntry); ok {
+					bytecode := fmt.Sprintf("%04x", a.Opcode)
+					if a.Is32bit {
+						bytecode = fmt.Sprintf("%04x %s", a.OpcodeHi, bytecode)
+					} else {
+						bytecode = fmt.Sprintf("%s     ", bytecode)
+					}
 
-			// coprocessor disassemblies can be quite long so we allow it to be
-			// ended early with a ctrl-c signal
-			var sig bool
-			select {
-			case <-m.sig:
-				sig = true
-			default:
-			}
-			if sig {
-				fmt.Println(m.styles.err.Render("ended coproc disassembly early"))
-				break // for loop
+					var annotation string
+					if a.Annotation != nil {
+						annotation = fmt.Sprintf("\t\t(%s)", a.Annotation.String())
+					}
+					fmt.Println(m.styles.coprocAsm.Render(
+						fmt.Sprintf("%s %s %s%s", a.Address, bytecode, a.String(), annotation),
+					))
+				} else {
+					fmt.Println(m.styles.coprocAsm.Render(
+						fmt.Sprintf("%s %s", e.Key(), e.String()),
+					))
+				}
 			}
 		}
 	}
@@ -357,6 +383,10 @@ func (m *debugger) run() bool {
 		fmt.Println(m.styles.debugger.Render(
 			fmt.Sprintf("%d instructions in %.02f seconds", instructionCt, time.Since(startTime).Seconds())),
 		)
+	} else if errors.Is(err, coprocErr) {
+		outputCoprocDisasm()
+		s := strings.TrimPrefix(err.Error(), coprocErr.Error())
+		fmt.Println(m.styles.coprocErr.Render(s))
 	} else if errors.Is(err, breakpointErr) {
 		fmt.Println(m.styles.breakpoint.Render(err.Error()))
 	} else if errors.Is(err, contextErr) {
@@ -584,11 +614,23 @@ func (m *debugger) loop() {
 				c := strings.ToUpper(cmd[1])
 				switch c {
 				case "DISASM":
-					coproc.GetCoProc().SetDisassembler(&m.coprocDisasm)
+					coproc.GetCoProc().SetDisassembler(m.coprocDisasm)
 					m.coprocDisasm.enabled = true
 				case "END":
 					coproc.GetCoProc().SetDisassembler(nil)
 					m.coprocDisasm.enabled = false
+				case "FAULTS":
+					if m.coprocDev != nil {
+						if len(m.coprocDev.faults.Log) == 0 {
+							fmt.Println(m.styles.debugger.Render(
+								"no coprocessor memory faults",
+							))
+						} else {
+							for _, f := range m.coprocDev.faults.Log {
+								fmt.Println(f)
+							}
+						}
+					}
 				default:
 					fmt.Println(m.styles.err.Render(
 						fmt.Sprintf("unrecognised argument for COPROC command: %s", c),
@@ -637,22 +679,15 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	}
 
 	m := &debugger{
-		ctx:     ctx,
-		guiQuit: guiQuit,
-		sig:     make(chan os.Signal, 1),
-		input:   make(chan input, 1),
-		loader:  bootfile,
-		styles: styles{
-			instruction: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(3)),
-			cpu:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(4)),
-			mem:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(5)),
-			video:       lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(6)),
-			err:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(1)),
-			breakpoint:  lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(4)),
-			debugger:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(2)),
-			coproc:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(0)).Background(lipgloss.ANSIColor(3)),
-		},
-		breakpoints: make(map[uint16]bool),
+		ctx:          ctx,
+		guiQuit:      guiQuit,
+		sig:          make(chan os.Signal, 1),
+		input:        make(chan input, 1),
+		loader:       bootfile,
+		styles:       newStyles(),
+		breakpoints:  make(map[uint16]bool),
+		coprocDisasm: &coprocDisasm{},
+		coprocDev:    newCoprocDev(),
 	}
 	m.console = hardware.Create(&m.ctx, ui)
 
