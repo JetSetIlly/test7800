@@ -11,6 +11,7 @@ type styles struct {
 	breakpoint  lipgloss.Style
 	debugger    lipgloss.Style
 	coprocAsm   lipgloss.Style
+	coprocCPU   lipgloss.Style
 	coprocErr   lipgloss.Style
 }
 
@@ -42,6 +43,7 @@ func newStyles() styles {
 		breakpoint:  lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(4)),
 		debugger:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(2)),
 		coprocAsm:   lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(0)).Background(lipgloss.ANSIColor(3)),
+		coprocCPU:   lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(5)),
 		coprocErr:   lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(1)).Background(lipgloss.ANSIColor(7)),
 	}
 }

@@ -631,6 +631,16 @@ func (m *debugger) loop() {
 							}
 						}
 					}
+				case "REGS", "REG":
+					if s, ok := coproc.GetCoProc().(fmt.Stringer); ok {
+						fmt.Println(m.styles.coprocCPU.Render(
+							s.String(),
+						))
+					} else {
+						fmt.Println(m.styles.coprocErr.Render(
+							"no register information",
+						))
+					}
 				default:
 					fmt.Println(m.styles.err.Render(
 						fmt.Sprintf("unrecognised argument for COPROC command: %s", c),
