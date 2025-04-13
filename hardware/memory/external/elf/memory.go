@@ -660,7 +660,7 @@ func (mem *elfMemory) decode(ef *elf.File) error {
 
 				logger.Logf(logger.Allow, "ELF", "%s %s (%08x) => %08x", typ, name, secBeingRelocated.origin+offset, tgt)
 
-			case elf.R_ARM_THM_PC22:
+			case elf.R_ARM_THM_PC22, elf.R_ARM_THM_JUMP24:
 				// this value is labelled R_ARM_THM_CALL in objdump output
 				//
 				// "R_ARM_THM_PC22 Bits 0-10 encode the 11 most significant bits of
@@ -709,15 +709,25 @@ func (mem *elfMemory) decode(ef *elf.File) error {
 				hi := uint16(0xd000 | (j1 << 13) | (j2 << 11) | imm11)
 				opcode := uint32(lo) | (uint32(hi) << 16)
 
+				// THM_JUMP24 seems to differ only in that it's a branch without link
+				if elf.R_ARM(relType) == elf.R_ARM_THM_JUMP24 {
+					opcode &= 0xbfffffff
+				}
+
 				// commit write
 				ef.ByteOrder.PutUint32(secBeingRelocated.data[offset:], opcode)
 
-				// log relocated opcode
+				// log relocated opcode depending on relocation type
 				name := sym.Name
 				if name == "" {
 					name = "anonymous"
 				}
-				logger.Logf(logger.Allow, "ELF", "THM_PC22 %s (%08x) => opcode %08x", name, secBeingRelocated.origin+offset, opcode)
+
+				if elf.R_ARM(relType) == elf.R_ARM_THM_PC22 {
+					logger.Logf(logger.Allow, "ELF", "THM_PC22 %s (%08x) => opcode %08x", name, secBeingRelocated.origin+offset, opcode)
+				} else {
+					logger.Logf(logger.Allow, "ELF", "THM_JUMP24 %s (%08x) no veneer => opcode %08x", name, secBeingRelocated.origin+offset, opcode)
+				}
 
 			case elf.R_ARM_REL32:
 				if sym.Section == elf.SHN_UNDEF {
@@ -749,62 +759,6 @@ func (mem *elfMemory) decode(ef *elf.File) error {
 					continue
 				}
 				return fmt.Errorf("ELF: PREL31 not fully supported")
-
-			case elf.R_ARM_THM_JUMP24:
-				// this relocation type is very similar to R_ARM_THM_PC22. the
-				// difference is the base address for the upper half of the
-				// opcode. in the case of THM_JUMP24 it is 0xf800 (instead of 0xd000)
-
-				if sym.Section == elf.SHN_UNDEF {
-					// return with an error for undefined symbols of this type.
-					// compare to R_ARM_ABS32 where we use a stub function and
-					// allow the emulation to continue (until a memory fault is
-					// forced by the stub function)
-					logger.Logf(logger.Allow, "ELF", "THM_JUMP24 section is undefined")
-					continue
-				}
-
-				n := ef.Sections[sym.Section].Name
-				if idx, ok := mem.sectionsByName[n]; !ok {
-					return fmt.Errorf("ELF: can not find section (%s)", n)
-				} else {
-					tgt = mem.sections[idx].origin
-				}
-				tgt += uint32(sym.Value)
-				tgt &= 0xfffffffe
-				tgt -= (secBeingRelocated.origin + offset + 4)
-
-				imm11 := (tgt >> 1) & 0x7ff
-				imm10 := (tgt >> 12) & 0x3ff
-				t1 := (tgt >> 22) & 0x01
-				t2 := (tgt >> 23) & 0x01
-				s := (tgt >> 24) & 0x01
-				j1 := uint32(0)
-				j2 := uint32(0)
-				if t1 == 0x01 {
-					j1 = s ^ 0x00
-				} else {
-					j1 = s ^ 0x01
-				}
-				if t2 == 0x01 {
-					j2 = s ^ 0x00
-				} else {
-					j2 = s ^ 0x01
-				}
-
-				lo := uint16(0xf000 | (s << 10) | imm10)
-				hi := uint16(0xf800 | (j1 << 13) | (j2 << 11) | imm11)
-				opcode := uint32(lo) | (uint32(hi) << 16)
-
-				// commit write
-				ef.ByteOrder.PutUint32(secBeingRelocated.data[offset:], opcode)
-
-				// log relocated opcode
-				name := sym.Name
-				if name == "" {
-					name = "anonymous"
-				}
-				logger.Logf(logger.Allow, "ELF", "THM_JUMP24 %s (%08x) => opcode %08x", name, secBeingRelocated.origin+offset, opcode)
 
 			default:
 				return fmt.Errorf("ELF: unhandled ARM relocation type (%v)", relType)
