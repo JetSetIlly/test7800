@@ -118,6 +118,7 @@ func (m *debugger) reset() {
 		if m.coprocDisasm.enabled {
 			coproc.GetCoProc().SetDisassembler(m.coprocDisasm)
 		}
+		coproc.SetYieldHook(m)
 	}
 
 	err := m.console.Reset(true)
