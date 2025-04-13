@@ -594,14 +594,14 @@ func (mem *elfMemory) decode(ef *elf.File) error {
 					tgt = mem.relocateStrongArmTable(reverseByteTable)
 
 				case "ColorLookup":
-					// switch mem.env.TV.GetFrameInfo().Spec.ID {
-					// case "PAL":
-					// 	tgt = mem.relocateStrongArmTable(palColorTable)
-					// case "NTSC":
-					// 	fallthrough
-					// default:
-					tgt = mem.relocateStrongArmTable(ntscColorTable)
-					// }
+					switch mem.ctx.Spec() {
+					case "PAL":
+						tgt = mem.relocateStrongArmTable(palColorTable)
+					case "NTSC":
+						fallthrough
+					default:
+						tgt = mem.relocateStrongArmTable(ntscColorTable)
+					}
 
 				default:
 					if sym.Section == elf.SHN_UNDEF {
