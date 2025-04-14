@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"syscall"
 	"time"
@@ -669,9 +670,11 @@ const programName = "test7800"
 func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	var bootfile string
 	var spec string
+	var profile bool
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
 	flgs.StringVar(&spec, "spec", "NTSC", "TV specification of the console: NTSC or PAL")
+	flgs.BoolVar(&profile, "profile", false, "create CPU profile for emulator")
 	err := flgs.Parse(args)
 	if err != nil {
 		return err
@@ -720,6 +723,26 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	}()
 
 	m.reset()
+
+	if profile {
+		f, err := os.Create("cpu.profile")
+		if err != nil {
+			return fmt.Errorf("performance: %w", err)
+		}
+		defer func() {
+			err := f.Close()
+			if err != nil {
+				logger.Log(logger.Allow, "performance", err)
+			}
+		}()
+
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			return fmt.Errorf("performance: %w", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
 	m.loop()
 
 	return nil
