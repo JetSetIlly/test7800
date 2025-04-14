@@ -506,7 +506,88 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 							// width of the display list
 							a += uint16(w)
 
-							if !mar.DL.indirect {
+							// write data to line ram
+							write := func(b uint8, secondWrite bool) {
+								dbl := mar.ctrl.charWidth && mar.DL.indirect
+
+								pos := int(w)
+								if dbl {
+									pos *= 2
+									if secondWrite {
+										pos++
+									}
+								}
+
+								if mar.DL.writemode {
+									// 160B
+									for i := range 2 {
+										c := (b >> (((1 - i) * 2) + 4)) & 0x03
+										pi := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
+										p := mar.palette[pi]
+										x := (int(mar.DL.horizontalPosition) + (pos * 2) + i) * 2
+										if c > 0 {
+											mar.lineram.Set(x, 0, mar.spec.palette[p[c-1]])
+											mar.lineram.Set(x+1, 0, mar.spec.palette[p[c-1]])
+										} else if mar.ctrl.kanagroo {
+											mar.lineram.Set(x, 0, mar.spec.palette[mar.bg])
+											mar.lineram.Set(x+1, 0, mar.spec.palette[p[c-1]])
+										}
+									}
+								} else {
+									// 160A
+									p := mar.palette[mar.DL.palette]
+									for i := range 4 {
+										c := (b >> ((3 - i) * 2)) & 0x03
+										x := (int(mar.DL.horizontalPosition) + (pos * 4) + i) * 2
+										if c > 0 {
+											mar.lineram.Set(x, 0, mar.spec.palette[p[c-1]])
+											mar.lineram.Set(x+1, 0, mar.spec.palette[p[c-1]])
+										} else if mar.ctrl.kanagroo {
+											mar.lineram.Set(x, 0, mar.spec.palette[mar.bg])
+											mar.lineram.Set(x+1, 0, mar.spec.palette[mar.bg])
+										}
+									}
+								}
+							}
+
+							if mar.DL.indirect {
+								b, err := mar.mem.Read(a)
+								if err != nil {
+									mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
+								}
+
+								a = (uint16(mar.charbase) << 8) | uint16(b)
+
+								// we'll be reading graphics data with this address so we add the working
+								// offset to the high address byte (see comment above)
+								a += uint16(mar.DLL.workingOffset) << 8
+
+								// if this address is in a hole then all addresses in the DL will
+								// be in the hole also
+								if mar.DLL.inHole(a) {
+									mar.requiredDMACycles += dmaHoleyRead
+									break // for width loop
+								}
+
+								b, err = mar.mem.Read(a)
+								if err != nil {
+									mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
+								}
+								write(b, false)
+
+								if mar.ctrl.charWidth {
+									b, err = mar.mem.Read(a + 1)
+									if err != nil {
+										mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
+									}
+									write(b, true)
+
+									mar.requiredDMACycles += dmaIndirectWideGfx
+								} else {
+									mar.requiredDMACycles += dmaIndirectGfx
+								}
+
+							} else {
 								// "Each time graphics data is to be fetched OFFSET is added to the specified
 								// High address byte, to determine the actual address where the data should
 								// be found"
@@ -521,67 +602,12 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 
 								// DMA accumulation for direct gfx reads is simple
 								mar.requiredDMACycles += dmaDirectGfx
-							}
 
-							b, err := mar.mem.Read(a)
-							if err != nil {
-								mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
-							}
-
-							if mar.DL.indirect {
-								a = (uint16(mar.charbase) << 8) | uint16(b)
-
-								// we'll be reading graphics data with this address so we add the working
-								// offset to the high address byte (see comment above)
-								a += uint16(mar.DLL.workingOffset) << 8
-
-								// if this address is in a hole then all addresses in the DL will
-								// be in the hole also
-								if mar.DLL.inHole(a) {
-									mar.requiredDMACycles += dmaHoleyRead
-									break // for width loop
-								}
-
-								// for indirect gfx reads DMA accumulation depends on charwidth
-								if mar.ctrl.charWidth {
-									mar.requiredDMACycles += dmaIndirectWideGfx
-								} else {
-									mar.requiredDMACycles += dmaIndirectGfx
-								}
-
-								b, err = mar.mem.Read(a)
+								b, err := mar.mem.Read(a)
 								if err != nil {
 									mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
 								}
-							}
-
-							if mar.DL.writemode {
-								// 160B
-								for i := range 2 {
-									c := (b >> (((1 - i) * 2) + 4)) & 0x03
-									pi := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
-									p := mar.palette[pi]
-									if c > 0 {
-										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2, 0, mar.spec.palette[p[c-1]])
-										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2+1, 0, mar.spec.palette[p[c-1]])
-									} else if mar.ctrl.kanagroo {
-										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2, 0, mar.spec.palette[mar.bg])
-										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*2)+i)*2+1, 0, mar.spec.palette[mar.bg])
-									}
-								}
-							} else {
-								// 160A
-								p := mar.palette[mar.DL.palette]
-								for i := range 4 {
-									c := (b >> ((3 - i) * 2)) & 0x03
-									if c > 0 {
-										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2, 0, mar.spec.palette[p[c-1]])
-										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2+1, 0, mar.spec.palette[p[c-1]])
-									} else if mar.ctrl.kanagroo {
-										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2, 0, mar.spec.palette[mar.bg])
-										mar.lineram.Set((int(mar.DL.horizontalPosition)+(int(w)*4)+i)*2+1, 0, mar.spec.palette[mar.bg])
-									}
-								}
+								write(b, false)
 							}
 						}
 
