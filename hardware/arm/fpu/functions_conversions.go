@@ -17,6 +17,36 @@ package fpu
 
 import "math"
 
+// as far as I can tell SInt() is the same as int64()/int32() conversion. so we
+// use the language conversions instead
+func SInt(x uint64, N int) int {
+	var r int
+	for i := range N {
+		m := uint64(0x01) << i
+		if x&m == m {
+			r += int(math.Pow(2, float64(i)))
+		}
+	}
+	m := uint64(0x01) << (N - 1)
+	if x&m == m {
+		r -= int(math.Pow(2, float64(N)))
+	}
+	return r
+}
+
+// as far as I can tell UInt() is the same as uint64()/uint32() conversion. so we
+// use the language conversions instead
+func UInt(x uint64, N int) int {
+	var r int
+	for i := range N {
+		m := uint64(0x01) << i
+		if x&m == m {
+			r += int(math.Pow(2, float64(i)))
+		}
+	}
+	return r
+}
+
 func (fpu *FPU) FixedToFP(operand uint64, N int, fractionBits int, unsigned bool, nearest bool, fpscrControlled bool) uint64 {
 	// page A2-59 of "ARMv7-M"
 
@@ -41,7 +71,7 @@ func (fpu *FPU) FixedToFP(operand uint64, N int, fractionBits int, unsigned bool
 		}
 	case 64:
 		if unsigned {
-			realOperand = float64(operand / uint64(math.Pow(2, float64(fractionBits))))
+			realOperand = float64(uint64(operand) / uint64(math.Pow(2, float64(fractionBits))))
 		} else {
 			realOperand = float64(int64(operand) / int64(math.Pow(2, float64(fractionBits))))
 		}
