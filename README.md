@@ -12,3 +12,5 @@ References to "7800 Software Guide" in comments are referring to [this wiki page
 [Common Emulator Development Issues](https://7800.8bitdev.org/index.php/Common_Emulator_Development_Issues)
 
 [Has Anyone Worked on an FPGA Atari 7800?](https://forums.atariage.com/topic/214384-has-anyone-worked-on-an-fpga-atari-7800/page/2/#comment-2807000)
+	
+[A78 Header Specification](https://7800.8bitdev.org/index.php/A78_Header_Specification)

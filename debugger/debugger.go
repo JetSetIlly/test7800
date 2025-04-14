@@ -77,8 +77,36 @@ func (m *debugger) reset() {
 				fmt.Sprintf("error loading %s: %s", m.loader, err.Error()),
 			))
 		} else {
-			c := external.Fingerprint(d)
-			if c.Valid() {
+			c, err := external.Fingerprint(d)
+			if err != nil {
+				if errors.Is(err, external.UnrecognisedData) {
+					// file is not a cartridge dump so we'll assume it's a bootfile
+					fmt.Println(m.styles.debugger.Render(
+						fmt.Sprintf("booting from %s", filepath.Base(m.loader)),
+					))
+
+					m.script, err = m.bootFromFile(d)
+					if err == nil {
+						// resetting with a boot file is a bit different because we
+						// don't want to do a normal reset if the boot process was
+						// succesful
+						return
+					}
+
+					// forget about loader because we now know it doesn't work
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("%s: %s", filepath.Base(m.loader), err.Error()),
+					))
+					m.loader = ""
+				} else {
+					// forget about loader because we now know it doesn't work
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("%s: %s", filepath.Base(m.loader), err.Error()),
+					))
+					m.loader = ""
+				}
+
+			} else {
 				err = m.console.Mem.External.Insert(c)
 				if err != nil {
 					fmt.Println(m.styles.err.Render(err.Error()))
@@ -89,25 +117,6 @@ func (m *debugger) reset() {
 					))
 					postResetProcedure = c.ResetProcedure()
 				}
-
-			} else {
-				// file is not a cartridge dump so we'll assume it's a bootfile
-				fmt.Println(m.styles.debugger.Render(
-					fmt.Sprintf("booting from %s", m.loader),
-				))
-
-				m.script, err = m.bootFromFile(d)
-				if err == nil {
-					// resetting with a boot file is a bit different because we
-					// don't want to do a normal reset if the boot process was
-					// succesful
-					return
-				}
-
-				fmt.Println(m.styles.err.Render(err.Error()))
-
-				// forget about loader because we now know it doesn't work
-				m.loader = ""
 			}
 		}
 	}
