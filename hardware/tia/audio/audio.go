@@ -71,7 +71,7 @@ type Audio struct {
 func NewAudio(doubleTime bool) *Audio {
 	au := &Audio{
 		sampleSum:       make([]int, 2),
-		usingDoubleTime: true,
+		usingDoubleTime: doubleTime,
 	}
 
 	return au
