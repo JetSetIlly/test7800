@@ -23,9 +23,9 @@ func TestArithmetic_random(t *testing.T) {
 	f := func(t *testing.T) {
 		var v, w float64
 		var c, d uint64
-		v = rand.Float64()
+		v = rand.Float64() + float64(rand.Uint64N(integerMax))
 		c = fp.FPRound(v, 64, fpscr)
-		w = rand.Float64()
+		w = rand.Float64() + float64(rand.Uint64N(integerMax))
 		d = fp.FPRound(w, 64, fpscr)
 
 		var r, s uint64
@@ -69,12 +69,12 @@ func TestArithmetic_random(t *testing.T) {
 func TestNegation_random(t *testing.T) {
 	var fp fpu.FPU
 
-	f := func(t *testing.T) {
+	f32 := func(t *testing.T) {
 		var v float64
 		var c uint32
 		var d uint32
 
-		v = rand.Float64()
+		v = rand.Float64() + float64(rand.Uint64N(integerMax))
 		c = math.Float32bits(float32(v))
 		d = math.Float32bits(float32(-v))
 
@@ -94,8 +94,34 @@ func TestNegation_random(t *testing.T) {
 		test.ExpectEquality(t, c, d)
 	}
 
+	f64 := func(t *testing.T) {
+		var v float64
+		var c uint64
+		var d uint64
+
+		v = rand.Float64() + float64(rand.Uint64N(integerMax))
+		c = math.Float64bits(v)
+		d = math.Float64bits(-v)
+
+		// the two values should be unequal at this point
+		test.ExpectInequality(t, c, d)
+
+		// negate one of the values. the two value will now be equal
+		d = fp.FPNeg(uint64(d), 64)
+		test.ExpectEquality(t, c, d)
+
+		// negate again to make the values unequal
+		d = fp.FPNeg(uint64(d), 64)
+		test.ExpectInequality(t, c, d)
+
+		// and again to make them equal again
+		d = fp.FPNeg(uint64(d), 64)
+		test.ExpectEquality(t, c, d)
+	}
+
 	for range iterations {
-		t.Run("negation", f)
+		t.Run("negation", f32)
+		t.Run("negation", f64)
 	}
 }
 
@@ -107,7 +133,7 @@ func TestAbsolute_random(t *testing.T) {
 		var c uint32
 		var d uint32
 
-		v = rand.Float64()
+		v = rand.Float64() + float64(rand.Uint64N(integerMax))
 		c = math.Float32bits(float32(v))
 		d = math.Float32bits(float32(-v))
 
@@ -140,7 +166,7 @@ func TestRound_random(t *testing.T) {
 		var v float64
 		var b uint64
 		var c uint32
-		v = rand.Float64()
+		v = rand.Float64() + float64(rand.Uint64N(integerMax))
 		b = fp.FPRound(v, 32, fpscr)
 		c = math.Float32bits(float32(v))
 		test.ExpectEquality(t, uint32(b), c)
@@ -160,12 +186,20 @@ func TestFixedToFP_random(t *testing.T) {
 
 		v = rand.Uint64N(integerMax)
 
-		// 32 bit
+		// 32 bit (signed)
 		c = fp.FixedToFP(v, 32, 0, false, true, true)
 		test.ExpectEquality(t, c, uint64(math.Float32bits(float32(v))))
 
-		// 64 bit
+		// 32 bit (unsigned)
+		c = fp.FixedToFP(v, 32, 0, true, true, true)
+		test.ExpectEquality(t, c, uint64(math.Float32bits(float32(v))))
+
+		// 64 bit (signed)
 		c = fp.FixedToFP(v, 64, 0, false, true, true)
+		test.ExpectEquality(t, c, math.Float64bits(float64(v)))
+
+		// 64 bit (unsigned)
+		c = fp.FixedToFP(v, 64, 0, true, true, true)
 		test.ExpectEquality(t, c, math.Float64bits(float64(v)))
 	}
 
@@ -182,19 +216,76 @@ func TestFPToFixed_random(t *testing.T) {
 		var c uint64
 		var d uint64
 
-		// 32 bit
 		v = rand.Uint64N(integerMax)
+
+		// 32 bit (signed)
 		c = fp.FixedToFP(v, 32, 0, false, true, true)
 		d = fp.FPToFixed(c, 32, 0, false, true, true)
 		test.ExpectEquality(t, d, v)
 
-		// 64 bit
+		// 32 bit (unsigned)
+		c = fp.FixedToFP(v, 32, 0, true, true, true)
+		d = fp.FPToFixed(c, 32, 0, true, true, true)
+		test.ExpectEquality(t, d, v)
+
+		// 64 bit (signed)
 		c = fp.FixedToFP(v, 64, 0, false, true, true)
 		d = fp.FPToFixed(c, 64, 0, false, true, true)
+		test.ExpectEquality(t, d, v)
+
+		// 64 bit (unsigned)
+		c = fp.FixedToFP(v, 64, 0, true, true, true)
+		d = fp.FPToFixed(c, 64, 0, true, true, true)
 		test.ExpectEquality(t, d, v)
 	}
 
 	for range iterations {
 		t.Run("fp to fixed", f)
+	}
+}
+
+func TestComparison_random(t *testing.T) {
+	var fp fpu.FPU
+	var v float64
+	var w float64
+	var c uint64
+	var d uint64
+
+	fpscr := fp.StandardFPSCRValue()
+	fpscr.SetRMode(fpu.FPRoundNearest)
+
+	f := func(t *testing.T) {
+		v = rand.Float64() + float64(rand.Uint64N(integerMax))
+		w = rand.Float64() + float64(rand.Uint64N(integerMax))
+
+		// convert to uint64 depending on order of v and w
+		if v > w {
+			c = fp.FPRound(v, 64, fpscr)
+			d = fp.FPRound(w, 64, fpscr)
+		} else {
+			d = fp.FPRound(v, 64, fpscr)
+			c = fp.FPRound(w, 64, fpscr)
+		}
+
+		// "Table A2-4 FP comparison flag values" of "ARMv7-M"
+
+		// equality
+		fp.Status.SetNZCV(0)
+		fp.FPCompare(c, c, 64, false, true)
+		test.ExpectEquality(t, fp.Status.String(), "nZCv")
+
+		// greater than
+		fp.Status.SetNZCV(0)
+		fp.FPCompare(c, d, 64, false, true)
+		test.ExpectEquality(t, fp.Status.String(), "nzCv")
+
+		// less than
+		fp.Status.SetNZCV(0)
+		fp.FPCompare(d, c, 64, false, true)
+		test.ExpectEquality(t, fp.Status.String(), "Nzcv")
+	}
+
+	for range iterations {
+		t.Run("comparison", f)
 	}
 }

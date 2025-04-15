@@ -244,3 +244,58 @@ func TestSaturation(t *testing.T) {
 	r, _ = fp.SignedSatQ(-4294967295, 32)
 	test.ExpectEquality(t, r, 0x80000000)
 }
+
+func TestFPSCRStatus(t *testing.T) {
+	var fp fpu.FPU
+	fp.Status.SetNZCV(0)
+	test.ExpectEquality(t, fp.Status.String(), "nzcv")
+	fp.Status.SetN(true)
+	test.ExpectEquality(t, fp.Status.String(), "Nzcv")
+	fp.Status.SetN(false)
+	test.ExpectEquality(t, fp.Status.String(), "nzcv")
+	fp.Status.SetZ(true)
+	test.ExpectEquality(t, fp.Status.String(), "nZcv")
+	fp.Status.SetZ(false)
+	test.ExpectEquality(t, fp.Status.String(), "nzcv")
+	fp.Status.SetC(true)
+	test.ExpectEquality(t, fp.Status.String(), "nzCv")
+	fp.Status.SetC(false)
+	test.ExpectEquality(t, fp.Status.String(), "nzcv")
+	fp.Status.SetV(true)
+	test.ExpectEquality(t, fp.Status.String(), "nzcV")
+	fp.Status.SetV(false)
+	test.ExpectEquality(t, fp.Status.String(), "nzcv")
+}
+
+func TestComparison(t *testing.T) {
+	var fp fpu.FPU
+	var v float64
+	var w float64
+	var c uint64
+	var d uint64
+
+	v = 1
+	w = -1
+
+	for _, N := range []int{64, 32} {
+		c = fp.FPRound(v, N, fp.Status)
+		d = fp.FPRound(w, N, fp.Status)
+
+		// "Table A2-4 FP comparison flag values" of "ARMv7-M"
+
+		// equality
+		fp.Status.SetNZCV(0)
+		fp.FPCompare(c, c, N, false, true)
+		test.ExpectEquality(t, fp.Status.String(), "nZCv")
+
+		// greater than
+		fp.Status.SetNZCV(0)
+		fp.FPCompare(c, d, N, false, true)
+		test.ExpectEquality(t, fp.Status.String(), "nzCv")
+
+		// less than
+		fp.Status.SetNZCV(0)
+		fp.FPCompare(d, c, N, false, true)
+		test.ExpectEquality(t, fp.Status.String(), "Nzcv")
+	}
+}
