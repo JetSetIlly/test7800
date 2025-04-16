@@ -1,0 +1,129 @@
+
+test.bin:     file format binary
+
+
+Disassembly of section .data:
+
+00000000 <.data>:
+   0:	484c      	ldr	r0, [pc, #304]	@ (0x134)
+   2:	4685      	mov	sp, r0
+   4:	494c      	ldr	r1, [pc, #304]	@ (0x138)
+   6:	ed91 0a00 	vldr	s0, [r1]
+   a:	494c      	ldr	r1, [pc, #304]	@ (0x13c)
+   c:	edd1 0a00 	vldr	s1, [r1]
+  10:	494b      	ldr	r1, [pc, #300]	@ (0x140)
+  12:	ed91 1a00 	vldr	s2, [r1]
+  16:	494b      	ldr	r1, [pc, #300]	@ (0x144)
+  18:	edd1 1a00 	vldr	s3, [r1]
+  1c:	ed2d 0a04 	vpush	{s0-s3}
+  20:	4949      	ldr	r1, [pc, #292]	@ (0x148)
+  22:	ed91 0a00 	vldr	s0, [r1]
+  26:	edd1 0a00 	vldr	s1, [r1]
+  2a:	ed91 1a00 	vldr	s2, [r1]
+  2e:	edd1 1a00 	vldr	s3, [r1]
+  32:	ecbd 0a04 	vpop	{s0-s3}
+  36:	4940      	ldr	r1, [pc, #256]	@ (0x138)
+  38:	ed91 2a00 	vldr	s4, [r1]
+  3c:	eeb4 0a42 	vcmp.f32	s0, s4
+  40:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  44:	d148      	bne.n	0xd8
+  46:	493d      	ldr	r1, [pc, #244]	@ (0x13c)
+  48:	ed91 2a00 	vldr	s4, [r1]
+  4c:	eef4 0a42 	vcmp.f32	s1, s4
+  50:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  54:	d143      	bne.n	0xde
+  56:	493a      	ldr	r1, [pc, #232]	@ (0x140)
+  58:	ed91 2a00 	vldr	s4, [r1]
+  5c:	eeb4 1a42 	vcmp.f32	s2, s4
+  60:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  64:	d13e      	bne.n	0xe4
+  66:	4937      	ldr	r1, [pc, #220]	@ (0x144)
+  68:	ed91 2a00 	vldr	s4, [r1]
+  6c:	eef4 1a42 	vcmp.f32	s3, s4
+  70:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  74:	d139      	bne.n	0xea
+  76:	f04f 507e 	mov.w	r0, #1065353216	@ 0x3f800000
+  7a:	ee02 0a90 	vmov	s5, r0
+  7e:	492e      	ldr	r1, [pc, #184]	@ (0x138)
+  80:	ed91 3a00 	vldr	s6, [r1]
+  84:	eef4 2a43 	vcmp.f32	s5, s6
+  88:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  8c:	d130      	bne.n	0xf0
+  8e:	ee13 2a10 	vmov	r2, s6
+  92:	f04f 537e 	mov.w	r3, #1065353216	@ 0x3f800000
+  96:	429a      	cmp	r2, r3
+  98:	d12d      	bne.n	0xf6
+  9a:	f04f 5000 	mov.w	r0, #536870912	@ 0x20000000
+  9e:	eca0 0a04 	vstmia	r0!, {s0-s3}
+  a2:	f04f 5000 	mov.w	r0, #536870912	@ 0x20000000
+  a6:	ecf0 3a04 	vldmia	r0!, {s7-s10}
+  aa:	eeb4 0a63 	vcmp.f32	s0, s7
+  ae:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  b2:	d123      	bne.n	0xfc
+  b4:	eef4 0a44 	vcmp.f32	s1, s8
+  b8:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  bc:	d121      	bne.n	0x102
+  be:	eeb4 1a64 	vcmp.f32	s2, s9
+  c2:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  c6:	d11f      	bne.n	0x108
+  c8:	eef4 1a45 	vcmp.f32	s3, s10
+  cc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  d0:	d11d      	bne.n	0x10e
+  d2:	2000      	movs	r0, #0
+  d4:	be00      	bkpt	0x0000
+  d6:	e7fe      	b.n	0xd6
+  d8:	2001      	movs	r0, #1
+  da:	be00      	bkpt	0x0000
+  dc:	e7fe      	b.n	0xdc
+  de:	2002      	movs	r0, #2
+  e0:	be00      	bkpt	0x0000
+  e2:	e7fe      	b.n	0xe2
+  e4:	2003      	movs	r0, #3
+  e6:	be00      	bkpt	0x0000
+  e8:	e7fe      	b.n	0xe8
+  ea:	2004      	movs	r0, #4
+  ec:	be00      	bkpt	0x0000
+  ee:	e7fe      	b.n	0xee
+  f0:	2005      	movs	r0, #5
+  f2:	be00      	bkpt	0x0000
+  f4:	e7fe      	b.n	0xf4
+  f6:	2006      	movs	r0, #6
+  f8:	be00      	bkpt	0x0000
+  fa:	e7fe      	b.n	0xfa
+  fc:	2007      	movs	r0, #7
+  fe:	be00      	bkpt	0x0000
+ 100:	e7fe      	b.n	0x100
+ 102:	2008      	movs	r0, #8
+ 104:	be00      	bkpt	0x0000
+ 106:	e7fe      	b.n	0x106
+ 108:	2009      	movs	r0, #9
+ 10a:	be00      	bkpt	0x0000
+ 10c:	e7fe      	b.n	0x10c
+ 10e:	200a      	movs	r0, #10
+ 110:	be00      	bkpt	0x0000
+ 112:	e7fe      	b.n	0x112
+ 114:	f3af 8000 	nop.w
+ 118:	f3af 8000 	nop.w
+ 11c:	f3af 8000 	nop.w
+ 120:	0000      	movs	r0, r0
+ 122:	0000      	movs	r0, r0
+ 124:	0000      	movs	r0, r0
+ 126:	3f80      	subs	r7, #128	@ 0x80
+ 128:	0000      	movs	r0, r0
+ 12a:	4000      	ands	r0, r0
+ 12c:	0000      	movs	r0, r0
+ 12e:	4040      	eors	r0, r0
+ 130:	0000      	movs	r0, r0
+ 132:	4080      	lsls	r0, r0
+ 134:	1000      	asrs	r0, r0, #32
+ 136:	2000      	movs	r0, #0
+ 138:	0124      	lsls	r4, r4, #4
+ 13a:	0000      	movs	r0, r0
+ 13c:	0128      	lsls	r0, r5, #4
+ 13e:	0000      	movs	r0, r0
+ 140:	012c      	lsls	r4, r5, #4
+ 142:	0000      	movs	r0, r0
+ 144:	0130      	lsls	r0, r6, #4
+ 146:	0000      	movs	r0, r0
+ 148:	0120      	lsls	r0, r4, #4
+	...

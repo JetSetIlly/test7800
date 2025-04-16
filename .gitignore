@@ -5,3 +5,5 @@ out
 examples/roms/*
 *.bin
 !examples/*.bin
+!hardware/arm/bintest/**/*.bin
+!hardware/arm/bintest/**/*.lst

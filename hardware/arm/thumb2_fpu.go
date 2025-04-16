@@ -875,7 +875,7 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 
 	if maskedOp == 0b01000 || maskedOp == 0b01010 || (maskedOp == 0b10010 && Rn != 0b1101) {
 		// "A7.7.258 VSTM" of "ARMv7-M"
-		// P := arm.state.function32bitOpcodeHi&0x0100 == 0x0100
+		P := arm.state.instruction32bitOpcodeHi&0x0100 == 0x0100
 		U := arm.state.instruction32bitOpcodeHi&0x0080 == 0x0080
 		D := (arm.state.instruction32bitOpcodeHi & 0x0040) >> 6
 		W := arm.state.instruction32bitOpcodeHi&0x0020 == 0x0020
@@ -886,34 +886,42 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 
 		var d uint16
 		var regPrefix rune
+		var regs uint16
 
 		if sz {
 			d = (D << 4) | Vd
 			regPrefix = 'D'
+			regs = imm8 & 0xfe
 		} else {
 			d = (Vd << 1) | D
 			regPrefix = 'S'
+			regs = imm8
 		}
 
 		return func() *DisasmEntry {
 			if arm.decodeOnly {
+				var dregs uint16
+				if sz {
+					dregs = regs >> 1
+				} else {
+					dregs = regs
+				}
 				return &DisasmEntry{
 					Is32bit:  true,
 					Operator: "VSTM",
-					Operand:  fmt.Sprintf("R%d!, {%s}", Rn, reglistToMnemonic(regPrefix, imm8, "")),
+					Operand:  fmt.Sprintf("R%d!, {%s}", Rn, regcountToMnemonic(regPrefix, dregs, d)),
 				}
 			}
 
 			addr := arm.state.registers[Rn]
-			if !U {
-				addr -= imm32
-			}
-
-			if W {
+			if P {
 				if U {
-					arm.state.registers[Rn] += imm32
+					addr += imm32
 				} else {
-					arm.state.registers[Rn] -= imm32
+					addr -= imm32
+				}
+				if W {
+					arm.state.registers[Rn] = addr
 				}
 			}
 
@@ -922,14 +930,22 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 				panic("double VSTM")
 			} else {
 				// 32bit floats (T2 encoding)
-				if imm8 == 0 || imm8+d > 32 {
+				if regs == 0 || regs+d > 32 {
 					panic("too many registers for VSTM")
 				}
 
-				for i := uint16(0); i < imm8; i++ {
+				for i := uint16(0); i < regs; i++ {
 					arm.write32bit(addr, arm.state.fpu.Registers[d+i], true)
-					addr += 4
+					if U {
+						addr += 4
+					} else {
+						addr -= 4
+					}
 				}
+			}
+
+			if !P && W && Rn != rPC {
+				arm.state.registers[Rn] = addr
 			}
 
 			return nil
@@ -1006,21 +1022,30 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 
 		var d uint16
 		var regPrefix rune
+		var regs uint16
 
 		if sz {
 			d = (D << 4) | Vd
 			regPrefix = 'D'
+			regs = imm8 & 0xfe
 		} else {
 			d = (Vd << 1) | D
 			regPrefix = 'S'
+			regs = imm8
 		}
 
 		return func() *DisasmEntry {
 			if arm.decodeOnly {
+				var dregs uint16
+				if sz {
+					dregs = regs >> 1
+				} else {
+					dregs = regs
+				}
 				return &DisasmEntry{
 					Is32bit:  true,
 					Operator: "VPUSH",
-					Operand:  fmt.Sprintf("{%s}", regcountToMnemonic(regPrefix, imm8>>1, uint16(d))),
+					Operand:  fmt.Sprintf("{%s}", regcountToMnemonic(regPrefix, dregs, d)),
 				}
 			}
 
@@ -1030,11 +1055,11 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 
 			if sz {
 				// 64bit floats (T1 encoding)
-				if imm8 == 0 || imm8 > 16 || imm8+d > 32 {
+				if regs == 0 || regs > 16 || regs+d > 32 {
 					panic("too many registers for VPUSH")
 				}
 
-				for i := uint16(0); i < imm8; i += 2 {
+				for i := uint16(0); i < regs; i += 2 {
 					if arm.byteOrder == binary.LittleEndian {
 						arm.write32bit(addr, arm.state.fpu.Registers[d+i], true)
 						addr += 4
@@ -1049,11 +1074,11 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 				}
 			} else {
 				// 32bit floats (T2 encoding)
-				if imm8 == 0 || imm8+d > 32 {
+				if regs == 0 || regs+d > 32 {
 					panic("too many registers for VPUSH")
 				}
 
-				for i := uint16(0); i < imm8; i++ {
+				for i := uint16(0); i < regs; i++ {
 					arm.write32bit(addr, arm.state.fpu.Registers[d+i], true)
 					addr += 4
 				}
@@ -1140,7 +1165,7 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 	if maskedOp == 0b10011 || (maskedOp == 0b01011 && Rn != 0b1101) {
 		// "A7.7.235 VLDM" of "ARMv7-M"
 
-		// P := arm.state.function32bitOpcodeHi&0x0100 == 0x0100
+		P := arm.state.instruction32bitOpcodeHi&0x0100 == 0x0100
 		U := arm.state.instruction32bitOpcodeHi&0x0080 == 0x0080
 		D := (arm.state.instruction32bitOpcodeHi & 0x0040) >> 6
 		W := arm.state.instruction32bitOpcodeHi&0x0020 == 0x0020
@@ -1151,34 +1176,42 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 
 		var d uint16
 		var regPrefix rune
+		var regs uint16
 
 		if sz {
 			d = (D << 4) | Vd
 			regPrefix = 'D'
+			regs = imm8 & 0xfe
 		} else {
 			d = (Vd << 1) | D
 			regPrefix = 'S'
+			regs = imm8
 		}
 
 		return func() *DisasmEntry {
 			if arm.decodeOnly {
+				var dregs uint16
+				if sz {
+					dregs = regs >> 1
+				} else {
+					dregs = regs
+				}
 				return &DisasmEntry{
 					Is32bit:  true,
 					Operator: "VLDM",
-					Operand:  fmt.Sprintf("R%d!, {%s}", Rn, reglistToMnemonic(regPrefix, imm8, "")),
+					Operand:  fmt.Sprintf("R%d!, {%s}", Rn, regcountToMnemonic(regPrefix, dregs, d)),
 				}
 			}
 
 			addr := arm.state.registers[Rn]
-			if !U {
-				addr -= imm32
-			}
-
-			if W {
+			if P {
 				if U {
-					arm.state.registers[Rn] += imm32
+					addr += imm32
 				} else {
-					arm.state.registers[Rn] -= imm32
+					addr -= imm32
+				}
+				if W {
+					arm.state.registers[Rn] = addr
 				}
 			}
 
@@ -1187,14 +1220,22 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 				panic("double VLDM")
 			} else {
 				// 32bit floats (T2 encoding)
-				if imm8 == 0 || imm8+d > 32 {
+				if regs == 0 || regs+d > 32 {
 					panic("too many registers for VLDM")
 				}
 
-				for i := uint16(0); i < imm8; i++ {
+				for i := uint16(0); i < regs; i++ {
 					arm.state.fpu.Registers[d+i] = arm.read32bit(addr, true)
-					addr += 4
+					if U {
+						addr += 4
+					} else {
+						addr -= 4
+					}
 				}
+			}
+
+			if !P && W && Rn != rPC {
+				arm.state.registers[Rn] = addr
 			}
 
 			return nil
@@ -1210,23 +1251,33 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 
 		var d uint16
 		var regPrefix rune
+		var regs uint16
 
 		if sz {
 			d = D<<4 | Vd
 			regPrefix = 'D'
+			regs = imm8
+			regs = imm8 & 0xfe
 		} else {
 			d = Vd<<1 | D
 			regPrefix = 'S'
+			regs = imm8
 		}
 
 		// if regs == 0 || (d + regs) > 32 then UNPREDICTABLE
 
 		return func() *DisasmEntry {
 			if arm.decodeOnly {
+				var dregs uint16
+				if sz {
+					dregs = regs >> 1
+				} else {
+					dregs = regs
+				}
 				return &DisasmEntry{
 					Is32bit:  true,
 					Operator: "VPOP",
-					Operand:  fmt.Sprintf("{%s}", regcountToMnemonic(regPrefix, imm8>>1, uint16(d))),
+					Operand:  fmt.Sprintf("{%s}", regcountToMnemonic(regPrefix, dregs, d)),
 				}
 			}
 
@@ -1235,11 +1286,11 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 
 			if sz {
 				// 64bit floats (T1 encoding)
-				if imm8 == 0 || imm8 > 16 || imm8+d > 32 {
+				if regs == 0 || regs > 16 || regs+d > 32 {
 					panic("too many registers for VPOP")
 				}
 
-				for i := uint16(0); i < imm8; i += 2 {
+				for i := uint16(0); i < regs; i += 2 {
 					word1 := arm.read32bit(addr, true)
 					word2 := arm.read32bit(addr+4, true)
 					addr += 8
@@ -1253,11 +1304,11 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 				}
 			} else {
 				// 32bit floats (T2 encoding)
-				if imm8 == 0 || imm8+d > 32 {
+				if regs == 0 || regs+d > 32 {
 					panic("too many registers for VPOP")
 				}
 
-				for i := uint16(0); i < imm8; i++ {
+				for i := uint16(0); i < regs; i++ {
 					arm.state.fpu.Registers[d+i] = arm.read32bit(addr, true)
 					addr += 4
 				}

@@ -1,0 +1,113 @@
+
+test.bin:     file format binary
+
+
+Disassembly of section .data:
+
+00000000 <.data>:
+   0:	2000      	movs	r0, #0
+   2:	f04f 5100 	mov.w	r1, #536870912	@ 0x20000000
+   6:	a441      	add	r4, pc, #260	@ (adr r4, 0x10c)
+   8:	ed94 0a00 	vldr	s0, [r4]
+   c:	ee10 5a10 	vmov	r5, s0
+  10:	a63e      	add	r6, pc, #248	@ (adr r6, 0x10c)
+  12:	6836      	ldr	r6, [r6, #0]
+  14:	42b5      	cmp	r5, r6
+  16:	d16c      	bne.n	0xf2
+  18:	a43b      	add	r4, pc, #236	@ (adr r4, 0x108)
+  1a:	ed94 0a00 	vldr	s0, [r4]
+  1e:	a43c      	add	r4, pc, #240	@ (adr r4, 0x110)
+  20:	edd4 0a00 	vldr	s1, [r4]
+  24:	ee30 1a20 	vadd.f32	s2, s0, s1
+  28:	a436      	add	r4, pc, #216	@ (adr r4, 0x104)
+  2a:	edd4 1a00 	vldr	s3, [r4]
+  2e:	eeb4 1a61 	vcmp.f32	s2, s3
+  32:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  36:	d15c      	bne.n	0xf2
+  38:	ee31 1ae0 	vsub.f32	s2, s3, s1
+  3c:	a432      	add	r4, pc, #200	@ (adr r4, 0x108)
+  3e:	edd4 1a00 	vldr	s3, [r4]
+  42:	eeb4 1a61 	vcmp.f32	s2, s3
+  46:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  4a:	d152      	bne.n	0xf2
+  4c:	a432      	add	r4, pc, #200	@ (adr r4, 0x118)
+  4e:	ed94 0a00 	vldr	s0, [r4]
+  52:	ee60 0a00 	vmul.f32	s1, s0, s0
+  56:	ee20 1a80 	vmul.f32	s2, s1, s0
+  5a:	a42e      	add	r4, pc, #184	@ (adr r4, 0x114)
+  5c:	edd4 1a00 	vldr	s3, [r4]
+  60:	eeb4 1a61 	vcmp.f32	s2, s3
+  64:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  68:	d143      	bne.n	0xf2
+  6a:	a426      	add	r4, pc, #152	@ (adr r4, 0x104)
+  6c:	ed94 0a00 	vldr	s0, [r4]
+  70:	a42c      	add	r4, pc, #176	@ (adr r4, 0x124)
+  72:	edd4 0a00 	vldr	s1, [r4]
+  76:	ee80 1a20 	vdiv.f32	s2, s0, s1
+  7a:	a42b      	add	r4, pc, #172	@ (adr r4, 0x128)
+  7c:	edd4 1a00 	vldr	s3, [r4]
+  80:	eeb4 1a61 	vcmp.f32	s2, s3
+  84:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  88:	d133      	bne.n	0xf2
+  8a:	f06f 0329 	mvn.w	r3, #41	@ 0x29
+  8e:	ee00 3a10 	vmov	s0, r3
+  92:	eef8 0ac0 	vcvt.f32.s32	s1, s0
+  96:	eebd 1ae0 	vcvt.s32.f32	s2, s1
+  9a:	ee11 4a10 	vmov	r4, s2
+  9e:	f114 0f2a 	cmn.w	r4, #42	@ 0x2a
+  a2:	d126      	bne.n	0xf2
+  a4:	a417      	add	r4, pc, #92	@ (adr r4, 0x104)
+  a6:	ed94 0a00 	vldr	s0, [r4]
+  aa:	edd4 0a00 	vldr	s1, [r4]
+  ae:	eeb0 1a40 	vmov.f32	s2, s0
+  b2:	eea0 1a20 	vfma.f32	s2, s0, s1
+  b6:	a414      	add	r4, pc, #80	@ (adr r4, 0x108)
+  b8:	edd4 1a00 	vldr	s3, [r4]
+  bc:	eeb4 1a61 	vcmp.f32	s2, s3
+  c0:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  c4:	d115      	bne.n	0xf2
+  c6:	a419      	add	r4, pc, #100	@ (adr r4, 0x12c)
+  c8:	ed94 0a00 	vldr	s0, [r4]
+  cc:	edd4 0a00 	vldr	s1, [r4]
+  d0:	eeb4 0a60 	vcmp.f32	s0, s1
+  d4:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  d8:	d10b      	bne.n	0xf2
+  da:	a415      	add	r4, pc, #84	@ (adr r4, 0x130)
+  dc:	ed94 0a00 	vldr	s0, [r4]
+  e0:	edd4 0a00 	vldr	s1, [r4]
+  e4:	eeb4 0a60 	vcmp.f32	s0, s1
+  e8:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  ec:	d001      	beq.n	0xf2
+  ee:	2000      	movs	r0, #0
+  f0:	e000      	b.n	0xf4
+  f2:	2001      	movs	r0, #1
+  f4:	be00      	bkpt	0x0000
+  f6:	e7fe      	b.n	0xf6
+  f8:	f3af 8000 	nop.w
+  fc:	f3af 8000 	nop.w
+ 100:	0000      	movs	r0, r0
+ 102:	0000      	movs	r0, r0
+ 104:	0000      	movs	r0, r0
+ 106:	3f80      	subs	r7, #128	@ 0x80
+ 108:	0000      	movs	r0, r0
+ 10a:	4000      	ands	r0, r0
+ 10c:	0000      	movs	r0, r0
+ 10e:	4040      	eors	r0, r0
+ 110:	0000      	movs	r0, r0
+ 112:	bf80      	nop	{8}
+ 114:	cb6f      	ldmia	r3, {r0, r1, r2, r3, r5, r6}
+ 116:	3e47      	subs	r6, #71	@ 0x47
+ 118:	7ae1      	ldrb	r1, [r4, #11]
+ 11a:	3f14      	subs	r7, #20
+ 11c:	0000      	movs	r0, r0
+ 11e:	3f40      	subs	r7, #64	@ 0x40
+ 120:	0000      	movs	r0, r0
+ 122:	3f00      	subs	r7, #0
+ 124:	bf95      	itete	ls
+ 126:	33d6      	addls	r3, #214	@ 0xd6
+ 128:	9680      	strhi	r6, [sp, #512]	@ 0x200
+ 12a:	4b18      	ldrls	r3, [pc, #96]	@ (0x18c)
+ 12c:	0000      	movhi	r0, r0
+ 12e:	7f80      	ldrb	r0, [r0, #30]
+ 130:	0000      	movs	r0, r0
+ 132:	7fc0      	ldrb	r0, [r0, #31]

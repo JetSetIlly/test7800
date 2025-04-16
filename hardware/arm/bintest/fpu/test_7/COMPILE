@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# for the ARM binarytesting harness
+arm-none-eabi-as -march=armv7-m -mfloat-abi=soft -mfpu=fpv4-sp-d16 -mthumb test.s -o test.o
+arm-none-eabi-objcopy -O binary test.o test.bin
+
+arm-none-eabi-objdump -D -b binary -m arm --adjust-vma=0 -M force-thumb test.bin > test.lst
+

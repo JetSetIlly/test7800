@@ -1,0 +1,67 @@
+
+test.bin:     file format binary
+
+
+Disassembly of section .data:
+
+00000000 <.data>:
+   0:	eeb7 0a08 	vmov.f32	s0, #120	@ 0x3fc00000  1.5
+   4:	eef0 0a04 	vmov.f32	s1, #4	@ 0x40200000  2.5
+   8:	ee30 1a20 	vadd.f32	s2, s0, s1
+   c:	4a23      	ldr	r2, [pc, #140]	@ (0x9c)
+   e:	edd2 1a00 	vldr	s3, [r2]
+  12:	eeb4 1a61 	vcmp.f32	s2, s3
+  16:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  1a:	d12c      	bne.n	0x76
+  1c:	eeb1 2a06 	vmov.f32	s4, #22	@ 0x40b00000  5.5
+  20:	eef0 2a08 	vmov.f32	s5, #8	@ 0x40400000  3.0
+  24:	ee32 3a62 	vsub.f32	s6, s4, s5
+  28:	4a1d      	ldr	r2, [pc, #116]	@ (0xa0)
+  2a:	edd2 3a00 	vldr	s7, [r2]
+  2e:	eeb4 3a63 	vcmp.f32	s6, s7
+  32:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  36:	d121      	bne.n	0x7c
+  38:	eeb7 0a08 	vmov.f32	s0, #120	@ 0x3fc00000  1.5
+  3c:	eef0 0a00 	vmov.f32	s1, #0	@ 0x40000000  2.0
+  40:	ee20 1a20 	vmul.f32	s2, s0, s1
+  44:	4a17      	ldr	r2, [pc, #92]	@ (0xa4)
+  46:	edd2 1a00 	vldr	s3, [r2]
+  4a:	eeb4 1a61 	vcmp.f32	s2, s3
+  4e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  52:	d116      	bne.n	0x82
+  54:	eeb1 2a08 	vmov.f32	s4, #24	@ 0x40c00000  6.0
+  58:	eef0 2a00 	vmov.f32	s5, #0	@ 0x40000000  2.0
+  5c:	ee82 3a22 	vdiv.f32	s6, s4, s5
+  60:	4a10      	ldr	r2, [pc, #64]	@ (0xa4)
+  62:	edd2 3a00 	vldr	s7, [r2]
+  66:	eeb4 3a63 	vcmp.f32	s6, s7
+  6a:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+  6e:	d10b      	bne.n	0x88
+  70:	2000      	movs	r0, #0
+  72:	be00      	bkpt	0x0000
+  74:	e7fe      	b.n	0x74
+  76:	2001      	movs	r0, #1
+  78:	be00      	bkpt	0x0000
+  7a:	e7fe      	b.n	0x7a
+  7c:	2002      	movs	r0, #2
+  7e:	be00      	bkpt	0x0000
+  80:	e7fe      	b.n	0x80
+  82:	2003      	movs	r0, #3
+  84:	be00      	bkpt	0x0000
+  86:	e7fe      	b.n	0x86
+  88:	2004      	movs	r0, #4
+  8a:	be00      	bkpt	0x0000
+  8c:	e7fe      	b.n	0x8c
+  8e:	bf00      	nop
+  90:	0000      	movs	r0, r0
+  92:	4020      	ands	r0, r4
+  94:	0000      	movs	r0, r0
+  96:	4040      	eors	r0, r0
+  98:	0000      	movs	r0, r0
+  9a:	4080      	lsls	r0, r0
+  9c:	0098      	lsls	r0, r3, #2
+  9e:	0000      	movs	r0, r0
+  a0:	0090      	lsls	r0, r2, #2
+  a2:	0000      	movs	r0, r0
+  a4:	0094      	lsls	r4, r2, #2
+	...
