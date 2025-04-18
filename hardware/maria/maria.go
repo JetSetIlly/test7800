@@ -493,31 +493,31 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 					// if we add this check then then we need to take into account the possibility
 					// of holey memory, which means we should also change the method of accumulation
 
-					switch mar.ctrl.readMode {
-					case 0:
-						for w := range mar.DL.width {
-							// the DMA can't go on too long so we exit early if appropriate
-							if mar.requiredDMACycles > dmaMaxCycles {
-								break // for loop
+					for w := range mar.DL.width {
+						// the DMA can't go on too long so we exit early if appropriate
+						if mar.requiredDMACycles > dmaMaxCycles {
+							break // for loop
+						}
+
+						a := ((uint16(mar.DL.highAddress) << 8) | uint16(mar.DL.lowAddress))
+
+						// width of the display list
+						a += uint16(w)
+
+						// write data to line ram
+						write := func(b uint8, secondWrite bool) {
+							dbl := mar.ctrl.charWidth && mar.DL.indirect
+
+							pos := int(w)
+							if dbl {
+								pos *= 2
+								if secondWrite {
+									pos++
+								}
 							}
 
-							a := ((uint16(mar.DL.highAddress) << 8) | uint16(mar.DL.lowAddress))
-
-							// width of the display list
-							a += uint16(w)
-
-							// write data to line ram
-							write := func(b uint8, secondWrite bool) {
-								dbl := mar.ctrl.charWidth && mar.DL.indirect
-
-								pos := int(w)
-								if dbl {
-									pos *= 2
-									if secondWrite {
-										pos++
-									}
-								}
-
+							switch mar.ctrl.readMode {
+							case 0:
 								if mar.DL.writemode {
 									// 160B
 									for i := range 2 {
@@ -548,75 +548,91 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 										}
 									}
 								}
-							}
-
-							if mar.DL.indirect {
-								b, err := mar.mem.Read(a)
-								if err != nil {
-									mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
-								}
-
-								a = (uint16(mar.charbase) << 8) | uint16(b)
-
-								// we'll be reading graphics data with this address so we add the working
-								// offset to the high address byte (see comment above)
-								a += uint16(mar.DLL.workingOffset) << 8
-
-								// if this address is in a hole then all addresses in the DL will
-								// be in the hole also
-								if mar.DLL.inHole(a) {
-									mar.requiredDMACycles += dmaHoleyRead
-									break // for width loop
-								}
-
-								b, err = mar.mem.Read(a)
-								if err != nil {
-									mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
-								}
-								write(b, false)
-
-								if mar.ctrl.charWidth {
-									b, err = mar.mem.Read(a + 1)
-									if err != nil {
-										mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
-									}
-									write(b, true)
-
-									mar.requiredDMACycles += dmaIndirectWideGfx
+							case 1:
+								mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", ContextError))
+							case 2:
+								if mar.DL.writemode {
+									// 320B
 								} else {
-									mar.requiredDMACycles += dmaIndirectGfx
+									// 320D
 								}
-
-							} else {
-								// "Each time graphics data is to be fetched OFFSET is added to the specified
-								// High address byte, to determine the actual address where the data should
-								// be found"
-								a += uint16(mar.DLL.workingOffset) << 8
-
-								// if this address is in a hole then all addresses in the DL will
-								// be in the hole also
-								if mar.DLL.inHole(a) {
-									mar.requiredDMACycles += dmaHoleyRead
-									break // for width loop
+							case 3:
+								if mar.DL.writemode {
+									// 320C
+								} else {
+									// 320A
+									p := mar.palette[mar.DL.palette]
+									for i := range 8 {
+										x := (int(mar.DL.horizontalPosition*2) + (int(pos) * 8) + i)
+										if ((b << i) & 0x80) != 0 {
+											mar.lineram.Set(x, 0, mar.spec.palette[p[1]])
+										} else if mar.ctrl.kanagroo {
+											mar.lineram.Set(x, 0, mar.spec.palette[mar.bg])
+										}
+									}
 								}
-
-								// DMA accumulation for direct gfx reads is simple
-								mar.requiredDMACycles += dmaDirectGfx
-
-								b, err := mar.mem.Read(a)
-								if err != nil {
-									mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
-								}
-								write(b, false)
 							}
 						}
 
-					case 1:
-						mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", ContextError))
-					case 2:
-						mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is not fully emulated", ContextError))
-					case 3:
-						mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is not fully emulated", ContextError))
+						if mar.DL.indirect {
+							b, err := mar.mem.Read(a)
+							if err != nil {
+								mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
+							}
+
+							a = (uint16(mar.charbase) << 8) | uint16(b)
+
+							// we'll be reading graphics data with this address so we add the working
+							// offset to the high address byte (see comment above)
+							a += uint16(mar.DLL.workingOffset) << 8
+
+							// if this address is in a hole then all addresses in the DL will
+							// be in the hole also
+							if mar.DLL.inHole(a) {
+								mar.requiredDMACycles += dmaHoleyRead
+								break // for width loop
+							}
+
+							b, err = mar.mem.Read(a)
+							if err != nil {
+								mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
+							}
+							write(b, false)
+
+							if mar.ctrl.charWidth {
+								b, err = mar.mem.Read(a + 1)
+								if err != nil {
+									mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
+								}
+								write(b, true)
+
+								mar.requiredDMACycles += dmaIndirectWideGfx
+							} else {
+								mar.requiredDMACycles += dmaIndirectGfx
+							}
+
+						} else {
+							// "Each time graphics data is to be fetched OFFSET is added to the specified
+							// High address byte, to determine the actual address where the data should
+							// be found"
+							a += uint16(mar.DLL.workingOffset) << 8
+
+							// if this address is in a hole then all addresses in the DL will
+							// be in the hole also
+							if mar.DLL.inHole(a) {
+								mar.requiredDMACycles += dmaHoleyRead
+								break // for width loop
+							}
+
+							// DMA accumulation for direct gfx reads is simple
+							mar.requiredDMACycles += dmaDirectGfx
+
+							b, err := mar.mem.Read(a)
+							if err != nil {
+								mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
+							}
+							write(b, false)
+						}
 					}
 
 					mar.nextDL(false)
