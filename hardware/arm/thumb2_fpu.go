@@ -987,7 +987,7 @@ func (arm *ARM) decodeThumb2FPURegisterLoadStore(opcode uint16) decodeFunction {
 				return &DisasmEntry{
 					Is32bit:  true,
 					Operator: "VSTR",
-					Operand:  fmt.Sprintf("%c%d, R%d, #%c%d", regPrefix, Vd, Rn, indexingSign, imm32),
+					Operand:  fmt.Sprintf("%c%d, R%d, #%c%d", regPrefix, d, Rn, indexingSign, imm32),
 				}
 			}
 
