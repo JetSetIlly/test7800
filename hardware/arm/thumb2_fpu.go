@@ -382,7 +382,6 @@ func (arm *ARM) decodeThumb2FPUDataProcessing(opcode uint16) decodeFunction {
 
 					if toInteger {
 						unsigned := opc2&0x001 != 0x001
-
 						roundZero := op
 						d := Vd<<1 | D
 

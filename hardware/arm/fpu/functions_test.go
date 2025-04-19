@@ -189,11 +189,17 @@ func TestNegative(t *testing.T) {
 
 func TestImmediate(t *testing.T) {
 	var fp fpu.FPU
+	var a uint64
+	var b float32
+
+	a = fp.VFPExpandImm(0x00, 32)
+	b = math.Float32frombits(uint32(a))
+	test.ExpectEquality(t, b, 0.0)
 
 	// tests taken from an real world example of a VMOV (immediate) instruction.
 	// the GCC objdump indiates that a value of 0x50 should expand to 0.25
-	a := fp.VFPExpandImm(0x50, 32)
-	b := math.Float32frombits(uint32(a))
+	a = fp.VFPExpandImm(0x50, 32)
+	b = math.Float32frombits(uint32(a))
 	test.ExpectEquality(t, b, 0.25)
 
 	a = fp.VFPExpandImm(0x70, 32)
