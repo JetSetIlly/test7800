@@ -492,6 +492,8 @@ func (arm *ARM) decodeThumb2FPUDataProcessing(opcode uint16) decodeFunction {
 					regPrefix = 'S'
 				}
 
+				withZero := arm.state.instruction32bitOpcodeHi&0x01 == 0x01
+
 				return func() *DisasmEntry {
 					if arm.decodeOnly {
 						return &DisasmEntry{
@@ -504,13 +506,16 @@ func (arm *ARM) decodeThumb2FPUDataProcessing(opcode uint16) decodeFunction {
 					if sz {
 						panic("double precision VCMP, VCMPE")
 					} else {
-						if arm.state.instruction32bitOpcodeHi&0b01 == 0b00 {
-							// Encoding T1 (with m register)
-							arm.state.fpu.FPCompare(uint64(arm.state.fpu.Registers[d]), uint64(arm.state.fpu.Registers[m]), bits, E, true)
-						} else {
+						var op32 uint64
+						if withZero {
 							// Encoding T2 (with zero)
-							arm.state.fpu.FPCompare(uint64(arm.state.fpu.Registers[d]), arm.state.fpu.FPZero(false, bits), bits, E, true)
+							op32 = arm.state.fpu.FPZero(false, bits)
+						} else {
+							// Encoding T1 (with m register)
+							op32 = uint64(arm.state.fpu.Registers[m])
 						}
+
+						arm.state.fpu.FPCompare(uint64(arm.state.fpu.Registers[d]), op32, bits, E, true)
 					}
 
 					return nil
