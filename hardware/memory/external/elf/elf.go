@@ -185,7 +185,9 @@ func (cart *Elf) reset() {
 func (cart *Elf) Access(_ bool, addr uint16, _ uint8) (uint8, error) {
 	if cart.mem.stream.active {
 		if !cart.mem.stream.drain {
-			cart.runARM(addr)
+			if cart.runARM(addr) {
+				return 0, nil
+			}
 		}
 
 		if addr&CartridgeBits == cart.mem.stream.peek().addr&CartridgeBits {
@@ -270,7 +272,7 @@ func (cart *Elf) BusChange(addr uint16, data uint8) error {
 
 	// if byte-streaming is active then the access is relatively simple
 	if cart.mem.stream.active {
-		cart.runARM(addr)
+		_ = cart.runARM(addr)
 		return nil
 	}
 
@@ -285,7 +287,9 @@ func (cart *Elf) BusChange(addr uint16, data uint8) error {
 		}
 		cart.mem.strongarm.running.function(cart.mem)
 		if cart.mem.strongarm.running.function == nil {
-			cart.runARM(addr)
+			if !cart.runARM(addr) {
+				return false
+			}
 			if cart.mem.strongarm.running.function != nil {
 				cart.mem.strongarm.running.function(cart.mem)
 			}
@@ -297,17 +301,23 @@ func (cart *Elf) BusChange(addr uint16, data uint8) error {
 		return nil
 	}
 
-	cart.runARM(addr)
+	if !cart.runARM(addr) {
+		return nil
+	}
 	if runStrongarm() {
 		return nil
 	}
 
-	cart.runARM(addr)
+	if !cart.runARM(addr) {
+		return nil
+	}
 	if runStrongarm() {
 		return nil
 	}
 
-	cart.runARM(addr)
+	if !cart.runARM(addr) {
+		return nil
+	}
 
 	return nil
 }
