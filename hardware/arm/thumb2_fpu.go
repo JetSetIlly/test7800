@@ -299,10 +299,20 @@ func (arm *ARM) decodeThumb2FPUDataProcessing(opcode uint16) decodeFunction {
 
 					return func() *DisasmEntry {
 						if arm.decodeOnly {
+							var suffix string
+							if E {
+								suffix = "E"
+							}
+							var cmp string
+							if withZero {
+								cmp = "#0.0"
+							} else {
+								cmp = fmt.Sprintf("%c%d", regPrefix, m)
+							}
 							return &DisasmEntry{
 								Is32bit:  true,
-								Operator: "VCMP",
-								Operand:  fmt.Sprintf("%c%d, %c%d", regPrefix, d, regPrefix, m),
+								Operator: fmt.Sprintf("VCMP%s", suffix),
+								Operand:  fmt.Sprintf("%c%d, %s", regPrefix, d, cmp),
 							}
 						}
 
@@ -899,10 +909,16 @@ func (arm *ARM) decodeThumb2FPU32bitTransfer(opcode uint16) decodeFunction {
 			// "A7.7.246 VMRS" of "ARMv7-M"
 			return func() *DisasmEntry {
 				if arm.decodeOnly {
+					var dest string
+					if Rt == 15 {
+						dest = "APSR_nzcv"
+					} else {
+						dest = fmt.Sprintf("R%d", Rt)
+					}
 					e := &DisasmEntry{
 						Is32bit:  true,
 						Operator: "VMRS",
-						Operand:  fmt.Sprintf("R%d, FPSCR", Rt),
+						Operand:  fmt.Sprintf("%s, FPSCR", dest),
 					}
 					return e
 				}
