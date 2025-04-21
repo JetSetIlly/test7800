@@ -229,7 +229,7 @@ func (arm *ARM) decodeThumb2FPUDataProcessing(opcode uint16) decodeFunction {
 								} else {
 									if sx {
 										r := arm.state.fpu.FPToFixed(uint64(arm.state.fpu.Registers[d]), 32, int(fracBits), U, true, true)
-										arm.state.registers[d] = uint32(r)
+										arm.state.fpu.Registers[d] = uint32(r)
 									} else {
 										panic("single precision VCVT (to fixed, signed)")
 									}
@@ -245,7 +245,7 @@ func (arm *ARM) decodeThumb2FPUDataProcessing(opcode uint16) decodeFunction {
 								} else {
 									v := arm.state.fpu.Registers[d] & 0xfffffffe
 									r := arm.state.fpu.FixedToFP(uint64(v), 32, int(fracBits), U, false, true)
-									arm.state.registers[d] = uint32(r)
+									arm.state.fpu.Registers[d] = uint32(r)
 								}
 							}
 						}
