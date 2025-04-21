@@ -442,8 +442,8 @@ func (arm *ARM) updatePrefs() {
 		}
 	}
 
-	arm.abortOnMemoryFault = false
-	arm.misalignedAccessIsFault = false
+	arm.abortOnMemoryFault = true
+	arm.misalignedAccessIsFault = true
 }
 
 func (arm *ARM) String() string {
