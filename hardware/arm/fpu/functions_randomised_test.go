@@ -18,7 +18,6 @@ func TestArithmetic_random(t *testing.T) {
 	var fp fpu.FPU
 
 	fpscr := fp.StandardFPSCRValue()
-	fpscr.SetRMode(fpu.FPRoundNearest)
 
 	f := func(t *testing.T) {
 		var v, w float64
@@ -61,8 +60,24 @@ func TestArithmetic_random(t *testing.T) {
 		test.ExpectEquality(t, f, (2.5*-3.1)+100)
 	}
 
+	fpscr.SetRMode(fpu.FPRoundNearest)
 	for range iterations {
-		t.Run("arithmetic", f)
+		t.Run("arithmetic (round nearest)", f)
+	}
+
+	fpscr.SetRMode(fpu.FPRoundZero)
+	for range iterations {
+		t.Run("arithmetic (round zero)", f)
+	}
+
+	fpscr.SetRMode(fpu.FPRoundNegInf)
+	for range iterations {
+		t.Run("arithmetic (round negative infinity)", f)
+	}
+
+	fpscr.SetRMode(fpu.FPRoundPlusInf)
+	for range iterations {
+		t.Run("arithmetic (round plus infinity)", f)
 	}
 }
 
@@ -160,7 +175,6 @@ func TestRound_random(t *testing.T) {
 	var fp fpu.FPU
 
 	fpscr := fp.StandardFPSCRValue()
-	fpscr.SetRMode(fpu.FPRoundNearest)
 
 	f := func(t *testing.T) {
 		var v float64
@@ -172,8 +186,11 @@ func TestRound_random(t *testing.T) {
 		test.ExpectEquality(t, uint32(b), c)
 	}
 
+	// using the math package as our baseline means we can only really test
+	// using the round nearest method
+	fpscr.SetRMode(fpu.FPRoundNearest)
 	for range iterations {
-		t.Run("rounding", f)
+		t.Run("rounding (round nearest)", f)
 	}
 }
 
@@ -186,25 +203,45 @@ func TestFixedToFP_random(t *testing.T) {
 
 		v = rand.Uint64N(integerMax)
 
+		// fp.FixedToFP is called with nearest set to false and FCPCR controlled
+		// so we can set the rounding method explicitely ourselves (see for
+		// loops below)
+
 		// 32 bit (signed)
-		c = fp.FixedToFP(v, 32, 0, false, true, true)
+		c = fp.FixedToFP(v, 32, 0, false, false, true)
 		test.ExpectEquality(t, c, uint64(math.Float32bits(float32(v))))
 
 		// 32 bit (unsigned)
-		c = fp.FixedToFP(v, 32, 0, true, true, true)
+		c = fp.FixedToFP(v, 32, 0, true, false, true)
 		test.ExpectEquality(t, c, uint64(math.Float32bits(float32(v))))
 
 		// 64 bit (signed)
-		c = fp.FixedToFP(v, 64, 0, false, true, true)
+		c = fp.FixedToFP(v, 64, 0, false, false, true)
 		test.ExpectEquality(t, c, math.Float64bits(float64(v)))
 
 		// 64 bit (unsigned)
-		c = fp.FixedToFP(v, 64, 0, true, true, true)
+		c = fp.FixedToFP(v, 64, 0, true, false, true)
 		test.ExpectEquality(t, c, math.Float64bits(float64(v)))
 	}
 
+	fp.Status.SetRMode(fpu.FPRoundNearest)
 	for range iterations {
-		t.Run("fixed to fp", f)
+		t.Run("fixed to fp (round nearest)", f)
+	}
+
+	fp.Status.SetRMode(fpu.FPRoundZero)
+	for range iterations {
+		t.Run("fixed to fp (round zero)", f)
+	}
+
+	fp.Status.SetRMode(fpu.FPRoundNegInf)
+	for range iterations {
+		t.Run("fixed to fp (round negative infinity)", f)
+	}
+
+	fp.Status.SetRMode(fpu.FPRoundPlusInf)
+	for range iterations {
+		t.Run("fixed to fp (round plus infinity)", f)
 	}
 }
 
@@ -219,28 +256,44 @@ func TestFPToFixed_random(t *testing.T) {
 		v = rand.Uint64N(integerMax)
 
 		// 32 bit (signed)
-		c = fp.FixedToFP(v, 32, 0, false, true, true)
-		d = fp.FPToFixed(c, 32, 0, false, true, true)
+		c = fp.FixedToFP(v, 32, 0, false, false, true)
+		d = fp.FPToFixed(c, 32, 0, false, false, true)
 		test.ExpectEquality(t, d, v)
 
 		// 32 bit (unsigned)
-		c = fp.FixedToFP(v, 32, 0, true, true, true)
-		d = fp.FPToFixed(c, 32, 0, true, true, true)
+		c = fp.FixedToFP(v, 32, 0, true, false, true)
+		d = fp.FPToFixed(c, 32, 0, true, false, true)
 		test.ExpectEquality(t, d, v)
 
 		// 64 bit (signed)
-		c = fp.FixedToFP(v, 64, 0, false, true, true)
-		d = fp.FPToFixed(c, 64, 0, false, true, true)
+		c = fp.FixedToFP(v, 64, 0, false, false, true)
+		d = fp.FPToFixed(c, 64, 0, false, false, true)
 		test.ExpectEquality(t, d, v)
 
 		// 64 bit (unsigned)
-		c = fp.FixedToFP(v, 64, 0, true, true, true)
-		d = fp.FPToFixed(c, 64, 0, true, true, true)
+		c = fp.FixedToFP(v, 64, 0, true, false, true)
+		d = fp.FPToFixed(c, 64, 0, true, false, true)
 		test.ExpectEquality(t, d, v)
 	}
 
+	fp.Status.SetRMode(fpu.FPRoundNearest)
 	for range iterations {
-		t.Run("fp to fixed", f)
+		t.Run("fp to fixed (round nearest)", f)
+	}
+
+	fp.Status.SetRMode(fpu.FPRoundZero)
+	for range iterations {
+		t.Run("fp to fixed (round zero)", f)
+	}
+
+	fp.Status.SetRMode(fpu.FPRoundNegInf)
+	for range iterations {
+		t.Run("fp to fixed (round negative infinity)", f)
+	}
+
+	fp.Status.SetRMode(fpu.FPRoundPlusInf)
+	for range iterations {
+		t.Run("fp to fixed (round plus infinity)", f)
 	}
 }
 
