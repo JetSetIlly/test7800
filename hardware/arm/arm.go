@@ -331,6 +331,7 @@ func NewARM(mmap architecture.Map, mem SharedMemory, hook CartridgeHook) *ARM {
 	// by definition the ARM starts in a program ended state
 	arm.state.yield.Type = coprocessor.YieldProgramEnded
 
+	arm.state.fpu.Reset()
 	arm.resetPeripherals()
 	arm.resetRegisters()
 	arm.updatePrefs()
