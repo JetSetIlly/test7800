@@ -1530,7 +1530,7 @@ func (arm *ARM) decode32bitThumb2LoadStoreDoubleEtc(opcode uint16) decodeFunctio
 					Is32bit:  true,
 					Operator: operator,
 				}
-				e.Operand = fmt.Sprintf("R%d, R%d, [R%d,", Rt, Rt2, Rn)
+				e.Operand = fmt.Sprintf("R%d, R%d, [R%d", Rt, Rt2, Rn)
 				if u {
 					e.Operand = fmt.Sprintf("%s, #+%d]", e.Operand, imm32)
 				} else {

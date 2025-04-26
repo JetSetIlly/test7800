@@ -125,22 +125,24 @@ func (arm *ARM) decodeThumb2FPUDataProcessing(opcode uint16) decodeFunction {
 				// "A7.7.229 VCVT (between floating-point and fixed-point)"
 				D := (arm.state.instruction32bitOpcodeHi & 0x40) >> 6
 				Vd := (opcode & 0xf000) >> 12
-				op := arm.state.instruction32bitOpcodeHi&0x0040 == 0x0040
+				op := arm.state.instruction32bitOpcodeHi&0x0004 == 0x0004
 				U := arm.state.instruction32bitOpcodeHi&0x0001 == 0x0001
 				sx := opcode&0x0080 == 0x0080
 				imm4 := opcode & 0x000f
 				i := (opcode & 0x0020) >> 5
 
-				var fracBits uint16
+				var bitsFixed int
 				if sx {
-					fracBits = 32 - (imm4<<1 | i)
+					bitsFixed = 32
 				} else {
-					fracBits = 16 - (imm4<<1 | i)
+					bitsFixed = 16
 				}
+
+				fracBits := uint16(bitsFixed) - (imm4<<1 | i)
 
 				var d uint16
 				var regPrefix rune
-				var conv string
+				var bits int
 
 				// in the reference manual "sz" is called "sx" on the page
 				// where this VCVT is described. I think this is distinguish
@@ -149,11 +151,11 @@ func (arm *ARM) decodeThumb2FPUDataProcessing(opcode uint16) decodeFunction {
 				if sz {
 					d = (D << 4) | Vd
 					regPrefix = 'D'
-					conv = "F64"
+					bits = 64
 				} else {
 					d = (Vd << 1) | D
 					regPrefix = 'S'
-					conv = "F32"
+					bits = 32
 				}
 
 				return func() *DisasmEntry {
@@ -164,9 +166,17 @@ func (arm *ARM) decodeThumb2FPUDataProcessing(opcode uint16) decodeFunction {
 							Operand:  fmt.Sprintf("%c%d, %c%d, #%d", regPrefix, d, regPrefix, d, fracBits),
 						}
 						if op {
-							e.Operand = fmt.Sprintf("%s.%c%d.%s", e.Operand, regPrefix, d, conv)
+							if U {
+								e.Operator = fmt.Sprintf("%s.U%d.F%d", e.Operator, bitsFixed, bits)
+							} else {
+								e.Operator = fmt.Sprintf("%s.S%d.F%d", e.Operator, bitsFixed, bits)
+							}
 						} else {
-							e.Operand = fmt.Sprintf("%s.%s.%c%d", e.Operand, conv, regPrefix, d)
+							if U {
+								e.Operator = fmt.Sprintf("%s.F%d.U%d", e.Operator, bits, bitsFixed)
+							} else {
+								e.Operator = fmt.Sprintf("%s.F%d.S%d", e.Operator, bits, bitsFixed)
+							}
 						}
 						return e
 					}
