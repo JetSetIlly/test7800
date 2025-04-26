@@ -17,10 +17,16 @@ type dl struct {
 	writemode bool
 
 	// these fields are common to both the 4 and 5 byte header
-	lowAddress         uint8
-	highAddress        uint8
-	palette            uint8
-	width              uint8
+	lowAddress  uint8
+	highAddress uint8
+	palette     uint8
+	width       uint8
+
+	// note that the horizontal position for 320 modes are doubled by the Maria
+	// when writing to line ram. this gives an effective resolution of 160
+	// pixels.
+	//
+	// also common to 4 and 5 byte header
 	horizontalPosition uint8
 
 	// "If the second byte of a header is zero, it indicates the end of the

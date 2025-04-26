@@ -137,7 +137,6 @@ func Create(ctx Context, ui *ui.UI, mem Memory) *Maria {
 	// increase in refresh rate so that it better syncs with the audio. this is
 	// definitely not ideal but it's okay for now
 	// TODO: better interaction between frame limiter and audio
-	hz *= 1.20
 	mar.limiter = time.NewTicker(time.Second / time.Duration(hz))
 
 	// allocate images representing lineram and the frame to be displayed
@@ -392,7 +391,7 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 	var dli bool
 
 	mar.Coords.Clk++
-	if mar.Coords.Clk > clksScanline {
+	if mar.Coords.Clk >= clksScanline {
 		mar.Coords.Clk = 0
 		mar.Coords.Scanline++
 		mar.wsync = false
@@ -563,6 +562,9 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 									// 320A
 									p := mar.palette[mar.DL.palette]
 									for i := range 8 {
+										// note that the horizontal position for 320 modes are doubled by the Maria
+										// when writing to line ram. this gives an effective resolution of 160
+										// pixels
 										x := (int(mar.DL.horizontalPosition*2) + (int(pos) * 8) + i)
 										if ((b << i) & 0x80) != 0 {
 											mar.lineram.Set(x, 0, mar.spec.palette[p[1]])
