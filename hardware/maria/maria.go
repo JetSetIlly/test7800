@@ -470,7 +470,10 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 			case 0x01:
 				mar.ctx.Break(fmt.Errorf("%w: dma value of 0x01 in ctrl register is undefined", ContextError))
 			case 0x02:
-				mar.nextDL(true)
+				err := mar.nextDL(true)
+				if err != nil {
+					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+				}
 				for !mar.DL.isEnd {
 					// the DMA can't go on too long so we exit early if appropriate
 					if mar.requiredDMACycles > dmaMaxCycles {
@@ -637,7 +640,10 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 						}
 					}
 
-					mar.nextDL(false)
+					err := mar.nextDL(false)
+					if err != nil {
+						mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+					}
 				}
 			case 0x03:
 				// dma is off. showing only background colour
