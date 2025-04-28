@@ -532,7 +532,7 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 											mar.lineram.Set(x+1, 0, mar.spec.palette[p[c-1]])
 										} else if mar.ctrl.kanagroo {
 											mar.lineram.Set(x, 0, mar.spec.palette[mar.bg])
-											mar.lineram.Set(x+1, 0, mar.spec.palette[p[c-1]])
+											mar.lineram.Set(x+1, 0, mar.spec.palette[mar.bg])
 										}
 									}
 								} else {
