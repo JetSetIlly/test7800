@@ -43,7 +43,8 @@ func (riot *RIOT) Read(idx uint16) (uint8, error) {
 		return 0, nil
 	case 0x02:
 		// SWCHB
-		return 0x3f, nil
+		// pro on by default (amateur would be 0x3f)
+		return 0xff, nil
 	case 0x03:
 		// SWBCNT
 		return 0, nil
