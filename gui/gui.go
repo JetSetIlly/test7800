@@ -116,7 +116,7 @@ func (g *gui) Layout(width, height int) (int, int) {
 	return width, height
 }
 
-func Launch(endGui chan bool, ui *ui.UI, useAudio bool) error {
+func Launch(endGui chan bool, ui *ui.UI) error {
 	ebiten.SetWindowTitle("test7800")
 	ebiten.SetVsyncEnabled(true)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
@@ -128,7 +128,7 @@ func Launch(endGui chan bool, ui *ui.UI, useAudio bool) error {
 		ui:     ui,
 	}
 
-	if useAudio {
+	if ui.RegisterAudio != nil {
 		audioctx := audio.NewContext(tia.AverageSampleFreq)
 		p, err := audioctx.NewPlayer(<-ui.RegisterAudio)
 		if err != nil {

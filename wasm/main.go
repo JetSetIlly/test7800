@@ -24,5 +24,5 @@ func main() {
 		}
 		return nil
 	}
-	gui.Launch(nil, ui, false)
+	gui.Launch(nil, ui)
 }

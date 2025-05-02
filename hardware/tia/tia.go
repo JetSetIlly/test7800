@@ -26,7 +26,7 @@ func (b *audioBuffer) Read(buf []uint8) (int, error) {
 	// can cause the audio to drift out of sync with the video if too many of
 	// these are sent
 	//
-	// we could indicated just 1 byte but this means the sample data becomes
+	// we could use just 1 byte but this means the sample data becomes
 	// unaligned. the number of bytes returned needs to be a multiple of two
 	// because of the sample format (2 channel, 16bit little-endian)
 	//
@@ -54,9 +54,6 @@ func Create(ctx Context, ui *ui.UI, mem Memory) *TIA {
 	tia := &TIA{
 		mem: mem,
 		aud: audio.NewAudio(ctx.IsAtari7800()),
-		buf: &audioBuffer{
-			data: make([]uint8, 0, 4096),
-		},
 
 		// inpt initialised as though sticks are being used
 		inpt: [6]uint8{
@@ -64,7 +61,12 @@ func Create(ctx Context, ui *ui.UI, mem Memory) *TIA {
 			0x80, 0x80,
 		},
 	}
-	ui.RegisterAudio <- tia.buf
+	if ui.RegisterAudio != nil {
+		tia.buf = &audioBuffer{
+			data: make([]uint8, 0, 4096),
+		}
+		ui.RegisterAudio <- tia.buf
+	}
 	return tia
 }
 
@@ -147,10 +149,12 @@ func (tia *TIA) Tick() {
 	if tia.aud.Step() {
 		m := mix.Mono(tia.aud.Vol0, tia.aud.Vol1)
 
-		tia.buf.crit.Lock()
-		defer tia.buf.crit.Unlock()
+		if tia.buf != nil {
+			tia.buf.crit.Lock()
+			defer tia.buf.crit.Unlock()
 
-		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
-		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
+			tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
+			tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
+		}
 	}
 }

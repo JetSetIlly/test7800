@@ -6,18 +6,30 @@ import (
 )
 
 type UI struct {
-	SetImage      chan *image.RGBA
+	SetImage  chan *image.RGBA
+	UserInput chan Input
+
+	// RegisterAudio should be nil if the emulation is to have no audio
 	RegisterAudio chan io.Reader
-	UserInput     chan Input
 
 	// optional function called by GUI during it's update loop
 	UpdateGUI func() error
 }
 
+// NewUI creates a new UI instance. It does not initialise the RegisterAudio
+// channel. For that, use the WithAudio() function
 func NewUI() *UI {
 	return &UI{
-		SetImage:      make(chan *image.RGBA, 1),
-		RegisterAudio: make(chan io.Reader, 1),
-		UserInput:     make(chan Input, 10),
+		SetImage:  make(chan *image.RGBA, 1),
+		UserInput: make(chan Input, 10),
 	}
+}
+
+// WithAudio creates the RegisterAudio channel if it's not already created.
+// Should not be called if the UI is to have no audio.
+func (ui *UI) WithAudio() *UI {
+	if ui.RegisterAudio == nil {
+		ui.RegisterAudio = make(chan io.Reader, 1)
+	}
+	return ui
 }
