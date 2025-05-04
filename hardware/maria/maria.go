@@ -566,9 +566,9 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 									p := mar.palette[mar.DL.palette]
 									for i := range 8 {
 										// note that the horizontal position for 320 modes are doubled by the Maria
-										// when writing to line ram. this gives an effective resolution of 160
-										// pixels
-										x := (int(mar.DL.horizontalPosition*2) + (int(pos) * 8) + i)
+										// when writing to line ram. this gives an effective positioning resolution
+										// of 160 pixels
+										x := ((int(mar.DL.horizontalPosition) + pos*4) * 2) + i
 										if ((b << i) & 0x80) != 0 {
 											mar.lineram.Set(x, 0, mar.spec.palette[p[1]])
 										} else if mar.ctrl.kanagroo {
