@@ -430,47 +430,44 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 	if mar.Coords.Clk == preDMA {
 		// DMA is only ever active when VBLANK is disabled
 		if mar.mstat == vblankDisable {
-
-			// whether to trigger an interrupt at the end of the display list
-			if mar.ctrl.dma != 3 {
-				var err error
-				dli, err = mar.nextDLL(mar.Coords.Scanline == mar.spec.visibleTop)
-				if err != nil {
-					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
-				}
-			}
-
-			// DMA cycle counting
-			if mar.DLL.offset == 0 {
-				mar.requiredDMACycles += dmaStartLastInZone
-			} else {
-				mar.requiredDMACycles += dmaStart
-			}
-
-			// the scanline value adjusted by where the top of the image is located
-			sl := mar.Coords.Scanline - mar.spec.visibleTop
-
-			for clk := range clksVisible {
-				// set entire scanline to background colour
-				mar.currentFrame.Set(clk, sl, mar.spec.palette[mar.bg])
-
-				// copy line ram over background where the line ram is not transparent
-				c := mar.lineram.RGBAAt(clk, 0)
-				if c.A != 0 {
-					mar.currentFrame.Set(clk, sl, c)
-				}
-
-				// clear the part of line ram we just copied
-				mar.lineram.Set(clk, 0, color.Transparent)
-			}
-
 			switch mar.ctrl.dma {
 			case 0x00:
 				mar.ctx.Break(fmt.Errorf("%w: dma value of 0x00 in ctrl register is undefined", ContextError))
 			case 0x01:
 				mar.ctx.Break(fmt.Errorf("%w: dma value of 0x01 in ctrl register is undefined", ContextError))
 			case 0x02:
-				err := mar.nextDL(true)
+				// next DLL and note whether to trigger an interrupt at the end of the display list
+				var err error
+				dli, err = mar.nextDLL(mar.Coords.Scanline == mar.spec.visibleTop)
+				if err != nil {
+					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+				}
+
+				// DMA cycle counting
+				if mar.DLL.offset == 0 {
+					mar.requiredDMACycles += dmaStartLastInZone
+				} else {
+					mar.requiredDMACycles += dmaStart
+				}
+
+				// the scanline value adjusted by where the top of the image is located
+				sl := mar.Coords.Scanline - mar.spec.visibleTop
+
+				for clk := range clksVisible {
+					// set entire scanline to background colour
+					mar.currentFrame.Set(clk, sl, mar.spec.palette[mar.bg])
+
+					// copy line ram over background where the line ram is not transparent
+					c := mar.lineram.RGBAAt(clk, 0)
+					if c.A != 0 {
+						mar.currentFrame.Set(clk, sl, c)
+					}
+
+					// clear the part of line ram we just copied
+					mar.lineram.Set(clk, 0, color.Transparent)
+				}
+
+				err = mar.nextDL(true)
 				if err != nil {
 					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 				}

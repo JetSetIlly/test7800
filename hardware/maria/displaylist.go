@@ -288,5 +288,17 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 		return false, err
 	}
 
+	// in some cases the offset of a DLL is zero and so there may be an
+	// interrupt triggered immediately. a good example of where this is
+	// necessary is Centipede
+	if mar.DLL.workingOffset == 0 {
+		preview := mar.DLL.origin + uint16(3)
+		d, err := mar.mem.Read(preview)
+		if err != nil {
+			return false, err
+		}
+		return d&0x80 == 0x80, nil
+	}
+
 	return false, nil
 }
