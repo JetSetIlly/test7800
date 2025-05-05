@@ -507,11 +507,12 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 						write := func(b uint8, secondWrite bool) {
 							dbl := mar.ctrl.charWidth && mar.DL.indirect
 
-							pos := int(w)
+							// the offset is added to the base horizontal position of the DL
+							offset := w
 							if dbl {
-								pos *= 2
+								offset *= 2
 								if secondWrite {
-									pos++
+									offset++
 								}
 							}
 
@@ -523,7 +524,8 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 										c := (b >> (((1 - i) * 2) + 4)) & 0x03
 										pi := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
 										p := mar.palette[pi]
-										x := (int(mar.DL.horizontalPosition) + (pos * 2) + i) * 2
+										x := int(mar.DL.horizontalPosition + (offset * 2))
+										x = (x + i) * 2
 										if c > 0 {
 											mar.lineram.Set(x, 0, mar.spec.palette[p[c-1]])
 											mar.lineram.Set(x+1, 0, mar.spec.palette[p[c-1]])
@@ -537,7 +539,8 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 									p := mar.palette[mar.DL.palette]
 									for i := range 4 {
 										c := (b >> ((3 - i) * 2)) & 0x03
-										x := (int(mar.DL.horizontalPosition) + (pos * 4) + i) * 2
+										x := int(mar.DL.horizontalPosition + (offset * 4))
+										x = (x + i) * 2
 										if c > 0 {
 											mar.lineram.Set(x, 0, mar.spec.palette[p[c-1]])
 											mar.lineram.Set(x+1, 0, mar.spec.palette[p[c-1]])
@@ -565,7 +568,8 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 										// note that the horizontal position for 320 modes are doubled by the Maria
 										// when writing to line ram. this gives an effective positioning resolution
 										// of 160 pixels
-										x := ((int(mar.DL.horizontalPosition) + pos*4) * 2) + i
+										x := int(mar.DL.horizontalPosition + (offset * 4))
+										x = x*2 + i
 										if ((b << i) & 0x80) != 0 {
 											mar.lineram.Set(x, 0, mar.spec.palette[p[1]])
 										} else if mar.ctrl.kanagroo {

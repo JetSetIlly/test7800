@@ -100,7 +100,7 @@ func (mar *Maria) nextDL(reset bool) error {
 		mar.DL.width = 0
 		mar.DL.horizontalPosition = 0
 
-		// note that we're not reset the writemode field, which only changes
+		// note that we're do not reset the writemode field, which only changes
 		// when specified by a 5 byte DL header
 
 		return nil
