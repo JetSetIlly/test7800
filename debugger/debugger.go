@@ -68,7 +68,7 @@ type debugger struct {
 func (m *debugger) reset() {
 	m.ctx.Reset()
 
-	var postResetProcedure external.CartridgeReset
+	var cartridgeReset external.CartridgeReset
 
 	// load file specified by loader
 	if m.loader != "" {
@@ -116,7 +116,7 @@ func (m *debugger) reset() {
 						fmt.Sprintf("%s cartridge from %s", m.console.Mem.External.Label(),
 							filepath.Base(m.loader)),
 					))
-					postResetProcedure = c.ResetProcedure()
+					cartridgeReset = c.ResetProcedure()
 				}
 			}
 		}
@@ -139,15 +139,18 @@ func (m *debugger) reset() {
 		fmt.Println(m.styles.debugger.Render("console reset"))
 	}
 
-	if postResetProcedure.Custom {
+	if cartridgeReset.BypassBIOS {
 		// writing to the INPTCTRL twice to make sure the halt line has been enabled
-		m.console.Mem.INPTCTRL.Write(0x01, postResetProcedure.INPTCTRL)
-		m.console.Mem.INPTCTRL.Write(0x01, postResetProcedure.INPTCTRL)
+		m.console.Mem.INPTCTRL.Write(0x01, cartridgeReset.INPTCTRL)
+		m.console.Mem.INPTCTRL.Write(0x01, cartridgeReset.INPTCTRL)
 
+		// set 6507 program-counter to normal reset address
+		m.console.MC.LoadPCIndirect(cpu.Reset)
+
+		// feedback on the current state of INPTCTRL
 		fmt.Println(m.styles.cpu.Render(
 			m.console.Mem.INPTCTRL.Status(),
 		))
-		m.console.MC.LoadPCIndirect(cpu.Reset)
 	}
 
 	fmt.Println(m.styles.mem.Render(

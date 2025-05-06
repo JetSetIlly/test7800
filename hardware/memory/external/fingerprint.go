@@ -10,9 +10,9 @@ import (
 )
 
 type CartridgeReset struct {
-	// if Custom is false then the other fields in this type should be ignored
-	// and the normal reset procedure should be followed
-	Custom bool
+	// if BypassBIOS is true then the normal BIOS initialisation procedure is
+	// bypassed. in this case the INPTCTRL field is important for setting the
+	BypassBIOS bool
 
 	// the state of INPTCTRL after the reset procedure
 	INPTCTRL uint8
@@ -39,8 +39,8 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 				return elf.NewElf(ctx, d)
 			},
 			reset: CartridgeReset{
-				Custom:   true,
-				INPTCTRL: 0x07,
+				BypassBIOS: true,
+				INPTCTRL:   0x07,
 			},
 		}, nil
 	}
