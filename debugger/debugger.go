@@ -41,6 +41,7 @@ type debugger struct {
 
 	console     hardware.Console
 	breakpoints map[uint16]bool
+	watches     map[uint16]watch
 
 	// recent execution results to be printed on emulation halt
 	recent []execution.Result
@@ -295,6 +296,7 @@ func (m *debugger) run() bool {
 	var (
 		coprocErr     = errors.New("coproc")
 		breakpointErr = errors.New("breakpoint")
+		watchErr      = errors.New("watch")
 		contextErr    = errors.New("context")
 		endRunErr     = errors.New("end run")
 		quitErr       = errors.New("quit")
@@ -338,6 +340,14 @@ func (m *debugger) run() bool {
 		pcAddr := m.console.MC.PC.Address()
 		if _, ok := m.breakpoints[pcAddr]; ok {
 			return fmt.Errorf("%w: %04x", breakpointErr, pcAddr)
+		}
+
+		w, err := m.checkWatches()
+		if err != nil {
+			return fmt.Errorf("%w%w", contextErr, err)
+		}
+		if w != nil {
+			return fmt.Errorf("%w: %04x = %02x -> %02x", watchErr, w.ma.address, w.prev, w.data)
 		}
 
 		return nil
@@ -400,6 +410,8 @@ func (m *debugger) run() bool {
 		fmt.Println(m.styles.coprocErr.Render(s))
 	} else if errors.Is(err, breakpointErr) {
 		fmt.Println(m.styles.breakpoint.Render(err.Error()))
+	} else if errors.Is(err, watchErr) {
+		fmt.Println(m.styles.watch.Render(err.Error()))
 	} else if errors.Is(err, contextErr) {
 		s := strings.TrimPrefix(err.Error(), contextErr.Error())
 		fmt.Println(m.styles.err.Render(s))
@@ -506,6 +518,41 @@ func (m *debugger) loop() {
 			fmt.Println(m.styles.mem.Render(
 				m.console.Mem.RAMRIOT.String(),
 			))
+		case "WATCH":
+			if len(cmd) < 2 {
+				fmt.Println(m.styles.err.Render(
+					"WATCH requires an address",
+				))
+				break // switch
+			}
+
+			ma, err := m.parseAddress(cmd[1])
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("WATCH %s", err.Error()),
+				))
+				break // switch
+			}
+
+			if _, ok := m.watches[ma.address]; ok {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("WATCH for %s already present", cmd[1]),
+				))
+				break // switch
+			}
+
+			d, err := memory.Read(ma.area, ma.idx)
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("WATCH address is not readable: %s", cmd[1]),
+				))
+				break // switch
+			}
+
+			m.watches[ma.address] = watch{
+				ma:   ma,
+				data: d,
+			}
 		case "PEEK":
 			if len(cmd) < 2 {
 				fmt.Println(m.styles.err.Render(
@@ -574,11 +621,20 @@ func (m *debugger) loop() {
 				fmt.Sprintf("added breakpoint for $%04x", ma.address),
 			))
 		case "LIST":
+			fmt.Println(m.styles.debugger.Render("breakpoints"))
 			if len(m.breakpoints) == 0 {
-				fmt.Println(m.styles.debugger.Render("no breakpoints added"))
+				fmt.Println("none")
 			} else {
 				for a := range m.breakpoints {
-					fmt.Println(m.styles.debugger.Render(fmt.Sprintf("%#04x", a)))
+					fmt.Printf("%#04x\n", a)
+				}
+			}
+			fmt.Println(m.styles.debugger.Render("watches"))
+			if len(m.watches) == 0 {
+				fmt.Println("none")
+			} else {
+				for a := range m.watches {
+					fmt.Printf("%#04x\n", a)
 				}
 			}
 		case "DROP":
@@ -709,6 +765,7 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 		loader:       bootfile,
 		styles:       newStyles(),
 		breakpoints:  make(map[uint16]bool),
+		watches:      make(map[uint16]watch),
 		coprocDisasm: &coprocDisasm{},
 		coprocDev:    newCoprocDev(),
 	}

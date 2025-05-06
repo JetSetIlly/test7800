@@ -9,6 +9,7 @@ type styles struct {
 	video       lipgloss.Style
 	err         lipgloss.Style
 	breakpoint  lipgloss.Style
+	watch       lipgloss.Style
 	debugger    lipgloss.Style
 	coprocAsm   lipgloss.Style
 	coprocCPU   lipgloss.Style
@@ -41,6 +42,7 @@ func newStyles() styles {
 		video:       lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(6)),
 		err:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(1)),
 		breakpoint:  lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(4)),
+		watch:       lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(3)),
 		debugger:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(2)),
 		coprocAsm:   lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(0)).Background(lipgloss.ANSIColor(3)),
 		coprocCPU:   lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(7)).Background(lipgloss.ANSIColor(5)),
