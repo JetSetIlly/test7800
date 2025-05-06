@@ -518,41 +518,6 @@ func (m *debugger) loop() {
 			fmt.Println(m.styles.mem.Render(
 				m.console.Mem.RAMRIOT.String(),
 			))
-		case "WATCH":
-			if len(cmd) < 2 {
-				fmt.Println(m.styles.err.Render(
-					"WATCH requires an address",
-				))
-				break // switch
-			}
-
-			ma, err := m.parseAddress(cmd[1])
-			if err != nil {
-				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("WATCH %s", err.Error()),
-				))
-				break // switch
-			}
-
-			if _, ok := m.watches[ma.address]; ok {
-				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("WATCH for %s already present", cmd[1]),
-				))
-				break // switch
-			}
-
-			d, err := memory.Read(ma.area, ma.idx)
-			if err != nil {
-				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("WATCH address is not readable: %s", cmd[1]),
-				))
-				break // switch
-			}
-
-			m.watches[ma.address] = watch{
-				ma:   ma,
-				data: d,
-			}
 		case "PEEK":
 			if len(cmd) < 2 {
 				fmt.Println(m.styles.err.Render(
@@ -564,7 +529,7 @@ func (m *debugger) loop() {
 			ma, err := m.parseAddress(cmd[1])
 			if err != nil {
 				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("PEEK %s", err.Error()),
+					fmt.Sprintf("peek: %s", err.Error()),
 				))
 				break // switch
 			}
@@ -572,7 +537,7 @@ func (m *debugger) loop() {
 			data, err := memory.Read(ma.area, ma.idx)
 			if err != nil {
 				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("PEEK address is not readable: %s", cmd[1]),
+					fmt.Sprintf("peek address is not readable: %s", cmd[1]),
 				))
 				break // switch
 			}
@@ -588,14 +553,43 @@ func (m *debugger) loop() {
 				break // switch
 			}
 
-			// the NEXT argument to BREAK is useful for setting a
-			// breakpoint on the instruction on a failed branch
-			// instruction, which is a common action when stepping
-			// through a program
+			// we check the first argument for special keywords before assuming
+			// it is an address. the keywords are case insensitive
+			arg := strings.ToUpper(cmd[1])
+
+			if arg == "DROP" {
+				if len(cmd) < 3 {
+					fmt.Println(m.styles.err.Render(
+						"BREAK DROP requires an address",
+					))
+					break // switch
+				}
+				ma, err := m.parseAddress(cmd[2])
+				if err != nil {
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("breakpoint: %s", err.Error()),
+					))
+					break // switch
+				}
+				if _, ok := m.breakpoints[ma.address]; !ok {
+					fmt.Println(m.styles.debugger.Render(
+						fmt.Sprintf("breakpoint for $%04x not present", ma.address),
+					))
+					break // switch
+				}
+				delete(m.breakpoints, ma.address)
+				fmt.Println(m.styles.debugger.Render(
+					fmt.Sprintf("breakpoint %04x has been removed", ma.address),
+				))
+				break // switch
+			}
+
+			// the NEXT argument to BREAK is useful for setting a breakpoint on the instruction
+			// on a failed branch instruction, which is a common action when stepping through
+			// a program
 			//
-			// a STEP OVER command would be just as good but we don't
-			// have that at the moment
-			if strings.ToUpper(cmd[1]) == "NEXT" {
+			// a STEP OVER command would be just as good but we don't have that at the moment
+			if arg == "NEXT" {
 				address := m.console.MC.LastResult.Address
 				address += uint16(m.console.MC.LastResult.ByteCount)
 				cmd[1] = fmt.Sprintf("%#04x", address)
@@ -604,7 +598,7 @@ func (m *debugger) loop() {
 			ma, err := m.parseAddress(cmd[1])
 			if err != nil {
 				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("BREAK %s", err.Error()),
+					fmt.Sprintf("breakpoint: %s", err.Error()),
 				))
 				break // switch
 			}
@@ -620,6 +614,72 @@ func (m *debugger) loop() {
 			fmt.Println(m.styles.debugger.Render(
 				fmt.Sprintf("added breakpoint for $%04x", ma.address),
 			))
+		case "WATCH":
+			if len(cmd) < 2 {
+				fmt.Println(m.styles.err.Render(
+					"WATCH requires an address",
+				))
+				break // switch
+			}
+
+			// we check the first argument for special keywords before assuming
+			// it is an address. the keywords are case insensitive
+			arg := strings.ToUpper(cmd[1])
+
+			if arg == "DROP" {
+				if len(cmd) < 3 {
+					fmt.Println(m.styles.err.Render(
+						"WATCH DROP requires an address",
+					))
+					break // switch
+				}
+				ma, err := m.parseAddress(cmd[2])
+				if err != nil {
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("watch: %s", err.Error()),
+					))
+					break // switch
+				}
+				if _, ok := m.watches[ma.address]; !ok {
+					fmt.Println(m.styles.debugger.Render(
+						fmt.Sprintf("watch for $%04x not present", ma.address),
+					))
+					break // switch
+				}
+				delete(m.watches, ma.address)
+				fmt.Println(m.styles.debugger.Render(
+					fmt.Sprintf("watch %04x has been removed", ma.address),
+				))
+				break // switch
+			}
+
+			ma, err := m.parseAddress(cmd[1])
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("watch: %s", err.Error()),
+				))
+				break // switch
+			}
+
+			if _, ok := m.watches[ma.address]; ok {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("watch for %s already present", cmd[1]),
+				))
+				break // switch
+			}
+
+			d, err := memory.Read(ma.area, ma.idx)
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("watch address is not readable: %s", cmd[1]),
+				))
+				break // switch
+			}
+
+			m.watches[ma.address] = watch{
+				ma:   ma,
+				data: d,
+			}
 		case "LIST":
 			fmt.Println(m.styles.debugger.Render("breakpoints"))
 			if len(m.breakpoints) == 0 {
@@ -637,33 +697,6 @@ func (m *debugger) loop() {
 					fmt.Printf("%#04x\n", a)
 				}
 			}
-		case "DROP":
-			if len(cmd) < 2 {
-				fmt.Println(m.styles.err.Render(
-					"DROP requires an address",
-				))
-				break // switch
-			}
-
-			ma, err := m.parseAddress(cmd[1])
-			if err != nil {
-				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("DROP %s", err.Error()),
-				))
-				break // switch
-			}
-
-			if _, ok := m.breakpoints[ma.address]; !ok {
-				fmt.Println(m.styles.debugger.Render(
-					fmt.Sprintf("breakpoint on $%04x does not exist", ma.address),
-				))
-				break // switch
-			}
-
-			delete(m.breakpoints, ma.address)
-			fmt.Println(m.styles.debugger.Render(
-				fmt.Sprintf("dropped breakpoint for $%04x", ma.address),
-			))
 		case "COPROC":
 			coproc := m.console.Mem.External.GetCoProcHandler()
 			if coproc == nil {
