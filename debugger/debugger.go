@@ -521,6 +521,70 @@ func (m *debugger) loop() {
 			fmt.Println(m.styles.mem.Render(
 				m.console.Mem.RAMRIOT.String(),
 			))
+		case "DUMP":
+			if len(cmd) < 3 {
+				fmt.Println(m.styles.err.Render(
+					"DUMP requires a 'from' and a 'to' address",
+				))
+				break // switch
+			}
+
+			from, err := m.parseAddress(cmd[1])
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("dump: %s", err.Error()),
+				))
+				break // switch
+			}
+
+			to, err := m.parseAddress(cmd[2])
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("dump: %s", err.Error()),
+				))
+				break // switch
+			}
+
+			if to.address < from.address {
+				fmt.Println(m.styles.err.Render(
+					"dump: the 'to' address is less than the 'from' address",
+				))
+				break // switch
+			}
+
+			if from.area != to.area {
+				fmt.Println(m.styles.err.Render(
+					"dump: the 'from' and 'to' addresses are in different memory areas",
+				))
+				break // switch
+			}
+
+			var column int
+			for i := from.idx; i <= to.idx; i++ {
+				address := from.address + i - from.idx
+
+				if column == 0 {
+					fmt.Printf("%04x", address)
+				}
+
+				data, err := memory.Read(from.area, i)
+				if err != nil {
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("dump address is not readable: %04x", address),
+					))
+					break // switch
+				}
+				fmt.Printf(" %02x", data)
+
+				column++
+				if column > 15 {
+					fmt.Printf("\n")
+					column = 0
+				}
+			}
+			if column != 0 {
+				fmt.Printf("\n")
+			}
 		case "PEEK":
 			if len(cmd) < 2 {
 				fmt.Println(m.styles.err.Render(
