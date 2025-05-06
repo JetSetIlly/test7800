@@ -63,6 +63,10 @@ type debugger struct {
 
 	// printing styles
 	styles styles
+
+	// some cartridge types will bypass the BIOS. it's possible to force the
+	// BIOS to be skipped with this flag in all cases
+	bypassBIOS bool
 }
 
 func (m *debugger) reset() {
@@ -139,10 +143,10 @@ func (m *debugger) reset() {
 		fmt.Println(m.styles.debugger.Render("console reset"))
 	}
 
-	if cartridgeReset.BypassBIOS {
+	if m.bypassBIOS || cartridgeReset.BypassBIOS {
 		// writing to the INPTCTRL twice to make sure the halt line has been enabled
-		m.console.Mem.INPTCTRL.Write(0x01, cartridgeReset.INPTCTRL)
-		m.console.Mem.INPTCTRL.Write(0x01, cartridgeReset.INPTCTRL)
+		m.console.Mem.INPTCTRL.Write(0x01, 0x07)
+		m.console.Mem.INPTCTRL.Write(0x01, 0x07)
 
 		// set 6507 program-counter to normal reset address
 		m.console.MC.LoadPCIndirect(cpu.Reset)
@@ -836,10 +840,12 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	var bootfile string
 	var spec string
 	var profile bool
+	var bios bool
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
 	flgs.StringVar(&spec, "spec", "NTSC", "TV specification of the console: NTSC or PAL")
 	flgs.BoolVar(&profile, "profile", false, "create CPU profile for emulator")
+	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
 	err := flgs.Parse(args)
 	if err != nil {
 		return err
@@ -868,6 +874,7 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 		watches:      make(map[uint16]watch),
 		coprocDisasm: &coprocDisasm{},
 		coprocDev:    newCoprocDev(),
+		bypassBIOS:   !bios,
 	}
 	m.console = hardware.Create(&m.ctx, ui)
 

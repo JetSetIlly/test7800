@@ -13,9 +13,6 @@ type CartridgeReset struct {
 	// if BypassBIOS is true then the normal BIOS initialisation procedure is
 	// bypassed. in this case the INPTCTRL field is important for setting the
 	BypassBIOS bool
-
-	// the state of INPTCTRL after the reset procedure
-	INPTCTRL uint8
 }
 
 type CartridgeInsertor struct {
@@ -40,7 +37,6 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 			},
 			reset: CartridgeReset{
 				BypassBIOS: true,
-				INPTCTRL:   0x07,
 			},
 		}, nil
 	}
