@@ -116,6 +116,10 @@ func (tia *TIA) Read(idx uint16) (uint8, error) {
 }
 
 func (tia *TIA) Write(idx uint16, data uint8) error {
+	// writing to INPTx registers is not possible from the CPU but we're
+	// allowing it in this test emulation for simplicity of the user input
+	// (controller) sub-system
+
 	switch idx {
 	case 0x08:
 		tia.inpt[0] = data

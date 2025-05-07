@@ -117,15 +117,6 @@ func (mem *Memory) Reset(random bool) {
 	mem.RAMRIOT.Reset(random)
 }
 
-const (
-	maskReadTIA                   = 0x000f
-	maskWriteTIA                  = 0x003f
-	maskReadRIOT                  = 0x00297
-	maskWriteRIOT                 = 0x00287
-	maskReadRIOT_timer            = uint16(0x284)
-	maskReadRIOT_timer_correction = uint16(0x285)
-)
-
 // MapAddress returns the memory "area" and a "mapped" address for the area
 // corresponding to the address. the "mapped" address can either be a normalised
 // address relative to $0000 or an index relative to the origin of the area.
@@ -176,22 +167,14 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	if address >= 0x0000 && address <= 0x001f {
 		// INPTCTRL or TIA
 		if mem.INPTCTRL.Lock() {
-			if read {
-				return address & maskReadTIA, mem.TIA
-			} else {
-				return address & maskWriteTIA, mem.TIA
-			}
+			return address, mem.TIA
 		}
 		return address, mem.INPTCTRL
 	}
 	if address >= 0x0020 && address <= 0x003f {
 		// MARIA or TIA
 		if mem.INPTCTRL.Lock() && mem.INPTCTRL.TIA() {
-			if read {
-				return address & maskReadTIA, mem.TIA
-			} else {
-				return address & maskWriteTIA, mem.TIA
-			}
+			return address, mem.TIA
 		}
 		return address, mem.MARIA
 	}
@@ -205,11 +188,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		// INPTCTRL or TIA
 		address -= 0x0100
 		if mem.INPTCTRL.Lock() {
-			if read {
-				return address & maskReadTIA, mem.TIA
-			} else {
-				return address & maskWriteTIA, mem.TIA
-			}
+			return address, mem.TIA
 		}
 		return address, mem.INPTCTRL
 	}
@@ -217,11 +196,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		// MARIA or TIA
 		address -= 0x0100
 		if mem.INPTCTRL.Lock() && mem.INPTCTRL.TIA() {
-			if read {
-				return address & maskReadTIA, mem.TIA
-			} else {
-				return address & maskWriteTIA, mem.TIA
-			}
+			return address, mem.TIA
 		}
 		return address, mem.MARIA
 	}
@@ -235,11 +210,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		// INPTCTRL or TIA
 		address -= 0x0200
 		if mem.INPTCTRL.Lock() {
-			if read {
-				return address & maskReadTIA, mem.TIA
-			} else {
-				return address & maskWriteTIA, mem.TIA
-			}
+			return address, mem.TIA
 		}
 		return address, mem.INPTCTRL
 	}
@@ -247,11 +218,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		// MARIA or TIA
 		address -= 0x0200
 		if mem.INPTCTRL.Lock() && mem.INPTCTRL.TIA() {
-			if read {
-				return address & maskReadTIA, mem.TIA
-			} else {
-				return address & maskWriteTIA, mem.TIA
-			}
+			return address, mem.TIA
 		}
 		return address, mem.MARIA
 	}
@@ -266,16 +233,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 
 	if address >= 0x0280 && address <= 0x02ff {
 		// RIOT
-		if read {
-			if address&maskReadRIOT_timer == maskReadRIOT_timer {
-				return address & maskReadRIOT_timer_correction, mem.RIOT
-
-			} else {
-				return address & maskReadTIA, mem.RIOT
-			}
-		} else {
-			return address & maskWriteRIOT, mem.RIOT
-		}
+		return address - 0x0280, mem.RIOT
 	}
 
 	// page 4
@@ -283,11 +241,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		// INPTCTRL or TIA
 		address -= 0x0300
 		if mem.INPTCTRL.Lock() {
-			if read {
-				return address & maskReadTIA, mem.TIA
-			} else {
-				return address & maskWriteTIA, mem.TIA
-			}
+			return address, mem.TIA
 		}
 		return address, mem.INPTCTRL
 	}
@@ -295,11 +249,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		// MARIA or TIA
 		address -= 0x0300
 		if mem.INPTCTRL.Lock() && mem.INPTCTRL.TIA() {
-			if read {
-				return address & maskReadTIA, mem.TIA
-			} else {
-				return address & maskWriteTIA, mem.TIA
-			}
+			return address, mem.TIA
 		}
 		return address, mem.MARIA
 	}
@@ -314,16 +264,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 
 	if address >= 0x0380 && address <= 0x03ff {
 		// RIOT
-		if read {
-			if address&maskReadRIOT_timer == maskReadRIOT_timer {
-				return address & maskReadRIOT_timer_correction, mem.RIOT
-
-			} else {
-				return address & maskReadTIA, mem.RIOT
-			}
-		} else {
-			return address & maskWriteRIOT, mem.RIOT
-		}
+		return address - 0x0380, mem.RIOT
 	}
 
 	// 0x0400 to 0x047f "available for mapping by external devices"

@@ -63,10 +63,19 @@ func (riot *RIOT) Write(idx uint16, data uint8) error {
 	case 0x00:
 		riot.swcha = data
 	case 0x01:
+		// SWACNT
 	case 0x02:
+		// SWCHB
 	case 0x03:
-	case 0x04:
-	case 0x05:
+		// SWBCNT
+	case 0x04, 0x10:
+		// TIM1T
+	case 0x05, 0x11:
+		// TIM8T
+	case 0x06, 0x12:
+		// TIM64T
+	case 0x07, 0x13:
+		// T1024T
 	}
 	return nil
 }
