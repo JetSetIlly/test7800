@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/pprof"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -223,6 +224,14 @@ func (m *debugger) step() bool {
 			return false
 		}
 
+		// record last instruction
+		if m.console.MC.LastResult.Final {
+			m.recent = append(m.recent, m.console.MC.LastResult)
+			if len(m.recent) > maxRecentLen {
+				m.recent = m.recent[1:]
+			}
+		}
+
 		if m.coprocDev != nil {
 			if len(m.coprocDev.faults.Log) > 0 {
 				fmt.Println(m.styles.coprocErr.Render(
@@ -289,7 +298,7 @@ func (m *debugger) last() {
 
 // the number of recent instructions to record. also used to clip the number of
 // coproc instructions to output on error
-const maxRecentLen = 10
+const maxRecentLen = 100
 
 // returns true if quit signal has been received
 func (m *debugger) run() bool {
@@ -370,7 +379,8 @@ func (m *debugger) run() bool {
 	// output recent CPU instructons on end
 	if len(m.recent) > 0 {
 		fmt.Println(m.styles.debugger.Render("most recent CPU instructions"))
-		for _, e := range m.recent {
+		n := max(len(m.recent)-10, 0)
+		for _, e := range m.recent[n:] {
 			res := disassembly.FormatResult(e)
 			m.printInstruction(res)
 		}
@@ -493,6 +503,24 @@ func (m *debugger) loop() {
 			fmt.Println(m.styles.cpu.Render(
 				m.console.MC.String(),
 			))
+		case "RECENT":
+			n := 10
+			if len(cmd) == 2 {
+				var err error
+				n, err = strconv.Atoi(cmd[1])
+				if err != nil {
+					fmt.Println(m.styles.err.Render(
+						"cannot use RECENT %s", cmd[1],
+					))
+					break // switch
+				}
+			}
+			n = max(len(m.recent)-n, 0)
+			for _, e := range m.recent[n:] {
+				res := disassembly.FormatResult(e)
+				m.printInstruction(res)
+			}
+
 		case "BIOS":
 			fmt.Println(m.styles.mem.Render(
 				m.console.Mem.BIOS.Status(),
