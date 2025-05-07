@@ -635,23 +635,28 @@ func (m *debugger) loop() {
 					))
 					break // switch
 				}
-				ma, err := m.parseAddress(cmd[2])
-				if err != nil {
-					fmt.Println(m.styles.err.Render(
-						fmt.Sprintf("breakpoint: %s", err.Error()),
-					))
-					break // switch
-				}
-				if _, ok := m.breakpoints[ma.address]; !ok {
+
+				if strings.ToUpper(cmd[2]) == "ALL" {
+					clear(m.breakpoints)
+				} else {
+					ma, err := m.parseAddress(cmd[2])
+					if err != nil {
+						fmt.Println(m.styles.err.Render(
+							fmt.Sprintf("breakpoint: %s", err.Error()),
+						))
+						break // switch
+					}
+					if _, ok := m.breakpoints[ma.address]; !ok {
+						fmt.Println(m.styles.debugger.Render(
+							fmt.Sprintf("breakpoint for $%04x not present", ma.address),
+						))
+						break // switch
+					}
+					delete(m.breakpoints, ma.address)
 					fmt.Println(m.styles.debugger.Render(
-						fmt.Sprintf("breakpoint for $%04x not present", ma.address),
+						fmt.Sprintf("breakpoint %04x has been removed", ma.address),
 					))
-					break // switch
 				}
-				delete(m.breakpoints, ma.address)
-				fmt.Println(m.styles.debugger.Render(
-					fmt.Sprintf("breakpoint %04x has been removed", ma.address),
-				))
 				break // switch
 			}
 
@@ -704,23 +709,28 @@ func (m *debugger) loop() {
 					))
 					break // switch
 				}
-				ma, err := m.parseAddress(cmd[2])
-				if err != nil {
-					fmt.Println(m.styles.err.Render(
-						fmt.Sprintf("watch: %s", err.Error()),
-					))
-					break // switch
-				}
-				if _, ok := m.watches[ma.address]; !ok {
+
+				if strings.ToUpper(cmd[2]) == "ALL" {
+					clear(m.watches)
+				} else {
+					ma, err := m.parseAddress(cmd[2])
+					if err != nil {
+						fmt.Println(m.styles.err.Render(
+							fmt.Sprintf("watch: %s", err.Error()),
+						))
+						break // switch
+					}
+					if _, ok := m.watches[ma.address]; !ok {
+						fmt.Println(m.styles.debugger.Render(
+							fmt.Sprintf("watch for $%04x not present", ma.address),
+						))
+						break // switch
+					}
+					delete(m.watches, ma.address)
 					fmt.Println(m.styles.debugger.Render(
-						fmt.Sprintf("watch for $%04x not present", ma.address),
+						fmt.Sprintf("watch %04x has been removed", ma.address),
 					))
-					break // switch
 				}
-				delete(m.watches, ma.address)
-				fmt.Println(m.styles.debugger.Render(
-					fmt.Sprintf("watch %04x has been removed", ma.address),
-				))
 				break // switch
 			}
 
