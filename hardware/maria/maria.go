@@ -83,6 +83,9 @@ type Maria struct {
 	DLL dll
 	DL  dl
 
+	// whether the current DLL indicates that an interrupt should occur
+	dli bool
+
 	// the number of DMA cycles required to construct the scanline
 	requiredDMACycles int
 
@@ -382,14 +385,7 @@ func (mar *Maria) newFrame() {
 }
 
 // returns true if CPU is to be halted and true if DLL has requested an interrupt
-//
-// note that the interrupt request will be returned at the beginning of DMA
-// rather than at the end (which is when it would really occur). this doesn't
-// matter however because the CPU will be stalled until the end of DMA
 func (mar *Maria) Tick() (halt bool, interrupt bool) {
-	// whether the current DLL indicates that an interrupt should occur
-	var dli bool
-
 	mar.Coords.Clk++
 	if mar.Coords.Clk >= clksScanline {
 		mar.Coords.Clk = 0
@@ -438,7 +434,7 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 			case 0x02:
 				// next DLL and note whether to trigger an interrupt at the end of the display list
 				var err error
-				dli, err = mar.nextDLL(mar.Coords.Scanline == mar.spec.visibleTop)
+				mar.dli, err = mar.nextDLL(mar.Coords.Scanline == mar.spec.visibleTop)
 				if err != nil {
 					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 				}
@@ -654,6 +650,13 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 
 	if mar.requiredDMACycles+preDMA > clksScanline {
 		mar.ctx.Break(fmt.Errorf("%w: number of required DMA cycles is too much (%d)", ContextError, mar.requiredDMACycles))
+	}
+
+	// trigger DLI if necessary at beginning of scanline
+	var dli bool
+	if mar.dli && mar.Coords.Clk == 0 {
+		dli = true
+		mar.dli = false
 	}
 
 	// return HALT signal if either WSYNC or DMA is enabled
