@@ -4,51 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/color"
 	"strings"
 	"time"
 
 	"github.com/jetsetilly/test7800/hardware/clocks"
 	"github.com/jetsetilly/test7800/ui"
 )
-
-type mariaCtrl struct {
-	colourKill bool
-	dma        int // 0 to 3 only
-	charWidth  bool
-	border     bool
-	kanagroo   bool
-	readMode   int // 0 to 3 only
-}
-
-func (ctrl *mariaCtrl) reset() {
-	ctrl.colourKill = false
-	ctrl.dma = 3
-	ctrl.charWidth = false
-	ctrl.border = false
-	ctrl.kanagroo = false
-	ctrl.readMode = 0
-}
-
-func (ctrl *mariaCtrl) write(data uint8) {
-	ctrl.colourKill = data&0x80 == 0x80
-	ctrl.dma = int((data >> 5) & 0x03)
-	ctrl.charWidth = data&0x10 == 0x10
-	ctrl.border = data&0x08 == 0x08
-	ctrl.kanagroo = data&0x04 == 0x04
-	ctrl.readMode = int(data & 0x03)
-}
-
-func (ctrl *mariaCtrl) String() string {
-	var s strings.Builder
-	s.WriteString(fmt.Sprintf("ck=%v ", ctrl.colourKill))
-	s.WriteString(fmt.Sprintf("dma=%#02b ", ctrl.dma))
-	s.WriteString(fmt.Sprintf("cw=%v ", ctrl.charWidth))
-	s.WriteString(fmt.Sprintf("bc=%v ", ctrl.border))
-	s.WriteString(fmt.Sprintf("km=%v ", ctrl.kanagroo))
-	s.WriteString(fmt.Sprintf("rm=%#02b ", ctrl.readMode))
-	return s.String()
-}
 
 // Context allows Maria to signal a break
 type Context interface {
@@ -101,10 +62,7 @@ type Maria struct {
 	// pixels for current frame
 	currentFrame *image.RGBA
 
-	// lineram is implemented as a single line image. this isn't an exact
-	// representation of lineram but it's workable and produces adequate results
-	// for now
-	lineram *image.RGBA
+	lineram lineram
 
 	// the current spec (NTSC, PAL, etc.)
 	spec spec
@@ -142,8 +100,7 @@ func Create(ctx Context, ui *ui.UI, mem Memory) *Maria {
 	// TODO: better interaction between frame limiter and audio
 	mar.limiter = time.NewTicker(time.Second / time.Duration(hz))
 
-	// allocate images representing lineram and the frame to be displayed
-	mar.lineram = image.NewRGBA(image.Rect(0, 0, clksVisible, 1))
+	mar.lineram.initialise()
 	mar.newFrame()
 
 	return mar
@@ -376,12 +333,6 @@ const (
 
 func (mar *Maria) newFrame() {
 	mar.currentFrame = image.NewRGBA(image.Rect(0, 0, clksVisible, mar.spec.visibleBottom-mar.spec.visibleTop))
-
-	// make sure lineram is clear at beginning of new frame. probably not
-	// necessary but not an expensive operation
-	for clk := range clksVisible {
-		mar.lineram.Set(clk, 0, color.Transparent)
-	}
 }
 
 // returns true if CPU is to be halted and true if DLL has requested an interrupt
@@ -392,6 +343,7 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 		mar.Coords.Scanline++
 		mar.wsync = false
 		mar.requiredDMACycles = 0
+		mar.lineram.newScanline()
 
 		if mar.Coords.Scanline >= mar.spec.absoluteBottom {
 			mar.Coords.Scanline = 0
@@ -422,6 +374,22 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 		}
 	}
 
+	// read from lineram and draw to screen
+	if mar.Coords.Clk > clksHBLANK {
+		sl := mar.Coords.Scanline - mar.spec.visibleTop
+		x := mar.Coords.Clk - clksHBLANK
+		e := mar.lineram.read(x)
+		if e.set {
+			if e.idx == bgIdx {
+				mar.currentFrame.Set(x, sl, mar.spec.palette[mar.bg])
+			} else {
+				mar.currentFrame.Set(x, sl, mar.spec.palette[mar.palette[e.palette][e.idx]])
+			}
+		} else {
+			mar.currentFrame.Set(x, sl, mar.spec.palette[mar.bg])
+		}
+	}
+
 	// scanline build is done at the start of DMA
 	if mar.Coords.Clk == preDMA {
 		// DMA is only ever active when VBLANK is disabled
@@ -444,23 +412,6 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 					mar.requiredDMACycles += dmaStartLastInZone
 				} else {
 					mar.requiredDMACycles += dmaStart
-				}
-
-				// the scanline value adjusted by where the top of the image is located
-				sl := mar.Coords.Scanline - mar.spec.visibleTop
-
-				for clk := range clksVisible {
-					// set entire scanline to background colour
-					mar.currentFrame.Set(clk, sl, mar.spec.palette[mar.bg])
-
-					// copy line ram over background where the line ram is not transparent
-					c := mar.lineram.RGBAAt(clk, 0)
-					if c.A != 0 {
-						mar.currentFrame.Set(clk, sl, c)
-					}
-
-					// clear the part of line ram we just copied
-					mar.lineram.Set(clk, 0, color.Transparent)
 				}
 
 				err = mar.nextDL(true)
@@ -518,31 +469,33 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 									// 160B
 									for i := range 2 {
 										c := (b >> (((1 - i) * 2) + 4)) & 0x03
-										pi := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
-										p := mar.palette[pi]
+										p := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
 										x := int(mar.DL.horizontalPosition + (offset * 2))
 										x = (x + i) * 2
-										if c > 0 {
-											mar.lineram.Set(x, 0, mar.spec.palette[p[c-1]])
-											mar.lineram.Set(x+1, 0, mar.spec.palette[p[c-1]])
-										} else if mar.ctrl.kanagroo {
-											mar.lineram.Set(x, 0, mar.spec.palette[mar.bg])
-											mar.lineram.Set(x+1, 0, mar.spec.palette[mar.bg])
+										if x < clksVisible {
+											if c > 0 {
+												mar.lineram.write(x, p, c-1)
+												mar.lineram.write(x+1, p, c-1)
+											} else if mar.ctrl.kangaroo {
+												mar.lineram.write(x, p, bgIdx)
+												mar.lineram.write(x+1, p, bgIdx)
+											}
 										}
 									}
 								} else {
 									// 160A
-									p := mar.palette[mar.DL.palette]
 									for i := range 4 {
 										c := (b >> ((3 - i) * 2)) & 0x03
 										x := int(mar.DL.horizontalPosition + (offset * 4))
 										x = (x + i) * 2
-										if c > 0 {
-											mar.lineram.Set(x, 0, mar.spec.palette[p[c-1]])
-											mar.lineram.Set(x+1, 0, mar.spec.palette[p[c-1]])
-										} else if mar.ctrl.kanagroo {
-											mar.lineram.Set(x, 0, mar.spec.palette[mar.bg])
-											mar.lineram.Set(x+1, 0, mar.spec.palette[mar.bg])
+										if x < clksVisible {
+											if c > 0 {
+												mar.lineram.write(x, mar.DL.palette, c-1)
+												mar.lineram.write(x+1, mar.DL.palette, c-1)
+											} else if mar.ctrl.kangaroo {
+												mar.lineram.write(x, mar.DL.palette, bgIdx)
+												mar.lineram.write(x+1, mar.DL.palette, bgIdx)
+											}
 										}
 									}
 								}
@@ -559,17 +512,18 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 									// 320C
 								} else {
 									// 320A
-									p := mar.palette[mar.DL.palette]
 									for i := range 8 {
 										// note that the horizontal position for 320 modes are doubled by the Maria
 										// when writing to line ram. this gives an effective positioning resolution
 										// of 160 pixels
 										x := int(mar.DL.horizontalPosition + (offset * 4))
 										x = x*2 + i
-										if ((b << i) & 0x80) != 0 {
-											mar.lineram.Set(x, 0, mar.spec.palette[p[1]])
-										} else if mar.ctrl.kanagroo {
-											mar.lineram.Set(x, 0, mar.spec.palette[mar.bg])
+										if x < clksVisible {
+											if (b<<i)&0x80 == 0x80 {
+												mar.lineram.write(x, mar.DL.palette, 1)
+											} else if mar.ctrl.kangaroo {
+												mar.lineram.write(x, mar.DL.palette, bgIdx)
+											}
 										}
 									}
 								}
