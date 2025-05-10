@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"strings"
 	"time"
 
-	"github.com/jetsetilly/test7800/hardware/clocks"
 	"github.com/jetsetilly/test7800/ui"
 )
 
@@ -15,6 +15,7 @@ import (
 type Context interface {
 	Break(error)
 	Spec() string
+	UseOverlay() bool
 }
 
 // the wrapping error for any errors passed to Context.Break()
@@ -26,6 +27,16 @@ const (
 	vblankEnable  = 0x80
 	vblankDisable = 0x00
 )
+
+type frame struct {
+	debug   bool
+	top     int
+	bottom  int
+	left    int
+	right   int
+	main    *image.RGBA
+	overlay *image.RGBA
+}
 
 type Maria struct {
 	ctx Context
@@ -53,22 +64,27 @@ type Maria struct {
 	// read-only registers
 	mstat uint8 // bit 7 is true if VBLANK is enabled
 
+	// lineram is where DL/DLL information is written to before being read and
+	// rendered to the current frame
+	lineram lineram
+
 	// interface to console memory
 	mem Memory
 
 	// the current coordinates of the TV image
 	Coords coords
 
-	// pixels for current frame
-	currentFrame *image.RGBA
-
-	lineram lineram
-
 	// the current spec (NTSC, PAL, etc.)
 	spec spec
 
+	// the image that is sent to the user interface
+	currentFrame frame
+
 	// frame limiter
 	limiter *time.Ticker
+
+	// interface to CPU (for debugging purposes only)
+	cpu CPU
 }
 
 type Memory interface {
@@ -76,11 +92,16 @@ type Memory interface {
 	Write(address uint16, data uint8) error
 }
 
-func Create(ctx Context, ui *ui.UI, mem Memory) *Maria {
+type CPU interface {
+	InInterrupt() bool
+}
+
+func Create(ctx Context, ui *ui.UI, mem Memory, cpu CPU) *Maria {
 	mar := &Maria{
 		ctx: ctx,
 		ui:  ui,
 		mem: mem,
+		cpu: cpu,
 	}
 
 	switch ctx.Spec() {
@@ -306,33 +327,29 @@ func (mar *Maria) Write(idx uint16, data uint8) error {
 	return nil
 }
 
-const (
-	// Appendix 3: "DMA does not begin until 7 CPU (1.79 MHz) cycles into each scan line"
-	preDMA = 7 * clocks.MariaCycles
-
-	// from the table "DMA Timing"
-	dmaStart           = 16
-	dmaStartLastInZone = 24
-	dmaDLHeader        = 8
-	dmaLongDLHeader    = 10
-	dmaDirectGfx       = 3
-	dmaIndirectGfx     = 6
-	dmaIndirectWideGfx = 9
-
-	// "If holey DMA is enabled and graphics reads would reside in a DMA hole,
-	// only 3 cycles of penalty for the graphic read is incurred, whatever the
-	// sprite width is"
-	dmaHoleyRead = 3
-
-	// "The end of VBLANK is made up of a DMA startup plus a Long shutdown."
-	dmaEndofVBLANK = dmaStartLastInZone
-
-	// the maximum number of cycles available in DMA before the HSYNC
-	dmaMaxCycles = clksScanline
-)
-
 func (mar *Maria) newFrame() {
-	mar.currentFrame = image.NewRGBA(image.Rect(0, 0, clksVisible, mar.spec.visibleBottom-mar.spec.visibleTop))
+	mar.currentFrame.debug = mar.ctx.UseOverlay()
+	if mar.currentFrame.debug {
+		mar.currentFrame.left = 0
+		mar.currentFrame.right = clksScanline
+		mar.currentFrame.top = 0
+		mar.currentFrame.bottom = mar.spec.absoluteBottom
+	} else {
+		mar.currentFrame.left = clksHBLANK
+		mar.currentFrame.right = clksScanline
+		mar.currentFrame.top = mar.spec.visibleTop
+		mar.currentFrame.bottom = mar.spec.visibleBottom
+	}
+
+	mar.currentFrame.main = image.NewRGBA(image.Rect(0, 0,
+		mar.currentFrame.right-mar.currentFrame.left,
+		mar.currentFrame.bottom-mar.currentFrame.top),
+	)
+
+	mar.currentFrame.overlay = image.NewRGBA(image.Rect(0, 0,
+		mar.currentFrame.right-mar.currentFrame.left,
+		mar.currentFrame.bottom-mar.currentFrame.top),
+	)
 }
 
 // returns true if CPU is to be halted and true if DLL has requested an interrupt
@@ -353,7 +370,10 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 
 			// send current frame to renderer
 			select {
-			case mar.ui.SetImage <- mar.currentFrame:
+			case mar.ui.SetImage <- ui.Image{
+				Main:    mar.currentFrame.main,
+				Overlay: mar.currentFrame.overlay,
+			}:
 			default:
 			}
 
@@ -374,19 +394,21 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 		}
 	}
 
+	sl := mar.Coords.Scanline - mar.currentFrame.top
+	x := mar.Coords.Clk - mar.currentFrame.left
+
 	// read from lineram and draw to screen
 	if mar.Coords.Clk > clksHBLANK {
-		sl := mar.Coords.Scanline - mar.spec.visibleTop
-		x := mar.Coords.Clk - clksHBLANK
-		e := mar.lineram.read(x)
+		e := mar.lineram.read(mar.Coords.Clk - clksHBLANK)
+
 		if e.set {
 			if e.idx == bgIdx {
-				mar.currentFrame.Set(x, sl, mar.spec.palette[mar.bg])
+				mar.currentFrame.main.Set(x, sl, mar.spec.palette[mar.bg])
 			} else {
-				mar.currentFrame.Set(x, sl, mar.spec.palette[mar.palette[e.palette][e.idx]])
+				mar.currentFrame.main.Set(x, sl, mar.spec.palette[mar.palette[e.palette][e.idx]])
 			}
 		} else {
-			mar.currentFrame.Set(x, sl, mar.spec.palette[mar.bg])
+			mar.currentFrame.main.Set(x, sl, mar.spec.palette[mar.bg])
 		}
 	}
 
@@ -470,8 +492,8 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 									for i := range 2 {
 										c := (b >> (((1 - i) * 2) + 4)) & 0x03
 										p := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
-										x := int(mar.DL.horizontalPosition + (offset * 2))
-										x = (x + i) * 2
+										x := int(mar.DL.horizontalPosition + (offset * 2) + uint8(i))
+										x *= 2
 										if x < clksVisible {
 											if c > 0 {
 												mar.lineram.write(x, p, c-1)
@@ -486,8 +508,8 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 									// 160A
 									for i := range 4 {
 										c := (b >> ((3 - i) * 2)) & 0x03
-										x := int(mar.DL.horizontalPosition + (offset * 4))
-										x = (x + i) * 2
+										x := int(mar.DL.horizontalPosition + (offset * 4) + uint8(i))
+										x *= 2
 										if x < clksVisible {
 											if c > 0 {
 												mar.lineram.write(x, mar.DL.palette, c-1)
@@ -600,10 +622,41 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 				// dma is off. showing only background colour
 			}
 		}
+
+		if mar.requiredDMACycles+preDMA > clksScanline {
+			mar.ctx.Break(fmt.Errorf("%w: number of required DMA cycles is too much (%d)", ContextError, mar.requiredDMACycles))
+		}
 	}
 
-	if mar.requiredDMACycles+preDMA > clksScanline {
-		mar.ctx.Break(fmt.Errorf("%w: number of required DMA cycles is too much (%d)", ContextError, mar.requiredDMACycles))
+	// plot debugging information
+	if mar.currentFrame.debug {
+		if mar.Coords.Clk > mar.currentFrame.left {
+			if mar.Coords.Clk >= preDMA && mar.Coords.Clk <= preDMA+mar.requiredDMACycles {
+				// create a striped effect to the DLL overlay by using a slightly different colour
+				// value for every odd numbered DLL
+				var v uint8
+				if mar.DLL.ct&0x01 == 0x01 {
+					v = 200
+				} else {
+					v = 255
+				}
+
+				// while DMA is active the debugging overlay is red. however, if the cpu is inside
+				// an interrupt and therefore temporarily stalled the overlay is orange (a mix of red and green)
+				if mar.cpu.InInterrupt() && !mar.wsync {
+					mar.currentFrame.overlay.Set(x, sl, color.RGBA{R: v, G: v, A: 255})
+				} else {
+					mar.currentFrame.overlay.Set(x, sl, color.RGBA{R: v, A: 255})
+				}
+			} else if mar.wsync {
+				// wsync overlay is blue
+				mar.currentFrame.overlay.Set(x, sl, color.RGBA{B: 255, A: 255})
+			} else if mar.cpu.InInterrupt() {
+				// debugging overlay is green for the duration the CPU is
+				// executing instruction inside an interrupt
+				mar.currentFrame.overlay.Set(x, sl, color.RGBA{G: 255, A: 255})
+			}
+		}
 	}
 
 	// trigger DLI if necessary at beginning of scanline

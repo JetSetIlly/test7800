@@ -15,7 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jetsetilly/test7800/debugger/dbg"
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/hardware"
 	"github.com/jetsetilly/test7800/hardware/arm"
@@ -34,7 +33,7 @@ type input struct {
 }
 
 type debugger struct {
-	ctx dbg.Context
+	ctx context
 
 	guiQuit chan bool
 	sig     chan os.Signal
@@ -879,11 +878,13 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	var spec string
 	var profile bool
 	var bios bool
+	var overlay bool
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
 	flgs.StringVar(&spec, "spec", "NTSC", "TV specification of the console: NTSC or PAL")
 	flgs.BoolVar(&profile, "profile", false, "create CPU profile for emulator")
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
+	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	err := flgs.Parse(args)
 	if err != nil {
 		return err
@@ -896,10 +897,12 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 		return fmt.Errorf("too many arguments to debugger")
 	}
 
-	ctx, err := dbg.Create("7800", spec)
-	if err != nil {
-		return err
+	ctx := context{
+		console:    "7800",
+		spec:       strings.ToUpper(spec),
+		useOverlay: overlay,
 	}
+	ctx.Reset()
 
 	m := &debugger{
 		ctx:          ctx,

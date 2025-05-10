@@ -28,6 +28,7 @@ type Context interface {
 	cpu.Context
 	memory.Context
 	tia.Context
+	maria.Context
 	Rand8Bit() uint8
 	Rand16Bit() uint16
 }
@@ -42,7 +43,7 @@ func Create(ctx Context, ui *ui.UI) Console {
 	con.Mem, addChips = memory.Create(ctx)
 
 	con.MC = cpu.NewCPU(ctx, con.Mem)
-	con.MARIA = maria.Create(ctx, ui, con.Mem)
+	con.MARIA = maria.Create(ctx, ui, con.Mem, con.MC)
 	con.TIA = tia.Create(ctx, ui, con.Mem)
 	con.RIOT = riot.Create(con.Mem)
 

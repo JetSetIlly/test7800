@@ -18,9 +18,10 @@ type gui struct {
 	endGui chan bool
 	ui     *ui.UI
 
-	image  *ebiten.Image
-	width  int
-	height int
+	main    *ebiten.Image
+	overlay *ebiten.Image
+	width   int
+	height  int
 }
 
 func (g *gui) input() {
@@ -88,13 +89,21 @@ func (g *gui) Update() error {
 	case <-g.endGui:
 		return ebiten.Termination
 	case img := <-g.ui.SetImage:
-		dim := img.Bounds()
-		if g.image == nil || (g.image == nil && g.image.Bounds() != dim) {
+		dim := img.Main.Bounds()
+		if g.main == nil || (g.main == nil && g.main.Bounds() != dim) {
 			g.width = dim.Dx()
 			g.height = dim.Dy()
-			g.image = ebiten.NewImage(g.width, g.height)
+			g.main = ebiten.NewImage(g.width, g.height)
+			g.overlay = ebiten.NewImage(g.width, g.height)
 		}
-		g.image.WritePixels(img.Pix)
+		g.main.WritePixels(img.Main.Pix)
+
+		if img.Overlay != nil {
+			if img.Overlay.Bounds() != dim {
+				return fmt.Errorf("ebiten: main and overlay images have different dimensions")
+			}
+			g.overlay.WritePixels(img.Overlay.Pix)
+		}
 
 	default:
 	}
@@ -103,14 +112,18 @@ func (g *gui) Update() error {
 }
 
 func (g *gui) Draw(screen *ebiten.Image) {
-	if g.image != nil {
+	if g.main != nil {
 		op := &ebiten.DrawImageOptions{}
-		screen.DrawImage(g.image, op)
+		screen.DrawImage(g.main, op)
+		if g.overlay != nil {
+			op.Blend = ebiten.BlendLighter
+			screen.DrawImage(g.overlay, op)
+		}
 	}
 }
 
 func (g *gui) Layout(width, height int) (int, int) {
-	if g.image != nil {
+	if g.main != nil {
 		return g.width, g.height
 	}
 	return width, height

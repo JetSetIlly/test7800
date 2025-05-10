@@ -5,8 +5,13 @@ import (
 	"io"
 )
 
+type Image struct {
+	Main    *image.RGBA
+	Overlay *image.RGBA
+}
+
 type UI struct {
-	SetImage  chan *image.RGBA
+	SetImage  chan Image
 	UserInput chan Input
 
 	// RegisterAudio should be nil if the emulation is to have no audio
@@ -20,7 +25,7 @@ type UI struct {
 // channel. For that, use the WithAudio() function
 func NewUI() *UI {
 	return &UI{
-		SetImage:  make(chan *image.RGBA, 1),
+		SetImage:  make(chan Image, 1),
 		UserInput: make(chan Input, 10),
 	}
 }
