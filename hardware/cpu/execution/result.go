@@ -77,8 +77,8 @@ type Result struct {
 	// be undefined if Final is false
 	Final bool
 
-	// was the instruction executed inside of an interrupt
-	InInterrupt bool
+	// was this result as a result of an interrupt
+	FromInterrupt bool
 }
 
 // Reset nullifies all members of the Result instance.
@@ -91,7 +91,7 @@ func (r *Result) Reset() {
 	r.PageFault = false
 	r.CPUBug = ""
 	r.Final = false
-	r.InInterrupt = false
+	r.FromInterrupt = false
 }
 
 // very rough disassembly. it should not be used in preference to the

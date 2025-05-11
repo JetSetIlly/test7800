@@ -283,7 +283,7 @@ func (m *debugger) step() bool {
 }
 
 func (m *debugger) printInstruction(res *disassembly.Entry) {
-	if res.Result.InInterrupt {
+	if m.console.MC.InInterrupt() {
 		fmt.Print(m.styles.instruction.Render("!! "))
 	}
 	fmt.Println(m.styles.instruction.Render(

@@ -88,6 +88,10 @@ type CPU struct {
 	// the break flag in the status register is cleared)
 	interruptDepth int
 
+	// an interrupt has occured and so the next instruction will indicate that
+	// it was executed as a result of the interrupt
+	interrupt bool
+
 	// Whether the last memory access by the CPU was a phantom access
 	PhantomMemAccess bool
 
@@ -174,6 +178,9 @@ func (mc *CPU) Interrupt(nonMaskable bool) error {
 	// interrupted state. if the CPU has been interrupted previously without an
 	// intervening RTI then the field will be >1
 	mc.interruptDepth++
+
+	// an interrupt has occurred and will be indicated in the restul for the next instruction
+	mc.interrupt = true
 
 	// IRQ interrupts only take effect if the InterruptDisable flag is unset
 	if !nonMaskable {
@@ -592,7 +599,8 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 	// prepare new round of results
 	mc.LastResult.Reset()
 	mc.LastResult.Address = mc.PC.Address()
-	mc.LastResult.InInterrupt = mc.interruptDepth > 0
+	mc.LastResult.FromInterrupt = mc.interrupt
+	mc.interrupt = false
 
 	var err error
 

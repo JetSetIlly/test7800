@@ -55,7 +55,7 @@ func (m *debugger) parseStepRule(cmd []string) bool {
 		// interrupt. if consecutive instructions are in an
 		// interrupt then this is effectively the same as step
 		m.stepRule = func() bool {
-			return m.console.MC.LastResult.InInterrupt
+			return m.console.MC.LastResult.FromInterrupt
 		}
 	} else if rule == "DLL" {
 		id := m.console.MARIA.DLL.ID()
