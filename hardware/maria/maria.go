@@ -79,6 +79,7 @@ type Maria struct {
 
 	// the image that is sent to the user interface
 	currentFrame frame
+	prevFrame    frame
 
 	// frame limiter
 	limiter *time.Ticker
@@ -328,6 +329,8 @@ func (mar *Maria) Write(idx uint16, data uint8) error {
 }
 
 func (mar *Maria) newFrame() {
+	mar.prevFrame = mar.currentFrame
+
 	mar.currentFrame.debug = mar.ctx.UseOverlay()
 	if mar.currentFrame.debug {
 		mar.currentFrame.left = 0
@@ -352,6 +355,25 @@ func (mar *Maria) newFrame() {
 	)
 }
 
+func (mar *Maria) PushRender() {
+	var limits = [2]int{
+		mar.Coords.Clk - mar.currentFrame.left,
+		mar.Coords.Scanline - mar.currentFrame.top,
+	}
+
+	// send current frame to renderer
+	select {
+	case mar.ui.SetImage <- ui.Image{
+		Main:    mar.currentFrame.main,
+		Overlay: mar.currentFrame.overlay,
+		PrevID:  mar.Coords.Frame - 1,
+		Prev:    mar.prevFrame.main,
+		Cursor:  limits,
+	}:
+	default:
+	}
+}
+
 // returns true if CPU is to be halted and true if DLL has requested an interrupt
 func (mar *Maria) Tick() (halt bool, interrupt bool) {
 	mar.Coords.Clk++
@@ -367,15 +389,7 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 			mar.Coords.Frame++
 
 			<-mar.limiter.C
-
-			// send current frame to renderer
-			select {
-			case mar.ui.SetImage <- ui.Image{
-				Main:    mar.currentFrame.main,
-				Overlay: mar.currentFrame.overlay,
-			}:
-			default:
-			}
+			mar.PushRender()
 
 			// it's no longer safe to use that frame in this context. create a
 			// new image to use for current frame

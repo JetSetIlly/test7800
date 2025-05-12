@@ -8,11 +8,29 @@ import (
 type Image struct {
 	Main    *image.RGBA
 	Overlay *image.RGBA
+	Prev    *image.RGBA
+
+	// the previous image includes an ID that can be used to decide if the
+	// previous image has changed
+	PrevID int
+
+	// the x/y coordinates of the next pixel to be drawn to Main
+	Cursor [2]int
 }
+
+// the state of the emulation
+type State int
+
+// the emulation state can be either paused or running
+const (
+	StatePaused State = iota
+	StateRunning
+)
 
 type UI struct {
 	SetImage  chan Image
 	UserInput chan Input
+	State     chan State
 
 	// RegisterAudio should be nil if the emulation is to have no audio
 	RegisterAudio chan io.Reader
@@ -27,6 +45,7 @@ func NewUI() *UI {
 	return &UI{
 		SetImage:  make(chan Image, 1),
 		UserInput: make(chan Input, 10),
+		State:     make(chan State, 1),
 	}
 }
 

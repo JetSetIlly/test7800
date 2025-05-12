@@ -2,6 +2,8 @@ package gui
 
 import (
 	"fmt"
+	"image/color"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -18,10 +20,20 @@ type gui struct {
 	endGui chan bool
 	ui     *ui.UI
 
+	state ui.State
+
 	main    *ebiten.Image
 	overlay *ebiten.Image
-	width   int
-	height  int
+	prev    *ebiten.Image
+	prevID  int
+	cursor  [2]int
+
+	width  int
+	height int
+
+	// a simple counter used to implement a fade-in/fade-out effect for the
+	// debugging cursor
+	cursorFrame int
 }
 
 func (g *gui) input() {
@@ -76,8 +88,23 @@ func (g *gui) input() {
 }
 
 func (g *gui) Update() error {
+	// deal with quit condition
+	select {
+	case <-g.endGui:
+		return ebiten.Termination
+	default:
+	}
+
+	// handle user input
 	g.input()
 
+	// change state if necessary
+	select {
+	case g.state = <-g.ui.State:
+	default:
+	}
+
+	// run option update function
 	if g.ui.UpdateGUI != nil {
 		err := g.ui.UpdateGUI()
 		if err != nil {
@@ -85,23 +112,28 @@ func (g *gui) Update() error {
 		}
 	}
 
+	// retrieve any pending images
 	select {
-	case <-g.endGui:
-		return ebiten.Termination
 	case img := <-g.ui.SetImage:
+		g.cursor = img.Cursor
+
 		dim := img.Main.Bounds()
 		if g.main == nil || (g.main == nil && g.main.Bounds() != dim) {
 			g.width = dim.Dx()
 			g.height = dim.Dy()
 			g.main = ebiten.NewImage(g.width, g.height)
+			g.prev = ebiten.NewImage(g.width, g.height)
 			g.overlay = ebiten.NewImage(g.width, g.height)
 		}
+
 		g.main.WritePixels(img.Main.Pix)
 
+		if img.Prev != nil && img.PrevID != g.prevID {
+			g.prevID = img.PrevID
+			g.prev.WritePixels(img.Prev.Pix)
+		}
+
 		if img.Overlay != nil {
-			if img.Overlay.Bounds() != dim {
-				return fmt.Errorf("ebiten: main and overlay images have different dimensions")
-			}
 			g.overlay.WritePixels(img.Overlay.Pix)
 		}
 
@@ -112,12 +144,35 @@ func (g *gui) Update() error {
 }
 
 func (g *gui) Draw(screen *ebiten.Image) {
+	g.cursorFrame++
+
 	if g.main != nil {
-		op := &ebiten.DrawImageOptions{}
-		screen.DrawImage(g.main, op)
+		if g.prev != nil {
+			var op ebiten.DrawImageOptions
+			op.ColorScale.SetR(0.2)
+			op.ColorScale.SetG(0.2)
+			op.ColorScale.SetB(0.2)
+			op.ColorScale.SetA(1.0)
+			screen.DrawImage(g.prev, &op)
+		}
+		if g.main != nil {
+			var op ebiten.DrawImageOptions
+			op.Blend = ebiten.BlendSourceOver
+			screen.DrawImage(g.main, &op)
+		}
 		if g.overlay != nil {
+			var op ebiten.DrawImageOptions
 			op.Blend = ebiten.BlendLighter
-			screen.DrawImage(g.overlay, op)
+			screen.DrawImage(g.overlay, &op)
+		}
+
+		// draw cursor if emulation is paused
+		if g.state == ui.StatePaused {
+			v := uint8((math.Sin(float64(g.cursorFrame/10))*0.5 + 0.5) * 255)
+			screen.Set(g.cursor[0], g.cursor[1], color.RGBA{R: v, G: v, B: v, A: 255})
+			screen.Set(g.cursor[0]+1, g.cursor[1], color.RGBA{R: v, G: v, B: v, A: 255})
+			screen.Set(g.cursor[0], g.cursor[1]+1, color.RGBA{R: v, G: v, B: v, A: 255})
+			screen.Set(g.cursor[0]+1, g.cursor[1]+1, color.RGBA{R: v, G: v, B: v, A: 255})
 		}
 	}
 }

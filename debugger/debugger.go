@@ -39,6 +39,9 @@ type debugger struct {
 	sig     chan os.Signal
 	input   chan input
 
+	// this channel is poassed to the debugger during creation via the UI type
+	state chan ui.State
+
 	console     hardware.Console
 	breakpoints map[uint16]bool
 	watches     map[uint16]watch
@@ -255,6 +258,8 @@ func (m *debugger) step() bool {
 		ct++
 	}
 
+	m.console.MARIA.PushRender()
+
 	// report how many instructions were stepped if it is more than one
 	if ct > 1 {
 		fmt.Println(m.styles.debugger.Render(
@@ -369,11 +374,16 @@ func (m *debugger) run() bool {
 	}
 
 	startTime = time.Now()
+
+	m.state <- ui.StateRunning
 	err := m.console.Run(hook)
+	m.state <- ui.StatePaused
 
 	if errors.Is(err, quitErr) {
 		return true
 	}
+
+	m.console.MARIA.PushRender()
 
 	// output recent CPU instructons on end
 	if len(m.recent) > 0 {
@@ -907,6 +917,7 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	m := &debugger{
 		ctx:          ctx,
 		guiQuit:      guiQuit,
+		state:        ui.State,
 		sig:          make(chan os.Signal, 1),
 		input:        make(chan input, 1),
 		loader:       bootfile,
