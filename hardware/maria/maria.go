@@ -86,6 +86,10 @@ type Maria struct {
 
 	// interface to CPU (for debugging purposes only)
 	cpu CPU
+
+	// the most recent DLLs. reset on start of DMA of a new frame. used for
+	// debugging feedback
+	RecentDLL []dll
 }
 
 type Memory interface {
@@ -438,9 +442,22 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 			case 0x02:
 				// next DLL and note whether to trigger an interrupt at the end of the display list
 				var err error
-				mar.dli, err = mar.nextDLL(mar.Coords.Scanline == mar.spec.visibleTop)
-				if err != nil {
-					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+				if mar.Coords.Scanline == mar.spec.visibleTop {
+					_, mar.dli, err = mar.nextDLL(true)
+					if err != nil {
+						mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+					}
+					mar.RecentDLL = mar.RecentDLL[:0]
+					mar.RecentDLL = append(mar.RecentDLL, mar.DLL)
+				} else {
+					var ok bool
+					ok, mar.dli, err = mar.nextDLL(false)
+					if err != nil {
+						mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+					}
+					if ok {
+						mar.RecentDLL = append(mar.RecentDLL, mar.DLL)
+					}
 				}
 
 				// DMA cycle counting

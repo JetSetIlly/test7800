@@ -543,9 +543,24 @@ func (m *debugger) loop() {
 				m.console.MARIA.DL.Status(),
 			))
 		case "DLL":
-			fmt.Println(m.styles.mem.Render(
-				m.console.MARIA.DLL.Status(),
-			))
+			if len(cmd) == 2 {
+				if strings.ToUpper(cmd[1]) == "LIST" {
+					for _, dll := range m.console.MARIA.RecentDLL {
+						fmt.Println("")
+						fmt.Println(m.styles.mem.Render(
+							dll.String(),
+						))
+					}
+				} else {
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("unrecognised argument for COPROC command: %s", cmd[2]),
+					))
+				}
+			} else {
+				fmt.Println(m.styles.mem.Render(
+					m.console.MARIA.DLL.Status(),
+				))
+			}
 		case "VIDEO":
 			fmt.Println(m.styles.video.Render(
 				m.console.MARIA.Coords.String(),

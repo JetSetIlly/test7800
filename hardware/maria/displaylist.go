@@ -199,6 +199,20 @@ func (l *dll) ID() string {
 	return fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin)
 }
 
+func (l *dll) String() string {
+	var s strings.Builder
+	s.WriteString(fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin))
+	s.WriteString(fmt.Sprintf("dli=%v ", l.dli))
+	s.WriteString(fmt.Sprintf("h16=%v ", l.h16))
+	s.WriteString(fmt.Sprintf("h8=%v\n", l.h8))
+	s.WriteString(fmt.Sprintf("offset=%02x ", l.offset))
+	s.WriteString(fmt.Sprintf("high=%02x ", l.highAddress))
+	s.WriteString(fmt.Sprintf("low=%02x ", l.lowAddress))
+	return s.String()
+}
+
+// Status is similar to String() but includes the current working offset along
+// with the offset value in the DLL data
 func (l *dll) Status() string {
 	var s strings.Builder
 	s.WriteString(fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin))
@@ -227,7 +241,7 @@ func (l *dll) inHole(a uint16) bool {
 	return false
 }
 
-func (mar *Maria) nextDLL(reset bool) (bool, error) {
+func (mar *Maria) nextDLL(reset bool) (bool, bool, error) {
 	if reset {
 		mar.DLL.ct = 0
 	} else {
@@ -243,7 +257,7 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 		mar.DLL.workingOffset--
 
 		if mar.DLL.workingOffset > 0 {
-			return false, nil
+			return false, false, nil
 		}
 
 		// "One of the bits of a DLL entry tells MARIA to generate a Display List
@@ -253,9 +267,9 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 			preview := mar.DLL.origin + uint16(3)
 			d, err := mar.mem.Read(preview)
 			if err != nil {
-				return false, err
+				return false, false, err
 			}
-			return d&0x80 == 0x80, nil
+			return false, d&0x80 == 0x80, nil
 		}
 
 		// workingOffset is less than zero so we read the next DLL
@@ -267,7 +281,7 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 
 	d, err := mar.mem.Read(mar.DLL.origin)
 	if err != nil {
-		return false, err
+		return true, false, err
 	}
 
 	mar.DLL.dli = d&0x80 == 0x80
@@ -280,12 +294,12 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 
 	mar.DLL.highAddress, err = mar.mem.Read(mar.DLL.origin + 1)
 	if err != nil {
-		return false, err
+		return true, false, err
 	}
 
 	mar.DLL.lowAddress, err = mar.mem.Read(mar.DLL.origin + 2)
 	if err != nil {
-		return false, err
+		return true, false, err
 	}
 
 	// in some cases the offset of a DLL is zero and so there may be an
@@ -295,10 +309,10 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 		preview := mar.DLL.origin + uint16(3)
 		d, err := mar.mem.Read(preview)
 		if err != nil {
-			return false, err
+			return true, false, err
 		}
-		return d&0x80 == 0x80, nil
+		return true, d&0x80 == 0x80, nil
 	}
 
-	return false, nil
+	return true, false, nil
 }
