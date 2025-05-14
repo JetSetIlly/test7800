@@ -668,6 +668,50 @@ func (m *debugger) loop() {
 			fmt.Println(m.styles.mem.Render(
 				fmt.Sprintf("$%04x = %02x (%s)", ma.address, data, ma.area.Label()),
 			))
+		case "POKE":
+			if len(cmd) < 3 {
+				fmt.Println(m.styles.err.Render(
+					"POKE requires an address and a value",
+				))
+				break // switch
+			}
+
+			ma, err := m.parseAddress(cmd[1])
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("poke: %s", err.Error()),
+				))
+				break // switch
+			}
+
+			v, err := strconv.Atoi(cmd[2])
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("poke: %s", err.Error()),
+				))
+				break // switch
+			}
+
+			err = memory.Write(ma.area, ma.idx, uint8(v))
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("poke address is not writeable: %s", cmd[1]),
+				))
+				break // switch
+			}
+
+			data, err := memory.Read(ma.area, ma.idx)
+			if err != nil {
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("poke address is not readable: %s", cmd[1]),
+				))
+				break // switch
+			}
+
+			fmt.Println(m.styles.mem.Render(
+				fmt.Sprintf("$%04x = %02x (%s)", ma.address, data, ma.area.Label()),
+			))
+
 		case "BREAK":
 			if len(cmd) < 2 {
 				fmt.Println(m.styles.err.Render(

@@ -395,6 +395,6 @@ func Read(area Area, address uint16) (uint8, error) {
 // The area and address parameters should be acquired from the MapAddress()
 // function
 func Write(area Area, address uint16, data uint8) error {
-	_, err := area.Access(false, address, 0)
+	_, err := area.Access(true, address, data)
 	return err
 }
