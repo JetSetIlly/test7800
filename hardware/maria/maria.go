@@ -55,8 +55,10 @@ type Maria struct {
 	DLL dll
 	DL  dl
 
-	// whether the current DLL indicates that an interrupt should occur
-	dli bool
+	// whether dma is active at the current moment. it is enabled if ctrl.dma is
+	// enabled when the clock counter reaches preDMA; and then disabled when the
+	// number of required DMA cycles for the DLL is reacehd
+	dma bool
 
 	// the number of DMA cycles required to construct the scanline
 	requiredDMACycles int
@@ -344,7 +346,7 @@ func (mar *Maria) newFrame() {
 	} else {
 		mar.currentFrame.left = clksHBLANK
 		mar.currentFrame.right = clksScanline
-		mar.currentFrame.top = mar.spec.visibleTop
+		mar.currentFrame.top = mar.spec.visibleTop + 10
 		mar.currentFrame.bottom = mar.spec.visibleBottom
 	}
 
@@ -378,13 +380,17 @@ func (mar *Maria) PushRender() {
 	}
 }
 
-// returns true if CPU is to be halted and true if DLL has requested an interrupt
-func (mar *Maria) Tick() (halt bool, interrupt bool) {
+func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
+	// a display list interrupt can be triggered for the first DLL or for any
+	// DLL thereafter. the conditions for the first DLL is slightly different
+	var dli bool
+
 	mar.Coords.Clk++
 	if mar.Coords.Clk >= clksScanline {
 		mar.Coords.Clk = 0
 		mar.Coords.Scanline++
 		mar.wsync = false
+		mar.dma = false
 		mar.requiredDMACycles = 0
 		mar.lineram.newScanline()
 
@@ -401,32 +407,40 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 			// this can almost certainly be improved in efficiency
 			mar.newFrame()
 
-		} else if mar.Coords.Scanline == mar.spec.visibleTop-1 {
+		} else if mar.Coords.Scanline == mar.spec.visibleTop {
 			mar.mstat = vblankDisable
 
 			// "The end of VBLANK is made up of a DMA startup plus a Long shutdown."
 			mar.requiredDMACycles += dmaEndofVBLANK
+
+			// reset list of DLLs seen this frame
+			mar.RecentDLL = mar.RecentDLL[:0]
 
 		} else if mar.Coords.Scanline == mar.spec.visibleBottom {
 			mar.mstat = vblankEnable
 		}
 	}
 
-	sl := mar.Coords.Scanline - mar.currentFrame.top
+	// the x and y values are the frame coordinates where lineram information
+	// (and debugging overlay information) is plotted. they are adjusted according to
+	// whether the overlay is active or not
 	x := mar.Coords.Clk - mar.currentFrame.left
+	y := mar.Coords.Scanline - mar.currentFrame.top
 
 	// read from lineram and draw to screen on a clock-by-clock basis
-	if mar.Coords.Clk >= clksHBLANK {
-		e := mar.lineram.read(mar.Coords.Clk - clksHBLANK)
+	if mar.Coords.Scanline >= mar.currentFrame.top && mar.Coords.Scanline <= mar.currentFrame.bottom {
+		if mar.Coords.Clk >= clksHBLANK {
+			e := mar.lineram.read(mar.Coords.Clk - clksHBLANK)
 
-		if e.set {
-			if e.idx == bgIdx {
-				mar.currentFrame.main.Set(x, sl, mar.spec.palette[mar.bg])
+			if e.set {
+				if e.idx == bgIdx {
+					mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
+				} else {
+					mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.palette[e.palette][e.idx]])
+				}
 			} else {
-				mar.currentFrame.main.Set(x, sl, mar.spec.palette[mar.palette[e.palette][e.idx]])
+				mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
 			}
-		} else {
-			mar.currentFrame.main.Set(x, sl, mar.spec.palette[mar.bg])
 		}
 	}
 
@@ -440,25 +454,8 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 			case 0x01:
 				mar.ctx.Break(fmt.Errorf("%w: dma value of 0x01 in ctrl register is undefined", ContextError))
 			case 0x02:
-				// next DLL and note whether to trigger an interrupt at the end of the display list
-				var err error
-				if mar.Coords.Scanline == mar.spec.visibleTop {
-					_, mar.dli, err = mar.nextDLL(true)
-					if err != nil {
-						mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
-					}
-					mar.RecentDLL = mar.RecentDLL[:0]
-					mar.RecentDLL = append(mar.RecentDLL, mar.DLL)
-				} else {
-					var ok bool
-					ok, mar.dli, err = mar.nextDLL(false)
-					if err != nil {
-						mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
-					}
-					if ok {
-						mar.RecentDLL = append(mar.RecentDLL, mar.DLL)
-					}
-				}
+				// dma is now active
+				mar.dma = true
 
 				// DMA cycle counting
 				if mar.DLL.offset == 0 {
@@ -467,7 +464,7 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 					mar.requiredDMACycles += dmaStart
 				}
 
-				err = mar.nextDL(true)
+				err := mar.nextDL(true)
 				if err != nil {
 					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 				}
@@ -649,20 +646,42 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 						mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 					}
 				}
+
+				// DLL sequence is reset at beginning of vblankDisable (ie. when scanline is
+				// equal to 'visible top')
+				ok, err := mar.nextDLL(mar.Coords.Scanline == mar.spec.visibleTop)
+				if err != nil {
+					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
+				}
+				if ok {
+					mar.RecentDLL = append(mar.RecentDLL, mar.DLL)
+
+					// trigger DLI if necessary: "One of the bits of a DLL entry tells MARIA to
+					// generate a Display List Interrupt (DLI) for that zone. The interrupt will
+					// actually occur following DMA on the last line of the PREVIOUS zone."
+					//
+					// and from Appendix 3: "Another timing consideration is there is one MPU
+					// (7.16 MHz) cycle between DMA shutdown and generation of a DLI."
+					//
+					// in practice the interrupt will be triggered but the CPU will be stalled unti
+					// dma has finished, so triggering it now amounts to the same thing
+					dli = mar.DLL.dli
+				}
 			case 0x03:
 				// dma is off. showing only background colour
 			}
 		}
+	}
 
-		if mar.requiredDMACycles+preDMA > clksScanline {
-			mar.ctx.Break(fmt.Errorf("%w: number of required DMA cycles is too much (%d)", ContextError, mar.requiredDMACycles))
-		}
+	// disable dma when the number of required cycles has passed
+	if mar.Coords.Clk == preDMA+mar.requiredDMACycles {
+		mar.dma = false
 	}
 
 	// plot debugging information
 	if mar.currentFrame.debug {
 		if mar.Coords.Clk > mar.currentFrame.left {
-			if mar.Coords.Clk >= preDMA && mar.Coords.Clk <= preDMA+mar.requiredDMACycles {
+			if mar.dma {
 				// create a striped effect to the DLL overlay by using a slightly different colour
 				// value for every odd numbered DLL
 				var v uint8
@@ -675,30 +694,20 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 				// while DMA is active the debugging overlay is red. however, if the cpu is inside
 				// an interrupt and therefore temporarily stalled the overlay is orange (a mix of red and green)
 				if mar.cpu.InInterrupt() && !mar.wsync {
-					mar.currentFrame.overlay.Set(x, sl, color.RGBA{R: v, G: v, A: 255})
+					mar.currentFrame.overlay.Set(x, y, color.RGBA{R: v, G: v, A: 255})
 				} else {
-					mar.currentFrame.overlay.Set(x, sl, color.RGBA{R: v, A: 255})
+					mar.currentFrame.overlay.Set(x, y, color.RGBA{R: v, A: 255})
 				}
 			} else if mar.wsync {
 				// wsync overlay is blue
-				mar.currentFrame.overlay.Set(x, sl, color.RGBA{B: 255, A: 255})
+				mar.currentFrame.overlay.Set(x, y, color.RGBA{B: 255, A: 255})
 			} else if mar.cpu.InInterrupt() {
 				// debugging overlay is green for the duration the CPU is
 				// executing instruction inside an interrupt
-				mar.currentFrame.overlay.Set(x, sl, color.RGBA{G: 255, A: 255})
+				mar.currentFrame.overlay.Set(x, y, color.RGBA{G: 255, A: 255})
 			}
 		}
 	}
 
-	// trigger DLI if necessary at beginning of scanline
-	var dli bool
-	if mar.dli && mar.Coords.Clk == 0 {
-		dli = true
-		mar.dli = false
-	}
-
-	// return HALT signal if either WSYNC or DMA is enabled
-	return mar.wsync || (mar.mstat == vblankDisable &&
-		mar.Coords.Clk >= preDMA &&
-		mar.Coords.Clk <= (preDMA+mar.requiredDMACycles)), dli
+	return mar.dma, !mar.wsync, dli
 }

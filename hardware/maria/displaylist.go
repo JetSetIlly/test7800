@@ -191,8 +191,14 @@ type dll struct {
 	ct     int
 	origin uint16
 
-	// working offset is an integer because we want to use negative values
-	workingOffset int
+	// "Included in each entry is a value called OFFSET, which indicates how many
+	// rasters should use the specified Display List. OFFSET is decremented at the
+	// end of each raster until it becomes negative, which indicates that the next
+	// DLL entry should now be read and used."
+	//
+	// rather than adjustng the offset field, we instead adjust this workingOffset
+	// field. this allows us to present the original value for debugging purposes
+	workingOffset uint8
 }
 
 func (l *dll) ID() string {
@@ -219,7 +225,7 @@ func (l *dll) Status() string {
 	s.WriteString(fmt.Sprintf("dli=%v ", l.dli))
 	s.WriteString(fmt.Sprintf("h16=%v ", l.h16))
 	s.WriteString(fmt.Sprintf("h8=%v\n", l.h8))
-	s.WriteString(fmt.Sprintf("offset=%02x/%02x ", int(l.offset)-l.workingOffset, l.offset))
+	s.WriteString(fmt.Sprintf("offset=%02x/%02x ", l.offset-l.workingOffset, l.offset))
 	s.WriteString(fmt.Sprintf("high=%02x ", l.highAddress))
 	s.WriteString(fmt.Sprintf("low=%02x ", l.lowAddress))
 	return s.String()
@@ -241,38 +247,24 @@ func (l *dll) inHole(a uint16) bool {
 	return false
 }
 
-func (mar *Maria) nextDLL(reset bool) (bool, bool, error) {
+func (mar *Maria) peepInterrupt() (bool, error) {
+	d, err := mar.mem.Read(mar.DLL.origin + 3)
+	return d&0x80 == 0x80, err
+}
+
+func (mar *Maria) nextDLL(reset bool) (bool, error) {
 	if reset {
 		mar.DLL.ct = 0
 	} else {
-		// "Included in each entry is a value called OFFSET, which indicates how many
-		// rasters should use the specified Display List. OFFSET is decremented at the
-		// end of each raster until it becomes negative, which indicates that the next
-		// DLL entry should now be read and used."
-		//
-		// to implement this we're using a second field separate from the original
-		// value. this is so we can display the original value if we need to via the
-		// Status() function; and also so we can work with negative values which is
-		// clearer than dealing with underflowed uint8
+		// offset is an unsigned integer between 0 and 15 and is the "height of
+		// the zone, minus one". the DLL has expired therefore when the value is
+		// less than zero, or in unsigned terms when the value is 0xff. however,
+		// we also know that offset can never be great than 0x0f so we actually
+		// test for the working offset being less then 0x0f
 		mar.DLL.workingOffset--
-
-		if mar.DLL.workingOffset > 0 {
-			return false, false, nil
+		if mar.DLL.workingOffset <= 0x0f {
+			return false, nil
 		}
-
-		// "One of the bits of a DLL entry tells MARIA to generate a Display List
-		// Interrupt (DLI) for that zone. The interrupt will actually occur
-		// following DMA on the last line of the PREVIOUS zone."
-		if mar.DLL.workingOffset == 0 {
-			preview := mar.DLL.origin + uint16(3)
-			d, err := mar.mem.Read(preview)
-			if err != nil {
-				return false, false, err
-			}
-			return false, d&0x80 == 0x80, nil
-		}
-
-		// workingOffset is less than zero so we read the next DLL
 		mar.DLL.ct++
 	}
 
@@ -281,38 +273,24 @@ func (mar *Maria) nextDLL(reset bool) (bool, bool, error) {
 
 	d, err := mar.mem.Read(mar.DLL.origin)
 	if err != nil {
-		return true, false, err
+		return true, err
 	}
 
 	mar.DLL.dli = d&0x80 == 0x80
 	mar.DLL.h16 = d&0x40 == 0x40
 	mar.DLL.h8 = d&0x20 == 0x20
 	mar.DLL.offset = d & 0x0f
-
-	// working offset is an integer because we want to use negative values
-	mar.DLL.workingOffset = int(mar.DLL.offset)
+	mar.DLL.workingOffset = mar.DLL.offset
 
 	mar.DLL.highAddress, err = mar.mem.Read(mar.DLL.origin + 1)
 	if err != nil {
-		return true, false, err
+		return true, err
 	}
 
 	mar.DLL.lowAddress, err = mar.mem.Read(mar.DLL.origin + 2)
 	if err != nil {
-		return true, false, err
+		return true, err
 	}
 
-	// in some cases the offset of a DLL is zero and so there may be an
-	// interrupt triggered immediately. a good example of where this is
-	// necessary is Centipede
-	if mar.DLL.workingOffset == 0 {
-		preview := mar.DLL.origin + uint16(3)
-		d, err := mar.mem.Read(preview)
-		if err != nil {
-			return true, false, err
-		}
-		return true, d&0x80 == 0x80, nil
-	}
-
-	return true, false, nil
+	return true, nil
 }

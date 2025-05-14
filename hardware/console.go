@@ -20,8 +20,9 @@ type Console struct {
 	TIA   *tia.TIA
 	RIOT  *riot.RIOT
 
-	// the HLT line to the CPU is set by MARIA
-	halt bool
+	// the HLT and RDY lines to the CPU is set by MARIA
+	hlt bool
+	rdy bool
 }
 
 type Context interface {
@@ -115,8 +116,9 @@ func (con *Console) Step() error {
 		}
 	}
 
+	// interrupts are atomic, meaning that the interrupt occurs between
+	// instruction boundaries and never during an instruction
 	var interruptNext bool
-
 	defer func() {
 		if interruptNext {
 			_ = con.MC.Interrupt(true)
@@ -136,7 +138,7 @@ func (con *Console) Step() error {
 		// if the TIA bus is active then the CPU runs at a slower clock
 		for range mariaCycles {
 			var interrupt bool
-			con.halt, interrupt = con.MARIA.Tick()
+			con.hlt, con.rdy, interrupt = con.MARIA.Tick()
 			interruptNext = interruptNext || interrupt
 		}
 
@@ -145,11 +147,13 @@ func (con *Console) Step() error {
 		return nil
 	}
 
-	if con.halt && con.Mem.INPTCTRL.HaltEnabled() {
+	if (con.hlt && con.Mem.INPTCTRL.HaltEnabled()) || !con.rdy {
 		// swallow all DMA activity. the CPU will be halted during this time so.
 		// INPTCTRL only allows the HALT line to be raised after an initial
 		// phase. the HaltEnabled() function tells us the state of that condition
-		for con.halt && con.Mem.INPTCTRL.HaltEnabled() {
+		//
+		// WSYNC also causes HALT to be enabled
+		for (con.hlt && con.Mem.INPTCTRL.HaltEnabled()) || !con.rdy {
 			err := tick()
 			if err != nil {
 				return err

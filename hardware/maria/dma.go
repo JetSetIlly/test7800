@@ -25,5 +25,5 @@ const (
 	dmaEndofVBLANK = dmaStartLastInZone
 
 	// the maximum number of cycles available in DMA before the HSYNC
-	dmaMaxCycles = clksScanline
+	dmaMaxCycles = clksScanline - preDMA
 )
