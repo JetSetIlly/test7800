@@ -718,30 +718,38 @@ func (m *debugger) loop() {
 			//
 			// a STEP OVER command would be just as good but we don't have that at the moment
 			if arg == "NEXT" {
+				if len(cmd) != 2 {
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("BREAK NEXT requires no other arguments"),
+					))
+					break // switch
+				}
 				address := m.console.MC.LastResult.Address
 				address += uint16(m.console.MC.LastResult.ByteCount)
 				cmd[1] = fmt.Sprintf("%#04x", address)
 			}
 
-			ma, err := m.parseAddress(cmd[1])
-			if err != nil {
-				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("breakpoint: %s", err.Error()),
-				))
-				break // switch
-			}
+			for i := 1; i < len(cmd); i++ {
+				ma, err := m.parseAddress(cmd[i])
+				if err != nil {
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("breakpoint: %s", err.Error()),
+					))
+					break // switch
+				}
 
-			if _, ok := m.breakpoints[ma.address]; ok {
+				if _, ok := m.breakpoints[ma.address]; ok {
+					fmt.Println(m.styles.debugger.Render(
+						fmt.Sprintf("breakpoint on $%04x already present", ma.address),
+					))
+					break // switch
+				}
+
+				m.breakpoints[ma.address] = true
 				fmt.Println(m.styles.debugger.Render(
-					fmt.Sprintf("breakpoint on $%04x already present", ma.address),
+					fmt.Sprintf("added breakpoint for $%04x", ma.address),
 				))
-				break // switch
 			}
-
-			m.breakpoints[ma.address] = true
-			fmt.Println(m.styles.debugger.Render(
-				fmt.Sprintf("added breakpoint for $%04x", ma.address),
-			))
 		case "WATCH":
 			if len(cmd) < 2 {
 				fmt.Println(m.styles.err.Render(
@@ -786,32 +794,34 @@ func (m *debugger) loop() {
 				break // switch
 			}
 
-			ma, err := m.parseAddress(cmd[1])
-			if err != nil {
-				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("watch: %s", err.Error()),
-				))
-				break // switch
-			}
+			for i := 1; i < len(cmd); i++ {
+				ma, err := m.parseAddress(cmd[i])
+				if err != nil {
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("watch: %s", err.Error()),
+					))
+					break // switch
+				}
 
-			if _, ok := m.watches[ma.address]; ok {
-				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("watch for %s already present", cmd[1]),
-				))
-				break // switch
-			}
+				if _, ok := m.watches[ma.address]; ok {
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("watch for %04x already present", ma),
+					))
+					break // switch
+				}
 
-			d, err := memory.Read(ma.area, ma.idx)
-			if err != nil {
-				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("watch address is not readable: %s", cmd[1]),
-				))
-				break // switch
-			}
+				d, err := memory.Read(ma.area, ma.idx)
+				if err != nil {
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("watch address is not readable: %04x", ma),
+					))
+					break // switch
+				}
 
-			m.watches[ma.address] = watch{
-				ma:   ma,
-				data: d,
+				m.watches[ma.address] = watch{
+					ma:   ma,
+					data: d,
+				}
 			}
 		case "LIST":
 			fmt.Println(m.styles.debugger.Render("breakpoints"))
