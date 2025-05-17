@@ -415,8 +415,8 @@ func (mar *Maria) Tick() (halt bool, interrupt bool) {
 	sl := mar.Coords.Scanline - mar.currentFrame.top
 	x := mar.Coords.Clk - mar.currentFrame.left
 
-	// read from lineram and draw to screen
-	if mar.Coords.Clk > clksHBLANK {
+	// read from lineram and draw to screen on a clock-by-clock basis
+	if mar.Coords.Clk >= clksHBLANK {
 		e := mar.lineram.read(mar.Coords.Clk - clksHBLANK)
 
 		if e.set {
