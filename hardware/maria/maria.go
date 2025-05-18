@@ -429,17 +429,40 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 
 	// read from lineram and draw to screen on a clock-by-clock basis
 	if mar.Coords.Scanline >= mar.currentFrame.top && mar.Coords.Scanline <= mar.currentFrame.bottom {
-		if mar.Coords.Clk >= clksHBLANK {
+		if mar.Coords.Clk >= clksHBLANK && mar.Coords.Clk&0x01 == clksHBLANK&0x01 {
 			e := mar.lineram.read(mar.Coords.Clk - clksHBLANK)
-
+			mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
+			mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.bg])
 			if e.set {
-				if e.idx == bgIdx {
-					mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
-				} else {
-					mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.palette[e.palette][e.idx]])
+				switch mar.ctrl.readMode {
+				case 0:
+					// 160A/B
+					if e.idx == 0 {
+						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
+						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.bg])
+					} else {
+						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.palette[e.palette][e.idx-1]])
+						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.palette[e.palette][e.idx-1]])
+					}
+				case 1:
+					mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", ContextError))
+				case 2:
+					// 320B/D
+				case 3:
+					// 320A/C
+					d := e.idx & 0x02
+					if d == 0 {
+						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
+					} else {
+						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.palette[e.palette][d-1]])
+					}
+					d = (e.idx << 1) & 0x02
+					if d == 0 {
+						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.bg])
+					} else {
+						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.palette[e.palette][d-1]])
+					}
 				}
-			} else {
-				mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
 			}
 		}
 	}
@@ -513,67 +536,26 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 								}
 							}
 
-							switch mar.ctrl.readMode {
-							case 0:
-								if mar.DL.writemode {
-									// 160B
-									for i := range 2 {
-										c := (b >> (((1 - i) * 2) + 4)) & 0x03
-										p := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
-										x := int(mar.DL.horizontalPosition + (offset * 2) + uint8(i))
-										x *= 2
-										if x < clksVisible {
-											if c > 0 {
-												mar.lineram.write(x, p, c-1)
-												mar.lineram.write(x+1, p, c-1)
-											} else if mar.ctrl.kangaroo {
-												mar.lineram.write(x, p, bgIdx)
-												mar.lineram.write(x+1, p, bgIdx)
-											}
-										}
-									}
-								} else {
-									// 160A
-									for i := range 4 {
-										c := (b >> ((3 - i) * 2)) & 0x03
-										x := int(mar.DL.horizontalPosition + (offset * 4) + uint8(i))
-										x *= 2
-										if x < clksVisible {
-											if c > 0 {
-												mar.lineram.write(x, mar.DL.palette, c-1)
-												mar.lineram.write(x+1, mar.DL.palette, c-1)
-											} else if mar.ctrl.kangaroo {
-												mar.lineram.write(x, mar.DL.palette, bgIdx)
-												mar.lineram.write(x+1, mar.DL.palette, bgIdx)
-											}
+							if mar.DL.writemode {
+								for i := range 2 {
+									c := (b >> (((1 - i) * 2) + 4)) & 0x03
+									p := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
+									x := int(mar.DL.horizontalPosition+(offset*2)+uint8(i)) * 2
+									if x < clksVisible {
+										if c > 0 || mar.ctrl.kangaroo {
+											mar.lineram.write(x, p, c)
+											mar.lineram.write(x+1, p, c)
 										}
 									}
 								}
-							case 1:
-								mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", ContextError))
-							case 2:
-								if mar.DL.writemode {
-									// 320B
-								} else {
-									// 320D
-								}
-							case 3:
-								if mar.DL.writemode {
-									// 320C
-								} else {
-									// 320A
-									for i := range 8 {
-										// note that the horizontal position for 320 modes are doubled by the Maria
-										// when writing to line ram. this gives an effective positioning resolution
-										// of 160 pixels
-										x := int(mar.DL.horizontalPosition + (offset * 4))
-										x = x*2 + i
-										if x < clksVisible {
-											if (b<<i)&0x80 == 0x80 {
-												mar.lineram.write(x, mar.DL.palette, 1)
-											} else if mar.ctrl.kangaroo {
-												mar.lineram.write(x, mar.DL.palette, bgIdx)
-											}
+							} else {
+								for i := range 4 {
+									c := (b >> ((3 - i) * 2)) & 0x03
+									x := int(mar.DL.horizontalPosition+(offset*4)+uint8(i)) * 2
+									if x < clksVisible {
+										if c > 0 || mar.ctrl.kangaroo {
+											mar.lineram.write(x, mar.DL.palette, c)
+											mar.lineram.write(x+1, mar.DL.palette, c)
 										}
 									}
 								}
