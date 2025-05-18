@@ -79,38 +79,62 @@ func (con *Console) Step() error {
 			switch inp.Action {
 			case ui.StickButtonA:
 				if inp.Release {
-					con.TIA.Write(0x0c, 0x80)
+					con.TIA.Poke(0x0c, 0x80)
 				} else {
-					con.TIA.Write(0x0c, 0x00)
+					con.TIA.Poke(0x0c, 0x00)
 				}
 			case ui.StickLeft:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
-					con.RIOT.Write(0x00, r&0xbf|0x40)
+					con.RIOT.Poke(0x00, r&0xbf|0x40)
 				} else {
-					con.RIOT.Write(0x00, r&0xbf)
+					con.RIOT.Poke(0x00, r&0xbf)
 				}
 				r, _ = con.RIOT.Read(0x00)
 			case ui.StickUp:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
-					con.RIOT.Write(0x00, r&0xef|0x10)
+					con.RIOT.Poke(0x00, r&0xef|0x10)
 				} else {
-					con.RIOT.Write(0x00, r&0xef)
+					con.RIOT.Poke(0x00, r&0xef)
 				}
 			case ui.StickRight:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
-					con.RIOT.Write(0x00, r&0x7f|0x80)
+					con.RIOT.Poke(0x00, r&0x7f|0x80)
 				} else {
-					con.RIOT.Write(0x00, r&0x7f)
+					con.RIOT.Poke(0x00, r&0x7f)
 				}
 			case ui.StickDown:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
-					con.RIOT.Write(0x00, r&0xdf|0x20)
+					con.RIOT.Poke(0x00, r&0xdf|0x20)
 				} else {
-					con.RIOT.Write(0x00, r&0xdf)
+					con.RIOT.Poke(0x00, r&0xdf)
+				}
+			case ui.Select:
+				r, _ := con.RIOT.Read(0x02)
+				if inp.Release {
+					con.RIOT.Poke(0x02, r&0xfd|0x02)
+				} else {
+					con.RIOT.Poke(0x02, r&0xfd)
+				}
+			case ui.Reset:
+				r, _ := con.RIOT.Read(0x02)
+				if inp.Release {
+					con.RIOT.Poke(0x02, r&0xfe|0x01)
+				} else {
+					con.RIOT.Poke(0x02, r&0xfe)
+				}
+			case ui.P0Pro:
+				r, _ := con.RIOT.Read(0x02)
+				if !inp.Release {
+					con.RIOT.Poke(0x02, r^0x80)
+				}
+			case ui.P1Pro:
+				r, _ := con.RIOT.Read(0x02)
+				if !inp.Release {
+					con.RIOT.Poke(0x02, r^0x40)
 				}
 			}
 		}

@@ -56,6 +56,14 @@ func (g *gui) input() {
 			inp = ui.Input{Action: ui.StickDown, Release: true}
 		case ebiten.KeySpace:
 			inp = ui.Input{Action: ui.StickButtonA, Release: true}
+		case ebiten.KeyF1:
+			inp = ui.Input{Action: ui.Select, Release: true}
+		case ebiten.KeyF2:
+			inp = ui.Input{Action: ui.Reset, Release: true}
+		case ebiten.KeyF4:
+			inp = ui.Input{Action: ui.P0Pro, Release: true}
+		case ebiten.KeyF5:
+			inp = ui.Input{Action: ui.P1Pro, Release: true}
 		}
 
 		select {
@@ -77,6 +85,14 @@ func (g *gui) input() {
 			inp = ui.Input{Action: ui.StickDown}
 		case ebiten.KeySpace:
 			inp = ui.Input{Action: ui.StickButtonA}
+		case ebiten.KeyF1:
+			inp = ui.Input{Action: ui.Select}
+		case ebiten.KeyF2:
+			inp = ui.Input{Action: ui.Reset}
+		case ebiten.KeyF4:
+			inp = ui.Input{Action: ui.P0Pro}
+		case ebiten.KeyF5:
+			inp = ui.Input{Action: ui.P1Pro}
 		}
 
 		select {

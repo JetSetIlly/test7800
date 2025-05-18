@@ -3,6 +3,7 @@ package riot
 type RIOT struct {
 	mem   Memory
 	swcha uint8
+	swchb uint8
 }
 
 type Memory interface {
@@ -16,6 +17,9 @@ func Create(mem Memory) *RIOT {
 
 		// swcha initialised as though stick is being used
 		swcha: 0xff,
+
+		// pro on by default (amateur would be 0x3f)
+		swchb: 0xff,
 	}
 }
 
@@ -42,9 +46,7 @@ func (riot *RIOT) Read(idx uint16) (uint8, error) {
 		// SWACNT
 		return 0, nil
 	case 0x02:
-		// SWCHB
-		// pro on by default (amateur would be 0x3f)
-		return 0xff, nil
+		return riot.swchb, nil
 	case 0x03:
 		// SWBCNT
 		return 0, nil
@@ -58,14 +60,38 @@ func (riot *RIOT) Read(idx uint16) (uint8, error) {
 	return 0, nil
 }
 
-func (riot *RIOT) Write(idx uint16, data uint8) error {
+func (riot *RIOT) Poke(idx uint16, data uint8) error {
 	switch idx {
 	case 0x00:
 		riot.swcha = data
 	case 0x01:
 		// SWACNT
 	case 0x02:
+		riot.swchb = data
+	case 0x03:
+		// SWBCNT
+	case 0x04, 0x10:
+		// TIM1T
+	case 0x05, 0x11:
+		// TIM8T
+	case 0x06, 0x12:
+		// TIM64T
+	case 0x07, 0x13:
+		// T1024T
+	}
+	return nil
+}
+
+func (riot *RIOT) Write(idx uint16, data uint8) error {
+	switch idx {
+	case 0x00:
+		// SWCHA
+		// not writeable from CPU
+	case 0x01:
+		// SWACNT
+	case 0x02:
 		// SWCHB
+		// not writeable from CPU
 	case 0x03:
 		// SWBCNT
 	case 0x04, 0x10:

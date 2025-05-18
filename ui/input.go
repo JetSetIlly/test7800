@@ -14,4 +14,8 @@ const (
 	StickRight
 	StickDown
 	StickButtonA
+	Select
+	Reset
+	P0Pro
+	P1Pro
 )
