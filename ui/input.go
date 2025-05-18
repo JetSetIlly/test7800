@@ -14,6 +14,7 @@ const (
 	StickRight
 	StickDown
 	StickButtonA
+	StickButtonB
 	Select
 	Reset
 	P0Pro

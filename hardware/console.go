@@ -77,16 +77,10 @@ func (con *Console) Step() error {
 			drained = true
 		case inp := <-con.ui.UserInput:
 			switch inp.Action {
-			case ui.StickButtonA:
-				if inp.Release {
-					con.TIA.Poke(0x0c, 0x80)
-				} else {
-					con.TIA.Poke(0x0c, 0x00)
-				}
 			case ui.StickLeft:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
-					con.RIOT.Poke(0x00, r&0xbf|0x40)
+					con.RIOT.Poke(0x00, r|0x40)
 				} else {
 					con.RIOT.Poke(0x00, r&0xbf)
 				}
@@ -94,35 +88,60 @@ func (con *Console) Step() error {
 			case ui.StickUp:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
-					con.RIOT.Poke(0x00, r&0xef|0x10)
+					con.RIOT.Poke(0x00, r|0x10)
 				} else {
 					con.RIOT.Poke(0x00, r&0xef)
 				}
 			case ui.StickRight:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
-					con.RIOT.Poke(0x00, r&0x7f|0x80)
+					con.RIOT.Poke(0x00, r|0x80)
 				} else {
 					con.RIOT.Poke(0x00, r&0x7f)
 				}
 			case ui.StickDown:
 				r, _ := con.RIOT.Read(0x00)
 				if inp.Release {
-					con.RIOT.Poke(0x00, r&0xdf|0x20)
+					con.RIOT.Poke(0x00, r|0x20)
 				} else {
 					con.RIOT.Poke(0x00, r&0xdf)
+				}
+			case ui.StickButtonA:
+				r, _ := con.TIA.Read(0x0c)
+				if inp.Release {
+					con.TIA.Poke(0x0c, r|0x80)
+				} else {
+					con.TIA.Poke(0x0c, r&0x7f)
+				}
+
+				// the dual-button stick write to INPT1 has an opposite logic to
+				// the write to INPT4/INPT5
+				r, _ = con.TIA.Read(0x09)
+				if inp.Release {
+					con.TIA.Poke(0x09, r&0x7f)
+				} else {
+					con.TIA.Poke(0x09, r|0x80)
+				}
+			case ui.StickButtonB:
+				// the dual-button stick write to INPT0 has an opposite logic to
+				// the write to INPT4/INPT5
+				r, _ := con.TIA.Read(0x08)
+				if inp.Release {
+					con.TIA.Poke(0x08, r&0x7f)
+				} else {
+					con.TIA.Poke(0x08, r|0x80)
 				}
 			case ui.Select:
 				r, _ := con.RIOT.Read(0x02)
 				if inp.Release {
-					con.RIOT.Poke(0x02, r&0xfd|0x02)
+					con.RIOT.Poke(0x02, r|0x02)
 				} else {
 					con.RIOT.Poke(0x02, r&0xfd)
 				}
 			case ui.Reset:
 				r, _ := con.RIOT.Read(0x02)
 				if inp.Release {
-					con.RIOT.Poke(0x02, r&0xfe|0x01)
+					con.RIOT.Poke(0x02, r|0x01)
 				} else {
 					con.RIOT.Poke(0x02, r&0xfe)
 				}

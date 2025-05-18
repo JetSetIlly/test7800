@@ -56,6 +56,8 @@ func (g *gui) input() {
 			inp = ui.Input{Action: ui.StickDown, Release: true}
 		case ebiten.KeySpace:
 			inp = ui.Input{Action: ui.StickButtonA, Release: true}
+		case ebiten.KeyB:
+			inp = ui.Input{Action: ui.StickButtonB, Release: true}
 		case ebiten.KeyF1:
 			inp = ui.Input{Action: ui.Select, Release: true}
 		case ebiten.KeyF2:
@@ -85,6 +87,8 @@ func (g *gui) input() {
 			inp = ui.Input{Action: ui.StickDown}
 		case ebiten.KeySpace:
 			inp = ui.Input{Action: ui.StickButtonA}
+		case ebiten.KeyB:
+			inp = ui.Input{Action: ui.StickButtonB}
 		case ebiten.KeyF1:
 			inp = ui.Input{Action: ui.Select}
 		case ebiten.KeyF2:
