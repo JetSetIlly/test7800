@@ -347,7 +347,7 @@ func (mar *Maria) newFrame() {
 		mar.currentFrame.left = clksHBLANK
 		mar.currentFrame.right = clksScanline
 		mar.currentFrame.top = mar.spec.visibleTop + 10
-		mar.currentFrame.bottom = mar.spec.visibleBottom
+		mar.currentFrame.bottom = mar.spec.visibleBottom - 10
 	}
 
 	mar.currentFrame.main = image.NewRGBA(image.Rect(0, 0,
