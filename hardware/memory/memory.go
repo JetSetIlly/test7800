@@ -303,6 +303,9 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	if address >= 0x2800 && address <= 0x2fff {
 		// 0x2800 to 0x2fff is considered to be an unreliable mirror of RAM 7800
 		// https://forums.atariage.com/topic/370030-does-anyone-abuse-the-ram-mirrors/?tab=comments
+		if address >= 2800 && address <= 0x28ff {
+			return address - 0x1900, mem.RAM7800
+		}
 		return 0, nil
 	}
 
