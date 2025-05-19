@@ -216,9 +216,9 @@ func Launch(endGui chan bool, ui *ui.UI) error {
 		ui:     ui,
 	}
 
-	if ui.RegisterAudio != nil {
+	if ui.Audio != nil {
 		audioctx := audio.NewContext(tia.AverageSampleFreq)
-		p, err := audioctx.NewPlayer(<-ui.RegisterAudio)
+		p, err := audioctx.NewPlayer(<-ui.Audio)
 		if err != nil {
 			return err
 		}

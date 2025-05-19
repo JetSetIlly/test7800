@@ -42,14 +42,6 @@ type Audio struct {
 	// twice in that time
 	clock228 int
 
-	// the number of clocks per scanline is double from the point of view of
-	// MARIA. to keep the sample rate correct the tick of clock228 is regulated
-	// by this additional two phase clock
-	doubleTime bool
-
-	// master switch to control if the doubleTime clock is to be used
-	usingDoubleTime bool
-
 	// the volume is sampled every colour clock and the volume at each clock is
 	// summed. at fixed points, the volume is averaged
 	sampleSum   []int
@@ -68,12 +60,10 @@ type Audio struct {
 }
 
 // NewAudio is the preferred method of initialisation for the Audio sub-system.
-func NewAudio(doubleTime bool) *Audio {
+func NewAudio() *Audio {
 	au := &Audio{
-		sampleSum:       make([]int, 2),
-		usingDoubleTime: doubleTime,
+		sampleSum: make([]int, 2),
 	}
-
 	return au
 }
 
@@ -100,13 +90,6 @@ func (au *Audio) UpdateTracker() {
 // Step the audio on one TIA clock. The step will be filtered to produce a
 // 30Khz clock.
 func (au *Audio) Step() bool {
-	if au.usingDoubleTime {
-		au.doubleTime = !au.doubleTime
-		if au.doubleTime {
-			return false
-		}
-	}
-
 	var changed bool
 
 	// sum volume bits

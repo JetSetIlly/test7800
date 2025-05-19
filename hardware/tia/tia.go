@@ -39,6 +39,8 @@ type TIA struct {
 	aud  *audio.Audio
 	buf  *audioBuffer
 	inpt [6]uint8
+
+	halfStep bool
 }
 
 type Memory interface {
@@ -53,7 +55,7 @@ type Context interface {
 func Create(ctx Context, ui *ui.UI, mem Memory) *TIA {
 	tia := &TIA{
 		mem: mem,
-		aud: audio.NewAudio(ctx.IsAtari7800()),
+		aud: audio.NewAudio(),
 
 		// inpt initialised as though sticks are being used
 		inpt: [6]uint8{
@@ -61,11 +63,11 @@ func Create(ctx Context, ui *ui.UI, mem Memory) *TIA {
 			0x80, 0x80,
 		},
 	}
-	if ui.RegisterAudio != nil {
+	if ui.Audio != nil {
 		tia.buf = &audioBuffer{
 			data: make([]uint8, 0, 4096),
 		}
-		ui.RegisterAudio <- tia.buf
+		ui.Audio <- tia.buf
 	}
 	return tia
 }
@@ -100,17 +102,23 @@ func (tia *TIA) Read(idx uint16) (uint8, error) {
 	case 0x0d:
 		return tia.inpt[5], nil
 	case 0x15:
-		return tia.aud.Channel0.Registers.Control, nil
+		// not readable from CPU
+		return 0, nil
 	case 0x16:
-		return tia.aud.Channel1.Registers.Control, nil
+		// not readable from CPU
+		return 0, nil
 	case 0x17:
-		return tia.aud.Channel0.Registers.Freq, nil
+		// not readable from CPU
+		return 0, nil
 	case 0x18:
-		return tia.aud.Channel1.Registers.Freq, nil
+		// not readable from CPU
+		return 0, nil
 	case 0x19:
-		return tia.aud.Channel0.Registers.Volume, nil
+		// not readable from CPU
+		return 0, nil
 	case 0x1a:
-		return tia.aud.Channel1.Registers.Volume, nil
+		// not readable from CPU
+		return 0, nil
 	}
 	return 0, nil
 }
@@ -150,22 +158,27 @@ func (tia *TIA) Write(idx uint16, data uint8) error {
 	case 0x0d:
 		// not writeable from CPU
 	case 0x15:
-		tia.aud.Channel0.Registers.Control = data
+		tia.aud.Channel0.Registers.Control = data & 0x0f
 	case 0x16:
-		tia.aud.Channel1.Registers.Control = data
+		tia.aud.Channel1.Registers.Control = data & 0x0f
 	case 0x17:
-		tia.aud.Channel0.Registers.Freq = data
+		tia.aud.Channel0.Registers.Freq = data & 0x1f
 	case 0x18:
-		tia.aud.Channel1.Registers.Freq = data
+		tia.aud.Channel1.Registers.Freq = data & 0x1f
 	case 0x19:
-		tia.aud.Channel0.Registers.Volume = data
+		tia.aud.Channel0.Registers.Volume = data & 0x0f
 	case 0x1a:
-		tia.aud.Channel1.Registers.Volume = data
+		tia.aud.Channel1.Registers.Volume = data & 0x0f
 	}
 	return nil
 }
 
 func (tia *TIA) Tick() {
+	tia.halfStep = !tia.halfStep
+	if tia.halfStep {
+		return
+	}
+
 	if tia.aud.Step() {
 		m := mix.Mono(tia.aud.Vol0, tia.aud.Vol1)
 

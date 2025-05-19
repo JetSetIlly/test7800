@@ -168,17 +168,16 @@ func (con *Console) Step() error {
 		}
 	}()
 
+	// this function is called once per CPU cycle. MARIA runs faster than
+	// the CPU and so there are multiple ticks of the MARIA per CPU cycle
+	//
+	// if the TIA bus is active then the CPU runs at a slower clock
 	tick := func() error {
-		// the CPU slows down when TIA memory has been accessed
 		mariaCycles := clocks.MariaCycles
 		if con.Mem.IsTIA() {
 			mariaCycles = clocks.MariaCycles_for_TIA
 		}
 
-		// this function is called once per CPU cycle. MARIA runs faster than
-		// the CPU and so there are multiple ticks of the MARIA per CPU cycle
-		//
-		// if the TIA bus is active then the CPU runs at a slower clock
 		for range mariaCycles {
 			var interrupt bool
 			con.hlt, con.rdy, interrupt = con.MARIA.Tick()
@@ -190,20 +189,16 @@ func (con *Console) Step() error {
 		return nil
 	}
 
-	if (con.hlt && con.Mem.INPTCTRL.HaltEnabled()) || !con.rdy {
-		// swallow all DMA activity. the CPU will be halted during this time so.
-		// INPTCTRL only allows the HALT line to be raised after an initial
-		// phase. the HaltEnabled() function tells us the state of that condition
-		//
-		// WSYNC also causes HALT to be enabled
-		for (con.hlt && con.Mem.INPTCTRL.HaltEnabled()) || !con.rdy {
-			err := tick()
-			if err != nil {
-				return err
-			}
+	// swallow all DMA activity. the CPU will be halted during this time so.
+	// INPTCTRL only allows the HALT line to be raised after an initial
+	// phase. the HaltEnabled() function tells us the state of that condition
+	//
+	// WSYNC also causes HALT to be enabled
+	for (con.hlt && con.Mem.INPTCTRL.HaltEnabled()) || !con.rdy {
+		err := tick()
+		if err != nil {
+			return err
 		}
-
-		// deliberately fall through to ExecuteInstruction()
 	}
 
 	return con.MC.ExecuteInstruction(tick)
