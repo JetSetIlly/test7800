@@ -480,7 +480,6 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 				// dma is now active
 				mar.dma = true
 
-				// DMA cycle counting
 				if mar.DLL.offset == 0 {
 					mar.requiredDMACycles += dmaStartLastInZone
 				} else {
@@ -491,6 +490,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 				if err != nil {
 					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 				}
+
 				for !mar.DL.isEnd {
 					// the DMA can't go on too long so we exit early if appropriate
 					if mar.requiredDMACycles > dmaMaxCycles {
@@ -503,14 +503,6 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					} else {
 						mar.requiredDMACycles += dmaDLHeader
 					}
-
-					// the required DMA cycles value is adjusted once we know if the read will be
-					// in holey memory
-
-					// should there be a check here for execessive DMA cycles?
-					//
-					// if we add this check then then we need to take into account the possibility
-					// of holey memory, which means we should also change the method of accumulation
 
 					for w := range mar.DL.width {
 						// the DMA can't go on too long so we exit early if appropriate
@@ -612,14 +604,13 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 								break // for width loop
 							}
 
-							// DMA accumulation for direct gfx reads is simple
-							mar.requiredDMACycles += dmaDirectGfx
-
 							b, err := mar.mem.Read(a)
 							if err != nil {
 								mar.ctx.Break(fmt.Errorf("%w: failed to read graphics byte (%w)", ContextError, err))
 							}
 							write(b, false)
+
+							mar.requiredDMACycles += dmaDirectGfx
 						}
 					}
 
@@ -648,6 +639,8 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					// in practice the interrupt will be triggered but the CPU will be stalled unti
 					// dma has finished, so triggering it now amounts to the same thing
 					dli = mar.DLL.dli
+
+					mar.requiredDMACycles += dmaInterruptOverhead
 				}
 			case 0x03:
 				// dma is off. showing only background colour
