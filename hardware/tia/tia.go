@@ -1,6 +1,7 @@
 package tia
 
 import (
+	"io"
 	"sync"
 
 	"github.com/jetsetilly/test7800/hardware/tia/audio"
@@ -31,15 +32,16 @@ func (b *audioBuffer) Read(buf []uint8) (int, error) {
 	// because of the sample format (2 channel, 16bit little-endian)
 	//
 	// https://github.com/ebitengine/oto/issues/261
+	//
+	// the new tick method which ensures a minimum number of bytes solves this issue
 	return n, nil
 }
 
 type TIA struct {
-	mem  Memory
-	aud  *audio.Audio
-	buf  *audioBuffer
-	inpt [6]uint8
-
+	mem      Memory
+	inpt     [6]uint8
+	aud      *audio.Audio
+	buf      *audioBuffer
 	halfStep bool
 }
 
@@ -63,13 +65,16 @@ func Create(ctx Context, ui *ui.UI, mem Memory) *TIA {
 			0x80, 0x80,
 		},
 	}
-	if ui.Audio != nil {
+	if ui.AudioSetup != nil {
 		tia.buf = &audioBuffer{
 			data: make([]uint8, 0, 4096),
 		}
-		ui.Audio <- tia.buf
 	}
 	return tia
+}
+
+func (tia *TIA) AudioBuffer() io.Reader {
+	return tia.buf
 }
 
 func (tia *TIA) Label() string {
@@ -158,22 +163,41 @@ func (tia *TIA) Write(idx uint16, data uint8) error {
 	case 0x0d:
 		// not writeable from CPU
 	case 0x15:
+		tia.buf.crit.Lock()
+		defer tia.buf.crit.Unlock()
 		tia.aud.Channel0.Registers.Control = data & 0x0f
 	case 0x16:
+		tia.buf.crit.Lock()
+		defer tia.buf.crit.Unlock()
 		tia.aud.Channel1.Registers.Control = data & 0x0f
 	case 0x17:
+		tia.buf.crit.Lock()
+		defer tia.buf.crit.Unlock()
 		tia.aud.Channel0.Registers.Freq = data & 0x1f
 	case 0x18:
+		tia.buf.crit.Lock()
+		defer tia.buf.crit.Unlock()
 		tia.aud.Channel1.Registers.Freq = data & 0x1f
 	case 0x19:
+		tia.buf.crit.Lock()
+		defer tia.buf.crit.Unlock()
 		tia.aud.Channel0.Registers.Volume = data & 0x0f
 	case 0x1a:
+		tia.buf.crit.Lock()
+		defer tia.buf.crit.Unlock()
 		tia.aud.Channel1.Registers.Volume = data & 0x0f
 	}
 	return nil
 }
 
 func (tia *TIA) Tick() {
+	if tia.buf == nil {
+		return
+	}
+
+	tia.buf.crit.Lock()
+	defer tia.buf.crit.Unlock()
+
 	tia.halfStep = !tia.halfStep
 	if tia.halfStep {
 		return
@@ -181,13 +205,7 @@ func (tia *TIA) Tick() {
 
 	if tia.aud.Step() {
 		m := mix.Mono(tia.aud.Vol0, tia.aud.Vol1)
-
-		if tia.buf != nil {
-			tia.buf.crit.Lock()
-			defer tia.buf.crit.Unlock()
-
-			tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
-			tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
-		}
+		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
+		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
 	}
 }

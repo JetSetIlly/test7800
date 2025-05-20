@@ -27,13 +27,18 @@ const (
 	StateRunning
 )
 
+type AudioSetup struct {
+	Freq float64
+	Read io.Reader
+}
+
 type UI struct {
 	SetImage  chan Image
 	UserInput chan Input
 	State     chan State
 
-	// Audio should be nil if the emulation is to have no audio
-	Audio chan io.Reader
+	// AudioSetup should be nil if the emulation is to have no audio
+	AudioSetup chan AudioSetup
 
 	// optional function called by GUI during it's update loop
 	UpdateGUI func() error
@@ -52,8 +57,8 @@ func NewUI() *UI {
 // WithAudio creates the RegisterAudio channel if it's not already created.
 // Should not be called if the UI is to have no audio.
 func (ui *UI) WithAudio() *UI {
-	if ui.Audio == nil {
-		ui.Audio = make(chan io.Reader, 1)
+	if ui.AudioSetup == nil {
+		ui.AudioSetup = make(chan AudioSetup, 1)
 	}
 	return ui
 }

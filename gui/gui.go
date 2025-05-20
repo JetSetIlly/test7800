@@ -3,16 +3,27 @@ package gui
 import (
 	"fmt"
 	"image/color"
+	"io"
 	"math"
 
+	"github.com/ebitengine/oto/v3"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/jetsetilly/test7800/ui"
-
-	"github.com/hajimehoshi/ebiten/v2/audio"
-
-	tia "github.com/jetsetilly/test7800/hardware/tia/audio"
 )
+
+type audioPlayer struct {
+	p *oto.Player
+	r io.Reader
+}
+
+func (a *audioPlayer) Read(buf []uint8) (int, error) {
+	n, err := a.r.Read(buf)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
 
 type gui struct {
 	started bool
@@ -34,6 +45,9 @@ type gui struct {
 	// a simple counter used to implement a fade-in/fade-out effect for the
 	// debugging cursor
 	cursorFrame int
+
+	// the audio player can be stopped and recreated as required
+	audio audioPlayer
 }
 
 func (g *gui) input() {
@@ -122,6 +136,38 @@ func (g *gui) Update() error {
 	select {
 	case g.state = <-g.ui.State:
 	default:
+	}
+
+	// create audio if necessary
+	if g.ui.AudioSetup != nil {
+		select {
+		case s := <-g.ui.AudioSetup:
+			if g.ui.AudioSetup != nil {
+				if g.audio.p != nil {
+					err := g.audio.p.Close()
+					if err != nil {
+						return fmt.Errorf("ebiten: %w", err)
+					}
+				}
+
+				ctx, ready, err := oto.NewContext(&oto.NewContextOptions{
+					SampleRate:   int(s.Freq),
+					ChannelCount: 2,
+					Format:       oto.FormatSignedInt16LE,
+				})
+				if err != nil {
+					return fmt.Errorf("ebiten: %w", err)
+				}
+
+				<-ready
+
+				g.audio.r = s.Read
+				g.audio.p = ctx.NewPlayer(&g.audio)
+				g.audio.p.Play()
+			}
+
+		default:
+		}
 	}
 
 	// run option update function
@@ -214,15 +260,6 @@ func Launch(endGui chan bool, ui *ui.UI) error {
 	g := &gui{
 		endGui: endGui,
 		ui:     ui,
-	}
-
-	if ui.Audio != nil {
-		audioctx := audio.NewContext(tia.AverageSampleFreq)
-		p, err := audioctx.NewPlayer(<-ui.Audio)
-		if err != nil {
-			return err
-		}
-		p.Play()
 	}
 
 	return ebiten.RunGame(g)

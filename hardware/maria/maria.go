@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"strings"
 	"time"
 
+	"github.com/jetsetilly/test7800/hardware/tia/audio"
 	"github.com/jetsetilly/test7800/ui"
 )
 
@@ -103,10 +105,14 @@ type CPU interface {
 	InInterrupt() bool
 }
 
-func Create(ctx Context, ui *ui.UI, mem Memory, cpu CPU) *Maria {
+type TIAAudio interface {
+	AudioBuffer() io.Reader
+}
+
+func Create(ctx Context, u *ui.UI, mem Memory, cpu CPU, tia TIAAudio) *Maria {
 	mar := &Maria{
 		ctx: ctx,
-		ui:  ui,
+		ui:  u,
 		mem: mem,
 		cpu: cpu,
 	}
@@ -122,11 +128,18 @@ func Create(ctx Context, ui *ui.UI, mem Memory, cpu CPU) *Maria {
 
 	// calculate refresh rate and start frame limiter
 	hz := mar.spec.horizScan / float64(mar.spec.absoluteBottom)
-
-	// increase in refresh rate so that it better syncs with the audio. this is
-	// definitely not ideal but it's okay for now
-	// TODO: better interaction between frame limiter and audio
 	mar.limiter = time.NewTicker(time.Second / time.Duration(hz))
+
+	// notify UI of audio requirements
+	if u.AudioSetup != nil {
+		select {
+		case u.AudioSetup <- ui.AudioSetup{
+			Freq: mar.spec.horizScan * audio.SamplesPerScanline,
+			Read: tia.AudioBuffer(),
+		}:
+		default:
+		}
+	}
 
 	mar.lineram.initialise()
 	mar.newFrame()
