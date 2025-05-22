@@ -1,7 +1,6 @@
 package tia
 
 import (
-	"io"
 	"sync"
 
 	"github.com/jetsetilly/test7800/hardware/tia/audio"
@@ -9,9 +8,25 @@ import (
 	"github.com/jetsetilly/test7800/ui"
 )
 
+type tiaTick interface {
+	tick() bool
+}
+
 type audioBuffer struct {
+	tia  tiaTick
 	crit sync.Mutex
 	data []uint8
+}
+
+func (b *audioBuffer) Prefetch(n int) {
+	b.crit.Lock()
+	defer b.crit.Unlock()
+
+	for n > 0 {
+		if b.tia.tick() {
+			n--
+		}
+	}
 }
 
 func (b *audioBuffer) Read(buf []uint8) (int, error) {
@@ -67,13 +82,14 @@ func Create(ctx Context, ui *ui.UI, mem Memory) *TIA {
 	}
 	if ui.AudioSetup != nil {
 		tia.buf = &audioBuffer{
+			tia:  tia,
 			data: make([]uint8, 0, 4096),
 		}
 	}
 	return tia
 }
 
-func (tia *TIA) AudioBuffer() io.Reader {
+func (tia *TIA) AudioBuffer() ui.AudioReader {
 	return tia.buf
 }
 
@@ -195,17 +211,24 @@ func (tia *TIA) Tick() {
 		return
 	}
 
-	tia.buf.crit.Lock()
-	defer tia.buf.crit.Unlock()
-
 	tia.halfStep = !tia.halfStep
 	if tia.halfStep {
 		return
 	}
 
-	if tia.aud.Step() {
-		m := mix.Mono(tia.aud.Vol0, tia.aud.Vol1)
-		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
-		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
+	tia.buf.crit.Lock()
+	defer tia.buf.crit.Unlock()
+
+	tia.tick()
+}
+
+func (tia *TIA) tick() bool {
+	if !tia.aud.Step() {
+		return false
 	}
+
+	m := mix.Mono(tia.aud.Vol0, tia.aud.Vol1)
+	tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
+	tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
+	return true
 }

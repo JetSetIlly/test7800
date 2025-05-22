@@ -27,9 +27,14 @@ const (
 	StateRunning
 )
 
+type AudioReader interface {
+	io.Reader
+	Prefetch(n int)
+}
+
 type AudioSetup struct {
 	Freq float64
-	Read io.Reader
+	Read AudioReader
 }
 
 type UI struct {

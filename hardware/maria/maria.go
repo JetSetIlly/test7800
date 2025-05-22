@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"io"
 	"strings"
 	"time"
 
@@ -106,7 +105,7 @@ type CPU interface {
 }
 
 type TIAAudio interface {
-	AudioBuffer() io.Reader
+	AudioBuffer() ui.AudioReader
 }
 
 func Create(ctx Context, u *ui.UI, mem Memory, cpu CPU, tia TIAAudio) *Maria {

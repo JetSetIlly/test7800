@@ -3,8 +3,8 @@ package gui
 import (
 	"fmt"
 	"image/color"
-	"io"
 	"math"
+	"sync"
 
 	"github.com/ebitengine/oto/v3"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -14,10 +14,35 @@ import (
 
 type audioPlayer struct {
 	p *oto.Player
-	r io.Reader
+	r ui.AudioReader
+
+	// the state field is accessed by the Read() function via the audio
+	// engine, and by the GUI which is in another goroutine. access to the state
+	// field therefore, is proctected by a mutex
+	crit  sync.Mutex
+	state ui.State
+}
+
+func (a *audioPlayer) setState(state ui.State) {
+	a.crit.Lock()
+	defer a.crit.Unlock()
+	a.state = state
 }
 
 func (a *audioPlayer) Read(buf []uint8) (int, error) {
+	a.crit.Lock()
+	defer a.crit.Unlock()
+	if a.state != ui.StateRunning {
+		return 0, nil
+	}
+
+	const prefetch = 2048
+
+	sz := a.p.BufferedSize()
+	if sz < prefetch {
+		a.r.Prefetch(prefetch - sz)
+	}
+
 	n, err := a.r.Read(buf)
 	if err != nil {
 		return 0, err
@@ -136,6 +161,7 @@ func (g *gui) Update() error {
 	// change state if necessary
 	select {
 	case g.state = <-g.ui.State:
+		g.audio.setState(g.state)
 	default:
 	}
 
