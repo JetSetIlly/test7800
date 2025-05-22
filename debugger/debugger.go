@@ -304,7 +304,7 @@ func (m *debugger) last() {
 // coproc instructions to output on error
 const maxRecentLen = 100
 
-// returns true if quit signal has been received
+// returns false if quit signal has been received from the GUI
 func (m *debugger) run() bool {
 	fmt.Println(m.styles.debugger.Render("emulation running"))
 
@@ -380,7 +380,7 @@ func (m *debugger) run() bool {
 	m.state <- ui.StatePaused
 
 	if errors.Is(err, quitErr) {
-		return true
+		return false
 	}
 
 	m.console.MARIA.PushRender()
@@ -452,7 +452,7 @@ func (m *debugger) run() bool {
 	// consume last memory access information
 	_ = m.console.LastAreaStatus()
 
-	return false
+	return true
 }
 
 func (m *debugger) loop() {
@@ -494,7 +494,7 @@ func (m *debugger) loop() {
 				break // switch
 			}
 		case "R", "RUN":
-			if m.run() {
+			if !m.run() {
 				return
 			}
 		case "ST", "STEP":
@@ -958,12 +958,14 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	var profile bool
 	var bios bool
 	var overlay bool
+	var run bool
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
 	flgs.StringVar(&spec, "spec", "NTSC", "TV specification of the console: NTSC or PAL")
 	flgs.BoolVar(&profile, "profile", false, "create CPU profile for emulator")
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
+	flgs.BoolVar(&run, "run", false, "start ROM in running state")
 	err := flgs.Parse(args)
 	if err != nil {
 		return err
@@ -1037,6 +1039,13 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 		defer pprof.StopCPUProfile()
 	}
 
+	// start in run state if required. the debugger will start if run() is
+	// interrupt with a SIGINT
+	if run {
+		if !m.run() {
+			return nil
+		}
+	}
 	m.loop()
 
 	return nil
