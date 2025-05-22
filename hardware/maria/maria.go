@@ -460,6 +460,28 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", ContextError))
 				case 2:
 					// 320B/D
+					//
+					// this readmode is different because some of the palette bits are used to supplement the
+					// index value thereby forming a new index value. this means the values in the palette and
+					// index fields of the linram entry are a little misleading
+					//
+					// the MAME method of constructing the data when writing into lineram perhaps makes more
+					// sense, but it's only for modes 320B/D where this is an issue
+					p := e.palette & 0x04
+					d := e.idx & 0x02
+					d |= (e.palette & 0x02) >> 1
+					if d == 0 {
+						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
+					} else {
+						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.palette[p][d-1]])
+					}
+					d = (e.idx & 0x01) << 1
+					d |= e.palette & 0x01
+					if d == 0 {
+						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.bg])
+					} else {
+						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.palette[p][d-1]])
+					}
 				case 3:
 					// 320A/C
 					d := e.idx & 0x02

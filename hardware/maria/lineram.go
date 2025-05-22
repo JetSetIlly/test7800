@@ -43,6 +43,9 @@ type lineEntry struct {
 
 	// which entry in the specified palette to use. values 0 to 3
 	idx uint8
+
+	// * the data in the palette and idx fields are treated slightly differently
+	// in 320B/D modes
 }
 
 // the index value to use in the lineEntry struct to indicate that the colour of
