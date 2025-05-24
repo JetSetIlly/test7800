@@ -122,60 +122,12 @@ func (tia *TIA) Read(idx uint16) (uint8, error) {
 		return tia.inpt[4], nil
 	case 0x0d:
 		return tia.inpt[5], nil
-	case 0x15:
-		// not readable from CPU
-		return 0, nil
-	case 0x16:
-		// not readable from CPU
-		return 0, nil
-	case 0x17:
-		// not readable from CPU
-		return 0, nil
-	case 0x18:
-		// not readable from CPU
-		return 0, nil
-	case 0x19:
-		// not readable from CPU
-		return 0, nil
-	case 0x1a:
-		// not readable from CPU
-		return 0, nil
 	}
 	return 0, nil
 }
 
-func (tia *TIA) Poke(idx uint16, data uint8) error {
-	switch idx {
-	case 0x08:
-		tia.inpt[0] = data
-	case 0x09:
-		tia.inpt[1] = data
-	case 0x0a:
-		tia.inpt[2] = data
-	case 0x0b:
-		tia.inpt[3] = data
-	case 0x0c:
-		tia.inpt[4] = data
-	case 0x0d:
-		tia.inpt[5] = data
-	}
-	return tia.Write(idx, data)
-}
-
 func (tia *TIA) Write(idx uint16, data uint8) error {
 	switch idx {
-	case 0x08:
-		// not writeable from CPU
-	case 0x09:
-		// not writeable from CPU
-	case 0x0a:
-		// not writeable from CPU
-	case 0x0b:
-		// not writeable from CPU
-	case 0x0c:
-		// not writeable from CPU
-	case 0x0d:
-		// not writeable from CPU
 	case 0x15:
 		tia.buf.crit.Lock()
 		defer tia.buf.crit.Unlock()
@@ -200,6 +152,24 @@ func (tia *TIA) Write(idx uint16, data uint8) error {
 		tia.buf.crit.Lock()
 		defer tia.buf.crit.Unlock()
 		tia.aud.Channel1.Registers.Volume = data & 0x0f
+	}
+	return nil
+}
+
+func (tia *TIA) PortWrite(idx uint16, data uint8, mask uint8) error {
+	switch idx {
+	case 0x08:
+		tia.inpt[0] = (data & mask) | (data & ^mask)
+	case 0x09:
+		tia.inpt[1] = (data & mask) | (data & ^mask)
+	case 0x0a:
+		tia.inpt[2] = (data & mask) | (data & ^mask)
+	case 0x0b:
+		tia.inpt[3] = (data & mask) | (data & ^mask)
+	case 0x0c:
+		tia.inpt[4] = (data & mask) | (data & ^mask)
+	case 0x0d:
+		tia.inpt[5] = (data & mask) | (data & ^mask)
 	}
 	return nil
 }

@@ -3,8 +3,8 @@ package ui
 type Action int
 
 type Input struct {
-	Action  Action
-	Release bool
+	Action Action
+	Set    bool
 }
 
 const (

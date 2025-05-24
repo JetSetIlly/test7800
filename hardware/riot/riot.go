@@ -5,13 +5,16 @@ import (
 	"slices"
 )
 
-// TODO: SWACNT and SWBCNT
-
 type RIOT struct {
 	mem Memory
 
-	swcha uint8
-	swchb uint8
+	swcha     uint8
+	swcha_mux uint8
+	swacnt    uint8
+
+	swchb     uint8
+	swchb_mux uint8
+	swbcnt    uint8
 
 	// selected timer
 	divider int
@@ -56,8 +59,16 @@ func Create(mem Memory) *RIOT {
 }
 
 func (riot *RIOT) Reset() {
-	riot.swcha = 0xff
-	riot.swchb = 0xff
+	// swcha initialised as though stick is being used
+	riot.swcha = 0x00
+	riot.swcha_mux = 0xff
+	riot.swacnt = 0x00
+
+	// amateur pro switch selected by default (pro would be 0xff)
+	riot.swchb = 0x00
+	riot.swchb_mux = 0x3f
+	riot.swbcnt = 0x00
+
 	riot.timint = timintPA7
 	riot.lastReadIdx = 0
 	riot.setTimer(1024, 0)
@@ -81,15 +92,17 @@ func (riot *RIOT) Access(write bool, idx uint16, data uint8) (uint8, error) {
 func (riot *RIOT) Read(idx uint16) (uint8, error) {
 	switch idx {
 	case 0x00:
-		return riot.swcha, nil
+		// the value of SWCHA read by the CPU is not necessarily the same as
+		// either the last written value or the value representing the state of
+		// an attached peripheral. it is derived from a combination of both
+		return riot.deriveSWCHA(), nil
 	case 0x01:
-		// SWACNT
-		return 0, nil
+		return riot.swacnt, nil
 	case 0x02:
-		return riot.swchb, nil
+		// as for SWCHA
+		return riot.deriveSWCHB(), nil
 	case 0x03:
-		// SWBCNT
-		return 0, nil
+		return riot.swbcnt, nil
 	case 0x04:
 		riot.lastReadIdx = 0x04
 		return riot.intim, nil
@@ -100,20 +113,16 @@ func (riot *RIOT) Read(idx uint16) (uint8, error) {
 	return 0, nil
 }
 
-func (riot *RIOT) Poke(idx uint16, data uint8) error {
-	return riot.Write(idx, data)
-}
-
 func (riot *RIOT) Write(idx uint16, data uint8) error {
 	switch idx {
 	case 0x00:
 		riot.swcha = data
 	case 0x01:
-		// SWACNT
+		riot.swacnt = data
 	case 0x02:
 		riot.swchb = data
 	case 0x03:
-		// SWBCNT
+		riot.swbcnt = data
 	case 0x04, 0x14:
 		riot.setTimer(1, data)
 	case 0x05, 0x15:
@@ -154,6 +163,16 @@ func (riot *RIOT) setTimer(divider int, data uint8) {
 
 	// write value to INTIM straight-away
 	riot.intim = data
+}
+
+func (riot *RIOT) PortWrite(idx uint16, data uint8, mask uint8) error {
+	switch idx {
+	case 0x00:
+		riot.swcha_mux = (riot.swcha_mux & mask) | (data & ^mask)
+	case 0x02:
+		riot.swchb_mux = (riot.swchb_mux & mask) | (data & ^mask)
+	}
+	return nil
 }
 
 func (riot *RIOT) Tick() {
@@ -206,4 +225,54 @@ func (riot *RIOT) Tick() {
 			riot.ticksRemaining = int(riot.divider)
 		}
 	}
+}
+
+// the derived value of SWCHA. the value it should be if the RIOT logic has
+// proceeded normally (ie. no poking)
+//
+//	SWCHA_W   SWACNT   <input>      SWCHA
+//	   0        0         1           1            ^SWCHA_W & ^SWACNT & <input>
+//	   0        0         0           0
+//	   0        1         1           0
+//	   0        1         0           0
+//	   1        0         1           1            SWCHA_W & ^SWACNT & <input>
+//	   1        0         0           0
+//	   1        1         1           1            SWCHA_W & SWACNT & <input>
+//	   1        1         0           0
+//
+//	a := p.swcha_w
+//	b := swacnt
+//	c := p.swcha_mux
+//
+//	(^a & ^b & c) | (a & ^b & c) | (a & b & c)
+//	(a & c & (^b|b)) | (^a & ^b & c)
+//	(a & c) | (^a & ^b & c)
+func (riot *RIOT) deriveSWCHA() uint8 {
+	return (riot.swcha & riot.swcha_mux) | (^riot.swcha & ^riot.swacnt & riot.swcha_mux)
+}
+
+// the derived value of SWCHB. the value it should be if the RIOT logic has
+// proceeded normally (ie. no poking)
+//
+//	SWCHB_W   SWBCNT   <input>      SWCHB
+//	   0        0         1           1            ^SWCHB_W & ^SWBCNT & <input>
+//	   0        0         0           0
+//	   0        1         1           0
+//	   0        1         0           0
+//	   1        0         1           1            SWCHB_W & ^SWBCNT & <input>
+//	   1        0         0           0
+//	   1        1         1           1            SWCHB_W & SWBCNT & <input>
+//	   1        1         0           1            SWCHB_W & SWBCNT & ^<input>
+//
+//	(The last entry of the truth table is different to the truth table for SWCHA)
+//
+//	a := p.swchb_w
+//	b := swbcnt
+//	c := p.swchb_raw
+//
+//	(^a & ^b & c) | (a & ^b & c) | (a & b & c) | (a & b & ^c)
+//	(^a & ^b & c) | (a & ^b & c) | (a & b)
+//	(^b & c) | (a & b)
+func (riot *RIOT) deriveSWCHB() uint8 {
+	return (^riot.swbcnt & riot.swchb_mux) | (riot.swchb & riot.swbcnt)
 }

@@ -73,6 +73,11 @@ type gui struct {
 
 	// the audio player can be stopped and recreated as required
 	audio audioPlayer
+
+	// the hardware of the difficulty switches have an implicit state (because
+	// they are switches) that we can't effectively store any other way besides
+	// keeping track of the physical state.
+	proDifficulty [2]bool
 }
 
 func (g *gui) input() {
@@ -83,38 +88,7 @@ func (g *gui) input() {
 
 	var inp ui.Input
 
-	for _, r := range released {
-		switch r {
-		case ebiten.KeyArrowLeft:
-			inp = ui.Input{Action: ui.StickLeft, Release: true}
-		case ebiten.KeyArrowRight:
-			inp = ui.Input{Action: ui.StickRight, Release: true}
-		case ebiten.KeyArrowUp:
-			inp = ui.Input{Action: ui.StickUp, Release: true}
-		case ebiten.KeyArrowDown:
-			inp = ui.Input{Action: ui.StickDown, Release: true}
-		case ebiten.KeySpace:
-			inp = ui.Input{Action: ui.StickButtonA, Release: true}
-		case ebiten.KeyB:
-			inp = ui.Input{Action: ui.StickButtonB, Release: true}
-		case ebiten.KeyF1:
-			inp = ui.Input{Action: ui.Select, Release: true}
-		case ebiten.KeyF2:
-			inp = ui.Input{Action: ui.Reset, Release: true}
-		case ebiten.KeyF4:
-			inp = ui.Input{Action: ui.P0Pro, Release: true}
-		case ebiten.KeyF5:
-			inp = ui.Input{Action: ui.P1Pro, Release: true}
-		}
-
-		select {
-		case g.ui.UserInput <- inp:
-		default:
-			return
-		}
-	}
-
-	for _, p := range pressed {
+	for _, p := range released {
 		switch p {
 		case ebiten.KeyArrowLeft:
 			inp = ui.Input{Action: ui.StickLeft}
@@ -133,9 +107,40 @@ func (g *gui) input() {
 		case ebiten.KeyF2:
 			inp = ui.Input{Action: ui.Reset}
 		case ebiten.KeyF4:
-			inp = ui.Input{Action: ui.P0Pro}
+			inp = ui.Input{Action: ui.P0Pro, Set: g.proDifficulty[0]}
 		case ebiten.KeyF5:
-			inp = ui.Input{Action: ui.P1Pro}
+			inp = ui.Input{Action: ui.P1Pro, Set: g.proDifficulty[1]}
+		}
+
+		select {
+		case g.ui.UserInput <- inp:
+		default:
+			return
+		}
+	}
+
+	for _, r := range pressed {
+		switch r {
+		case ebiten.KeyArrowLeft:
+			inp = ui.Input{Action: ui.StickLeft, Set: true}
+		case ebiten.KeyArrowRight:
+			inp = ui.Input{Action: ui.StickRight, Set: true}
+		case ebiten.KeyArrowUp:
+			inp = ui.Input{Action: ui.StickUp, Set: true}
+		case ebiten.KeyArrowDown:
+			inp = ui.Input{Action: ui.StickDown, Set: true}
+		case ebiten.KeySpace:
+			inp = ui.Input{Action: ui.StickButtonA, Set: true}
+		case ebiten.KeyB:
+			inp = ui.Input{Action: ui.StickButtonB, Set: true}
+		case ebiten.KeyF1:
+			inp = ui.Input{Action: ui.Select, Set: true}
+		case ebiten.KeyF2:
+			inp = ui.Input{Action: ui.Reset, Set: true}
+		case ebiten.KeyF4:
+			g.proDifficulty[0] = !g.proDifficulty[0]
+		case ebiten.KeyF5:
+			g.proDifficulty[1] = !g.proDifficulty[1]
 		}
 
 		select {

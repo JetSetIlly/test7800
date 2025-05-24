@@ -78,82 +78,74 @@ func (con *Console) Step() error {
 		case inp := <-con.ui.UserInput:
 			switch inp.Action {
 			case ui.StickLeft:
-				r, _ := con.RIOT.Read(0x00)
-				if inp.Release {
-					con.RIOT.Poke(0x00, r|0x40)
+				if inp.Set {
+					con.RIOT.PortWrite(0x00, 0x00, 0xbf)
 				} else {
-					con.RIOT.Poke(0x00, r&0xbf)
+					con.RIOT.PortWrite(0x00, 0x40, 0xbf)
 				}
-				r, _ = con.RIOT.Read(0x00)
 			case ui.StickUp:
-				r, _ := con.RIOT.Read(0x00)
-				if inp.Release {
-					con.RIOT.Poke(0x00, r|0x10)
+				if inp.Set {
+					con.RIOT.PortWrite(0x00, 0x00, 0xef)
 				} else {
-					con.RIOT.Poke(0x00, r&0xef)
+					con.RIOT.PortWrite(0x00, 0x10, 0xef)
 				}
 			case ui.StickRight:
-				r, _ := con.RIOT.Read(0x00)
-				if inp.Release {
-					con.RIOT.Poke(0x00, r|0x80)
+				if inp.Set {
+					con.RIOT.PortWrite(0x00, 0x00, 0x7f)
 				} else {
-					con.RIOT.Poke(0x00, r&0x7f)
+					con.RIOT.PortWrite(0x00, 0x80, 0x7f)
 				}
 			case ui.StickDown:
-				r, _ := con.RIOT.Read(0x00)
-				if inp.Release {
-					con.RIOT.Poke(0x00, r|0x20)
+				if inp.Set {
+					con.RIOT.PortWrite(0x00, 0x00, 0xdf)
 				} else {
-					con.RIOT.Poke(0x00, r&0xdf)
+					con.RIOT.PortWrite(0x00, 0x20, 0xdf)
 				}
 			case ui.StickButtonA:
-				r, _ := con.TIA.Read(0x0c)
-				if inp.Release {
-					con.TIA.Poke(0x0c, r|0x80)
+				if inp.Set {
+					con.TIA.PortWrite(0x0c, 0x00, 0x7f)
 				} else {
-					con.TIA.Poke(0x0c, r&0x7f)
+					con.TIA.PortWrite(0x0c, 0x80, 0x7f)
 				}
 
 				// the dual-button stick write to INPT1 has an opposite logic to
 				// the write to INPT4/INPT5
-				r, _ = con.TIA.Read(0x09)
-				if inp.Release {
-					con.TIA.Poke(0x09, r&0x7f)
+				if inp.Set {
+					con.TIA.PortWrite(0x09, 0x80, 0x7f)
 				} else {
-					con.TIA.Poke(0x09, r|0x80)
+					con.TIA.PortWrite(0x09, 0x00, 0x7f)
 				}
 			case ui.StickButtonB:
 				// the dual-button stick write to INPT0 has an opposite logic to
 				// the write to INPT4/INPT5
-				r, _ := con.TIA.Read(0x08)
-				if inp.Release {
-					con.TIA.Poke(0x08, r&0x7f)
+				if inp.Set {
+					con.TIA.PortWrite(0x08, 0x80, 0x7f)
 				} else {
-					con.TIA.Poke(0x08, r|0x80)
+					con.TIA.PortWrite(0x08, 0x00, 0x7f)
 				}
 			case ui.Select:
-				r, _ := con.RIOT.Read(0x02)
-				if inp.Release {
-					con.RIOT.Poke(0x02, r|0x02)
+				if inp.Set {
+					con.RIOT.PortWrite(0x02, 0x00, 0xfd)
 				} else {
-					con.RIOT.Poke(0x02, r&0xfd)
+					con.RIOT.PortWrite(0x02, 0x02, 0xfd)
 				}
 			case ui.Reset:
-				r, _ := con.RIOT.Read(0x02)
-				if inp.Release {
-					con.RIOT.Poke(0x02, r|0x01)
+				if inp.Set {
+					con.RIOT.PortWrite(0x02, 0x00, 0xfe)
 				} else {
-					con.RIOT.Poke(0x02, r&0xfe)
+					con.RIOT.PortWrite(0x02, 0x01, 0xfe)
 				}
 			case ui.P0Pro:
-				r, _ := con.RIOT.Read(0x02)
-				if !inp.Release {
-					con.RIOT.Poke(0x02, r^0x80)
+				if inp.Set {
+					con.RIOT.PortWrite(0x02, 0x80, 0x7f)
+				} else {
+					con.RIOT.PortWrite(0x02, 0x00, 0x7f)
 				}
 			case ui.P1Pro:
-				r, _ := con.RIOT.Read(0x02)
-				if !inp.Release {
-					con.RIOT.Poke(0x02, r^0x40)
+				if inp.Set {
+					con.RIOT.PortWrite(0x02, 0x40, 0xbf)
+				} else {
+					con.RIOT.PortWrite(0x02, 0x00, 0xbf)
 				}
 			}
 		}
