@@ -158,10 +158,8 @@ func (tia *TIA) Poke(idx uint16, data uint8) error {
 		tia.inpt[4] = data
 	case 0x0d:
 		tia.inpt[5] = data
-	default:
-		return tia.Write(idx, data)
 	}
-	return nil
+	return tia.Write(idx, data)
 }
 
 func (tia *TIA) Write(idx uint16, data uint8) error {

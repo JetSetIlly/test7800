@@ -7,6 +7,7 @@ import (
 	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/hardware/memory/inptctrl"
 	"github.com/jetsetilly/test7800/hardware/memory/ram"
+	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
 )
 
@@ -24,8 +25,9 @@ type Memory struct {
 	// the last Area that was written to
 	LastWrite Area
 
-	// was last memory cycle an access of a TIA address
-	isTIA bool
+	// was last memory cycle an access of a TIA or RIOT address
+	isTIA  bool
+	isRIOT bool
 
 	// most recent state of the address and data buses
 	addressBus uint16
@@ -105,10 +107,11 @@ func Create(ctx Context) (*Memory, AddChips) {
 	}
 }
 
-func (mem *Memory) IsTIA() bool {
-	isTIA := mem.isTIA
+func (mem *Memory) IsSlow() bool {
+	isSlow := mem.isTIA || mem.isRIOT
 	mem.isTIA = false
-	return isTIA
+	mem.isRIOT = false
+	return isSlow
 }
 
 func (mem *Memory) Reset(random bool) {
@@ -337,6 +340,7 @@ func (mem *Memory) Read(address uint16) (uint8, error) {
 	}
 
 	_, mem.isTIA = area.(*tia.TIA)
+	_, mem.isRIOT = area.(*riot.RIOT)
 
 	data, err := area.Access(false, idx, mem.dataBus)
 	if err != nil {

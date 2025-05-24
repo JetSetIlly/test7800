@@ -11,16 +11,16 @@ const (
 )
 
 const (
-	MariaCycles_for_TIA = 6
-	MariaCycles         = 4
+	MariaCycles_for_SlowMemory = 6
+	MariaCycles                = 4
 )
 
 const (
-	NTSC_MARIA  = NTSC_for_TIA * MariaCycles_for_TIA // 7.16Mhz
-	PAL_MARIA   = PAL_for_TIA * MariaCycles_for_TIA
-	PAL60_MARIA = PAL60_for_TIA * MariaCycles_for_TIA
-	PAL_M_MARIA = PAL_M_for_TIA * MariaCycles_for_TIA
-	SECAM_MARIA = SECAM_for_TIA * MariaCycles_for_TIA
+	NTSC_MARIA  = NTSC_for_TIA * MariaCycles_for_SlowMemory // 7.16Mhz
+	PAL_MARIA   = PAL_for_TIA * MariaCycles_for_SlowMemory
+	PAL60_MARIA = PAL60_for_TIA * MariaCycles_for_SlowMemory
+	PAL_M_MARIA = PAL_M_for_TIA * MariaCycles_for_SlowMemory
+	SECAM_MARIA = SECAM_for_TIA * MariaCycles_for_SlowMemory
 )
 
 const (

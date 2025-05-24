@@ -174,8 +174,8 @@ func (con *Console) Step() error {
 	// if the TIA bus is active then the CPU runs at a slower clock
 	tick := func() error {
 		mariaCycles := clocks.MariaCycles
-		if con.Mem.IsTIA() {
-			mariaCycles = clocks.MariaCycles_for_TIA
+		if con.Mem.IsSlow() {
+			mariaCycles = clocks.MariaCycles_for_SlowMemory
 		}
 
 		for range mariaCycles {
@@ -184,6 +184,7 @@ func (con *Console) Step() error {
 			interruptNext = interruptNext || interrupt
 		}
 
+		con.RIOT.Tick()
 		con.TIA.Tick()
 
 		return nil
