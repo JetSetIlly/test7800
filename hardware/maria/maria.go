@@ -565,7 +565,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 							if mar.DL.writemode {
 								for i := range 2 {
 									c := (b >> (((1 - i) * 2) + 4)) & 0x03
-									p := (mar.DL.palette & 0x40) + ((b >> ((1 - i) * 2)) & 0x03)
+									p := (mar.DL.palette & 0x04) + ((b >> ((1 - i) * 2)) & 0x03)
 									x := int(mar.DL.horizontalPosition+(offset*2)+uint8(i)) * 2
 									if x < clksVisible {
 										if c > 0 || mar.ctrl.kangaroo {
