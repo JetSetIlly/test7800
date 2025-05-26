@@ -129,11 +129,17 @@ func (con *Console) Step() error {
 				} else {
 					con.RIOT.PortWrite(0x02, 0x02, 0xfd)
 				}
-			case ui.Reset:
+			case ui.Start:
 				if inp.Set {
 					con.RIOT.PortWrite(0x02, 0x00, 0xfe)
 				} else {
 					con.RIOT.PortWrite(0x02, 0x01, 0xfe)
+				}
+			case ui.Pause:
+				if inp.Set {
+					con.RIOT.PortWrite(0x02, 0x00, 0xf7)
+				} else {
+					con.RIOT.PortWrite(0x02, 0x08, 0xf7)
 				}
 			case ui.P0Pro:
 				if inp.Set {

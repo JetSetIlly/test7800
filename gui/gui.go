@@ -105,7 +105,9 @@ func (g *gui) input() {
 		case ebiten.KeyF1:
 			inp = ui.Input{Action: ui.Select}
 		case ebiten.KeyF2:
-			inp = ui.Input{Action: ui.Reset}
+			inp = ui.Input{Action: ui.Start}
+		case ebiten.KeyF3:
+			inp = ui.Input{Action: ui.Pause}
 		case ebiten.KeyF4:
 			inp = ui.Input{Action: ui.P0Pro, Set: g.proDifficulty[0]}
 		case ebiten.KeyF5:
@@ -136,7 +138,9 @@ func (g *gui) input() {
 		case ebiten.KeyF1:
 			inp = ui.Input{Action: ui.Select, Set: true}
 		case ebiten.KeyF2:
-			inp = ui.Input{Action: ui.Reset, Set: true}
+			inp = ui.Input{Action: ui.Start, Set: true}
+		case ebiten.KeyF3:
+			inp = ui.Input{Action: ui.Pause, Set: true}
 		case ebiten.KeyF4:
 			g.proDifficulty[0] = !g.proDifficulty[0]
 		case ebiten.KeyF5:

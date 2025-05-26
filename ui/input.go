@@ -16,7 +16,8 @@ const (
 	StickButtonA
 	StickButtonB
 	Select
-	Reset
+	Start
+	Pause
 	P0Pro
 	P1Pro
 )
