@@ -127,30 +127,22 @@ func (tia *TIA) Read(idx uint16) (uint8, error) {
 }
 
 func (tia *TIA) Write(idx uint16, data uint8) error {
+	if tia.buf != nil {
+		tia.buf.crit.Lock()
+		defer tia.buf.crit.Unlock()
+	}
 	switch idx {
 	case 0x15:
-		tia.buf.crit.Lock()
-		defer tia.buf.crit.Unlock()
 		tia.aud.Channel0.Registers.Control = data & 0x0f
 	case 0x16:
-		tia.buf.crit.Lock()
-		defer tia.buf.crit.Unlock()
 		tia.aud.Channel1.Registers.Control = data & 0x0f
 	case 0x17:
-		tia.buf.crit.Lock()
-		defer tia.buf.crit.Unlock()
 		tia.aud.Channel0.Registers.Freq = data & 0x1f
 	case 0x18:
-		tia.buf.crit.Lock()
-		defer tia.buf.crit.Unlock()
 		tia.aud.Channel1.Registers.Freq = data & 0x1f
 	case 0x19:
-		tia.buf.crit.Lock()
-		defer tia.buf.crit.Unlock()
 		tia.aud.Channel0.Registers.Volume = data & 0x0f
 	case 0x1a:
-		tia.buf.crit.Lock()
-		defer tia.buf.crit.Unlock()
 		tia.aud.Channel1.Registers.Volume = data & 0x0f
 	}
 	return nil
