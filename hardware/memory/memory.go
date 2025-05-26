@@ -9,6 +9,7 @@ import (
 	"github.com/jetsetilly/test7800/hardware/memory/ram"
 	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
+	"github.com/jetsetilly/test7800/logger"
 )
 
 type Memory struct {
@@ -305,11 +306,19 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 
 	if address >= 0x2800 && address <= 0x2fff {
 		// 0x2800 to 0x2fff is considered to be an unreliable mirror of RAM 7800
-		// https://forums.atariage.com/topic/370030-does-anyone-abuse-the-ram-mirrors/?tab=comments
-		if address >= 2800 && address <= 0x28ff {
+
+		// there's a very specific reason to believe the range 0x2800 to 0x28ff
+		// is a valid mirror
+		// https://forums.atariage.com/topic/370030-does-anyone-abuse-the-ram-mirrors/#findComment-5507270
+		if address >= 0x2800 && address <= 0x28ff {
 			return address - 0x1900, mem.RAM7800
 		}
+
 		return 0, nil
+	}
+
+	if address >= 0x3000 && address <= 0x7fff {
+		return address, mem.External
 	}
 
 	if address >= 0x8000 && address <= 0xffff {
@@ -336,7 +345,8 @@ func (mem *Memory) Read(address uint16) (uint8, error) {
 
 	idx, area := mem.MapAddress(address, true)
 	if area == nil {
-		return 0, fmt.Errorf("read unmapped address: %04x", address)
+		logger.Logf(logger.Allow, "memory read", "unmapped address: %02x", address)
+		return 0, nil
 	}
 
 	_, mem.isTIA = area.(*tia.TIA)
@@ -371,7 +381,8 @@ func (mem *Memory) Write(address uint16, data uint8) error {
 
 	idx, area := mem.MapAddress(address, false)
 	if area == nil {
-		return fmt.Errorf("write unmapped address: %04x", address)
+		logger.Logf(logger.Allow, "memory write", "unmapped address: %02x", address)
+		return nil
 	}
 
 	_, mem.isTIA = area.(*tia.TIA)

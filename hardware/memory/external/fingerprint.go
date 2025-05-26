@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jetsetilly/test7800/hardware/memory/external/elf"
+	"github.com/jetsetilly/test7800/logger"
 )
 
 type CartridgeReset struct {
@@ -43,21 +44,43 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 
 	// a78 header
 	// https://7800.8bitdev.org/index.php/A78_Header_Specification
-	if bytes.Compare(d[1:10], []byte("ATARI7800")) == 0 {
-		title := strings.TrimSpace(string(d[17:49]))
-		cartType := (uint16(d[53]) << 8) | uint16(d[54])
+	// https://forums.atariage.com/topic/333208-old-world-a78-format-10-31-primer/
+	if bytes.Compare(d[0x01:0x0a], []byte("ATARI7800")) == 0 {
+		logger.Logf(logger.Allow, "a78", "version %#02x", d[0x00])
+		logger.Logf(logger.Allow, "a78", "%s", strings.TrimSpace(string(d[0x11:0x31])))
 
-		_ = title
+		size := (uint32(d[0x31]) << 24) | (uint32(d[0x32]) << 16) | (uint32(d[0x33]) << 8) | uint32(d[0x34])
+		if len(d)-0x80 != int(size) {
+			logger.Logf(logger.Allow, "a78", "cropping payload data to %d", size)
+			d = d[:0x80+size]
+		}
+
+		cartType := (uint16(d[0x35]) << 8) | uint16(d[0x36])
+
+		if cartType&0x40 == 0x40 {
+			logger.Logf(logger.Allow, "a78", "POKEY required but not supported")
+		}
 
 		if cartType == 0x00 {
 			return CartridgeInsertor{
 				data: d,
 				creator: func(ctx Context, d []uint8) (cartridge, error) {
-					return NewStandard(ctx, d[128:])
+					return NewFlat(ctx, d[0x80:])
 				},
 			}, nil
 		} else {
-			return CartridgeInsertor{}, fmt.Errorf("unsupported a78 cartridge type (%#02x)", cartType)
+			if cartType&0x02 == 0x02 {
+				return CartridgeInsertor{
+					data: d,
+					creator: func(ctx Context, d []uint8) (cartridge, error) {
+						return NewSuper(ctx, d[0x80:],
+							cartType&0x08 == 0x08,
+							cartType&0x04 == 0x04)
+					},
+				}, nil
+			} else {
+				return CartridgeInsertor{}, fmt.Errorf("unsupported a78 cartridge type (%#02x)", cartType)
+			}
 		}
 	}
 
