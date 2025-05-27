@@ -1,77 +1,24 @@
 package tia
 
 import (
-	"sync"
-
 	"github.com/jetsetilly/test7800/hardware/tia/audio"
 	"github.com/jetsetilly/test7800/hardware/tia/audio/mix"
 	"github.com/jetsetilly/test7800/ui"
 )
 
-type tiaTick interface {
-	tick() bool
-}
-
-type audioBuffer struct {
-	tia  tiaTick
-	crit sync.Mutex
-	data []uint8
-}
-
-func (b *audioBuffer) Prefetch(n int) {
-	b.crit.Lock()
-	defer b.crit.Unlock()
-
-	for n > 0 {
-		if b.tia.tick() {
-			n--
-		}
-	}
-}
-
-func (b *audioBuffer) Read(buf []uint8) (int, error) {
-	b.crit.Lock()
-	defer b.crit.Unlock()
-
-	n := min(len(b.data), len(buf))
-	copy(buf, b.data[:n])
-	b.data = b.data[n:]
-
-	// return zero bytes is problematic for the WASM build of the emulator. we
-	// could get around this by returning a minimum of 4 bytes, however, this
-	// can cause the audio to drift out of sync with the video if too many of
-	// these are sent
-	//
-	// we could use just 1 byte but this means the sample data becomes
-	// unaligned. the number of bytes returned needs to be a multiple of two
-	// because of the sample format (2 channel, 16bit little-endian)
-	//
-	// https://github.com/ebitengine/oto/issues/261
-	//
-	// the new tick method which ensures a minimum number of bytes solves this issue
-	return n, nil
-}
-
 type TIA struct {
-	mem      Memory
 	inpt     [6]uint8
 	aud      *audio.Audio
 	buf      *audioBuffer
 	halfStep bool
 }
 
-type Memory interface {
-	Read(address uint16) (uint8, error)
-	Write(address uint16, data uint8) error
-}
-
 type Context interface {
 	IsAtari7800() bool
 }
 
-func Create(ctx Context, ui *ui.UI, mem Memory) *TIA {
+func Create(ctx Context, ui *ui.UI) *TIA {
 	tia := &TIA{
-		mem: mem,
 		aud: audio.NewAudio(),
 
 		// inpt initialised as though sticks are being used

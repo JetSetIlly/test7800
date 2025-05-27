@@ -30,6 +30,10 @@ func (c *Context) Spec() string {
 	return "NTSC"
 }
 
+func (c *Context) IsAtari7800() bool {
+	return true
+}
+
 func TestELF(t *testing.T) {
 	e, err := elf.NewElf(&Context{}, testfile)
 	test.ExpectSuccess(t, err)

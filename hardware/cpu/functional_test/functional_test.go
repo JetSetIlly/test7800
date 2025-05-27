@@ -74,7 +74,7 @@ func TestFunctional(t *testing.T) {
 	mem.internal[cpu.Reset+1] = byte(programOrigin >> 8)
 
 	// create CPU. reset will be done in run() function
-	mc := cpu.NewCPU(nil, mem)
+	mc := cpu.Create(nil, mem)
 
 	// cpu snapshot to be examined in case of test failure
 	type snapshot struct {

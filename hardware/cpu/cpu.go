@@ -121,9 +121,9 @@ type Memory interface {
 	Write(address uint16, data uint8) error
 }
 
-// NewCPU is the preferred method of initialisation for the CPU structure. Note
+// Create is the preferred method of initialisation for the CPU structure. Note
 // that the CPU will be initialised in a random state.
-func NewCPU(ctx Context, mem Memory) *CPU {
+func Create(ctx Context, mem Memory) *CPU {
 	return &CPU{
 		ctx:    ctx,
 		mem:    mem,

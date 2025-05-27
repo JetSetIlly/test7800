@@ -6,8 +6,6 @@ import (
 )
 
 type RIOT struct {
-	mem Memory
-
 	swcha     uint8
 	swcha_mux uint8
 	swacnt    uint8
@@ -45,15 +43,8 @@ const (
 	timintPA7     = uint8(0x40)
 )
 
-type Memory interface {
-	Read(address uint16) (uint8, error)
-	Write(address uint16, data uint8) error
-}
-
-func Create(mem Memory) *RIOT {
-	riot := &RIOT{
-		mem: mem,
-	}
+func Create() *RIOT {
+	riot := &RIOT{}
 	riot.Reset()
 	return riot
 }

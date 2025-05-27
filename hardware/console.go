@@ -43,9 +43,9 @@ func Create(ctx Context, ui *ui.UI) Console {
 	var addChips memory.AddChips
 	con.Mem, addChips = memory.Create(ctx)
 
-	con.MC = cpu.NewCPU(ctx, con.Mem)
-	con.TIA = tia.Create(ctx, ui, con.Mem)
-	con.RIOT = riot.Create(con.Mem)
+	con.MC = cpu.Create(ctx, con.Mem)
+	con.TIA = tia.Create(ctx, ui)
+	con.RIOT = riot.Create()
 	con.MARIA = maria.Create(ctx, ui, con.Mem, con.MC, con.TIA)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
