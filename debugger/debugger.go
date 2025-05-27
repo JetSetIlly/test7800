@@ -939,7 +939,26 @@ func (m *debugger) loop() {
 				))
 			}
 		case "LOG":
-			logger.Tail(os.Stdout, -1)
+			switch len(cmd) {
+			case 1:
+				logger.Tail(os.Stdout, -1)
+			case 2:
+				c := strings.ToUpper(cmd[1])
+				switch c {
+				case "ECHO":
+					logger.SetEcho(os.Stdout, false)
+				case "NOECHO":
+					logger.SetEcho(nil, false)
+				default:
+					fmt.Println(m.styles.err.Render(
+						fmt.Sprintf("unrecognised argument for LOG command: %s", c),
+					))
+				}
+			default:
+				fmt.Println(m.styles.err.Render(
+					"too many arguments to LOG command",
+				))
+			}
 		case "QUIT":
 			return
 		default:
