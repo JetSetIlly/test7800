@@ -36,6 +36,8 @@ const (
 	argSystemType_NTSC = iota
 	argSystemType_PAL
 	argSystemType_PAL60
+	argSystemType_NTSC_7800
+	argSystemType_PAL_7800
 )
 
 // supported values for argAddrFlags

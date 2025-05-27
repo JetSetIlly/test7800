@@ -38,6 +38,7 @@ type Context interface {
 	Rand8Bit() uint8
 	Break(e error)
 	Spec() string
+	IsAtari7800() bool
 }
 
 type Elf struct {
@@ -162,12 +163,20 @@ func (cart *Elf) reset() {
 	}
 
 	// set arguments for initial execution of ARM program
-	systemType := argSystemType_NTSC
+	systemType := argSystemType_NTSC_7800
 	switch cart.ctx.Spec() {
 	case "NTSC":
-		systemType = argSystemType_NTSC
+		if cart.ctx.IsAtari7800() {
+			systemType = argSystemType_NTSC_7800
+		} else {
+			systemType = argSystemType_NTSC
+		}
 	case "PAL":
-		systemType = argSystemType_PAL
+		if cart.ctx.IsAtari7800() {
+			systemType = argSystemType_PAL_7800
+		} else {
+			systemType = argSystemType_PAL
+		}
 	case "PAL60":
 		systemType = argSystemType_PAL60
 	}
