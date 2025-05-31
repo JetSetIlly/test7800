@@ -159,7 +159,9 @@ func (g *gui) Update() error {
 	// deal with quit condition
 	select {
 	case <-g.endGui:
-		g.audio.p.Close()
+		if g.audio.p != nil {
+			g.audio.p.Close()
+		}
 		return ebiten.Termination
 	default:
 	}
