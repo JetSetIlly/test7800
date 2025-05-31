@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/jetsetilly/test7800/hardware/memory/external/elf"
 	"github.com/jetsetilly/test7800/logger"
@@ -81,6 +82,21 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 			} else {
 				return CartridgeInsertor{}, fmt.Errorf("unsupported a78 cartridge type (%#02x)", cartType)
 			}
+		}
+	}
+
+	// check to see if data contains any non-ASCII bytes. if it does then we assume
+	// it is a flat cartridge dump. data continaing only ASCII suggests that it is a
+	// script or a boot file that can be further interpreted by the debugger, but we
+	// don't worry about that here
+	for _, c := range d {
+		if c > unicode.MaxASCII {
+			return CartridgeInsertor{
+				data: d,
+				creator: func(ctx Context, d []uint8) (cartridge, error) {
+					return NewFlat(ctx, d[:])
+				},
+			}, nil
 		}
 	}
 
