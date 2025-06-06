@@ -8,3 +8,5 @@ examples/roms/*
 !hardware/arm/bintest/**/*.bin
 !hardware/arm/bintest/**/*.lst
 go.work*
+roms
+roms/*
