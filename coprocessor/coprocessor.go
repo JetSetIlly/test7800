@@ -17,6 +17,7 @@ package coprocessor
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/jetsetilly/test7800/coprocessor/faults"
@@ -355,21 +356,21 @@ type CartCoProcDisassembler interface {
 	End(CartCoProcDisasmSummary)
 }
 
-// CartCoProcDisassemblerStdout is a minimial implementation of the CartCoProcDisassembler
-// interface. It outputs entries to stdout immediately upon request.
-type CartCoProcDisassemblerStdout struct {
+// CartCoProcDisassemblerStderr is a minimial implementation of the CartCoProcDisassembler
+// interface. It outputs entries to stderr immediately upon request.
+type CartCoProcDisassemblerStderr struct {
 }
 
 // Start implements the CartCoProcDisassembler interface.
-func (c *CartCoProcDisassemblerStdout) Start() {
+func (c *CartCoProcDisassemblerStderr) Start() {
 }
 
 // Instruction implements the CartCoProcDisassembler interface.
-func (c *CartCoProcDisassemblerStdout) Step(e CartCoProcDisasmEntry) {
-	fmt.Println(e)
+func (c *CartCoProcDisassemblerStderr) Step(e CartCoProcDisasmEntry) {
+	fmt.Fprintln(os.Stderr, e)
 }
 
 // End implements the CartCoProcDisassembler interface.
-func (c *CartCoProcDisassemblerStdout) End(s CartCoProcDisasmSummary) {
-	fmt.Println(s)
+func (c *CartCoProcDisassemblerStderr) End(s CartCoProcDisasmSummary) {
+	fmt.Fprintln(os.Stderr, s)
 }
