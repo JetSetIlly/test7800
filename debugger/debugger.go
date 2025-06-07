@@ -56,7 +56,6 @@ type debugger struct {
 	// rule for stepping. by default (the field is nil) the step will move
 	// forward one instruction
 	stepRule func() bool
-	postStep func()
 
 	// the file to load on console reset. can be a bootfile or cartridge
 	loader string
@@ -198,94 +197,6 @@ func (m *debugger) contextBreaks() error {
 	return err
 }
 
-// step advances the emulation on CPU instruction according to the current step
-// the step rule will be reset after the step has completed
-//
-// returns true if quit signal has been received
-func (m *debugger) step() bool {
-	// the number of instructions stepped over
-	var ct int
-
-	// loop until the step rule returns true
-	var done bool
-	for !done {
-		select {
-		case <-m.sig:
-			done = true
-			continue // for loop
-		case <-m.guiQuit:
-			return true
-		default:
-		}
-
-		err := m.console.Step()
-		if err != nil {
-			fmt.Println(m.styles.err.Render(
-				err.Error(),
-			))
-			return false
-		}
-
-		// record last instruction
-		if m.console.MC.LastResult.Final {
-			m.recent = append(m.recent, m.console.MC.LastResult)
-			if len(m.recent) > maxRecentLen {
-				m.recent = m.recent[1:]
-			}
-		}
-
-		if m.coprocDev != nil {
-			if len(m.coprocDev.faults.Log) > 0 {
-				fmt.Println(m.styles.coprocErr.Render(
-					m.coprocDev.faults.Log[len(m.coprocDev.faults.Log)-1].String(),
-				))
-			}
-		}
-
-		err = m.contextBreaks()
-		if err != nil {
-			fmt.Println(m.styles.breakpoint.Render(err.Error()))
-			return false
-		}
-
-		// apply step rule
-		if m.stepRule == nil {
-			done = true
-		} else {
-			done = m.stepRule()
-		}
-
-		ct++
-	}
-
-	m.console.MARIA.PushRender()
-
-	// report how many instructions were stepped if it is more than one
-	if ct > 1 {
-		fmt.Println(m.styles.debugger.Render(
-			fmt.Sprintf("%d instructions stepped", ct),
-		))
-	}
-
-	if m.postStep == nil {
-		// by default we print the general status of the emulation
-		m.last()
-		fmt.Println(m.styles.cpu.Render(
-			m.console.MC.String(),
-		))
-		if s := m.console.LastAreaStatus(); len(s) > 0 {
-			fmt.Println(m.styles.mem.Render(s))
-		}
-	} else {
-		m.postStep()
-	}
-
-	m.stepRule = nil
-	m.postStep = nil
-
-	return false
-}
-
 func (m *debugger) printInstruction(res *disassembly.Entry) {
 	if m.console.MC.InInterrupt() {
 		fmt.Print(m.styles.instruction.Render("!! "))
@@ -306,7 +217,9 @@ const maxRecentLen = 100
 
 // returns false if quit signal has been received from the GUI
 func (m *debugger) run() bool {
-	fmt.Println(m.styles.debugger.Render("emulation running"))
+	if m.stepRule == nil {
+		fmt.Println(m.styles.debugger.Render("emulation running"))
+	}
 
 	// we measure the number of instructions in the time period of the running emulation
 	var instructionCt int
@@ -321,6 +234,11 @@ func (m *debugger) run() bool {
 		endRunErr     = errors.New("end run")
 		quitErr       = errors.New("quit")
 	)
+
+	// always cancel stepping rule
+	defer func() {
+		m.stepRule = nil
+	}()
 
 	// hook is called after every CPU instruction
 	hook := func() error {
@@ -370,6 +288,16 @@ func (m *debugger) run() bool {
 			return fmt.Errorf("%w: %04x = %02x -> %02x", watchErr, w.ma.address, w.prev, w.data)
 		}
 
+		// apply step rule and end the run if instructed
+		if m.stepRule != nil && m.stepRule() {
+			return endRunErr
+		}
+
+		// swallow last area status before next iteration. doing this here means that
+		// the last area status will not printed when the run ends unless it was the
+		// affected by the most recent instruction
+		_ = m.console.LastAreaStatus()
+
 		return nil
 	}
 
@@ -384,16 +312,6 @@ func (m *debugger) run() bool {
 	}
 
 	m.console.MARIA.PushRender()
-
-	// output recent CPU instructons on end
-	if len(m.recent) > 0 {
-		fmt.Println(m.styles.debugger.Render("most recent CPU instructions"))
-		n := max(len(m.recent)-10, 0)
-		for _, e := range m.recent[n:] {
-			res := disassembly.FormatResult(e)
-			m.printInstruction(res)
-		}
-	}
 
 	// output most recent coproc disassembly if enabled. we call this in the
 	// event of a coprocErr
@@ -426,10 +344,38 @@ func (m *debugger) run() bool {
 		}
 	}
 
-	if errors.Is(err, endRunErr) {
+	if m.stepRule == nil {
+		// output recent CPU instructons on end of a non-step run
+		if len(m.recent) > 1 {
+			fmt.Println(m.styles.debugger.Render("most recent CPU instructions"))
+			n := max(len(m.recent)-10, 0)
+			for _, e := range m.recent[n:] {
+				res := disassembly.FormatResult(e)
+				m.printInstruction(res)
+			}
+		}
+		fmt.Println(m.styles.cpu.Render(
+			m.console.MC.String(),
+		))
+	} else {
+		m.last()
+		fmt.Println(m.styles.cpu.Render(
+			m.console.MC.String(),
+		))
+		if s := m.console.LastAreaStatus(); len(s) > 0 {
+			fmt.Println(m.styles.mem.Render(s))
+		}
+	}
+
+	// instruction count and time elapsed
+	if m.stepRule == nil || instructionCt > 1 {
 		fmt.Println(m.styles.debugger.Render(
 			fmt.Sprintf("%d instructions in %.02f seconds", instructionCt, time.Since(startTime).Seconds())),
 		)
+	}
+
+	if errors.Is(err, endRunErr) {
+		// nothing extra to do if error is only indicating that the run has ended
 	} else if errors.Is(err, coprocErr) {
 		outputCoprocDisasm()
 		s := strings.TrimPrefix(err.Error(), coprocErr.Error())
@@ -444,13 +390,6 @@ func (m *debugger) run() bool {
 	} else if err != nil {
 		fmt.Println(m.styles.err.Render(err.Error()))
 	}
-
-	// it's useful to see the state of the CPU and the MARIA coords at the end of the run
-	fmt.Println(m.styles.cpu.Render(m.console.MC.String()))
-	fmt.Println(m.styles.video.Render(m.console.MARIA.Coords.String()))
-
-	// consume last memory access information
-	_ = m.console.LastAreaStatus()
 
 	return true
 }
@@ -502,8 +441,13 @@ func (m *debugger) loop() {
 				if !m.parseStepRule(cmd[1:]) {
 					break // switch
 				}
+			} else {
+				// step one instruction by default
+				m.stepRule = func() bool {
+					return true
+				}
 			}
-			if m.step() {
+			if !m.run() {
 				return
 			}
 		case "RESET":
@@ -754,23 +698,6 @@ func (m *debugger) loop() {
 					))
 				}
 				break // switch
-			}
-
-			// the NEXT argument to BREAK is useful for setting a breakpoint on the instruction
-			// on a failed branch instruction, which is a common action when stepping through
-			// a program
-			//
-			// a STEP OVER command would be just as good but we don't have that at the moment
-			if arg == "NEXT" {
-				if len(cmd) != 2 {
-					fmt.Println(m.styles.err.Render(
-						fmt.Sprintf("BREAK NEXT requires no other arguments"),
-					))
-					break // switch
-				}
-				address := m.console.MC.LastResult.Address
-				address += uint16(m.console.MC.LastResult.ByteCount)
-				cmd[1] = fmt.Sprintf("%#04x", address)
 			}
 
 			for i := 1; i < len(cmd); i++ {

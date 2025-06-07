@@ -9,10 +9,27 @@ import (
 )
 
 func (m *debugger) parseStepRule(cmd []string) bool {
-	// rough support for step rule definition
-
 	rule := strings.ToUpper(cmd[0])
-	if rule == "FRAME" || rule == "FR" {
+
+	switch rule {
+	case "BRANCH", "FAIL":
+		if m.console.MC.LastResult.Defn == nil {
+			fmt.Println(m.styles.err.Render("no instructions executed since reset"))
+			return false
+		}
+
+		if !m.console.MC.LastResult.Defn.IsBranch() {
+			fmt.Println(m.styles.err.Render("last instruction was not a branch"))
+			return false
+		}
+
+		a := m.console.MC.LastResult.Address
+		a += uint16(m.console.MC.LastResult.ByteCount)
+		m.stepRule = func() bool {
+			return m.console.MC.LastResult.Address == a
+		}
+
+	case "FRAME", "FR":
 		var tgt int
 		if len(cmd) > 1 {
 			var err error
@@ -31,7 +48,8 @@ func (m *debugger) parseStepRule(cmd []string) bool {
 		m.stepRule = func() bool {
 			return m.console.MARIA.Coords.Frame == tgt
 		}
-	} else if rule == "SCANLINE" || rule == "SL" {
+
+	case "SCANLINE", "SL":
 		var tgt int
 		if len(cmd) > 1 {
 			var err error
@@ -50,24 +68,28 @@ func (m *debugger) parseStepRule(cmd []string) bool {
 		m.stepRule = func() bool {
 			return m.console.MARIA.Coords.Scanline == tgt
 		}
-	} else if rule == "INTERRUPT" || rule == "INTR" {
+
+	case "INTERRUPT", "INTR":
 		// steps to the next instruction which is inside an
 		// interrupt. if consecutive instructions are in an
 		// interrupt then this is effectively the same as step
 		m.stepRule = func() bool {
 			return m.console.MC.LastResult.FromInterrupt
 		}
-	} else if rule == "DLL" {
+
+	case "DLL":
 		id := m.console.MARIA.DLL.ID()
 		m.stepRule = func() bool {
-			return id != m.console.MARIA.DLL.ID()
+			if id != m.console.MARIA.DLL.ID() {
+				fmt.Println(m.styles.mem.Render(
+					m.console.MARIA.DLL.Status(),
+				))
+				return true
+			}
+			return false
 		}
-		m.postStep = func() {
-			fmt.Println(m.styles.mem.Render(
-				m.console.MARIA.DLL.Status(),
-			))
-		}
-	} else {
+
+	default:
 		// check if rule is in a CPU operator
 		var found bool
 		for _, d := range instructions.Definitions {
@@ -87,5 +109,6 @@ func (m *debugger) parseStepRule(cmd []string) bool {
 			return op == rule
 		}
 	}
+
 	return true
 }
