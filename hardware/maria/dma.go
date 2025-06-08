@@ -35,5 +35,5 @@ const (
 	dmaInterruptOverhead = 17
 
 	// the maximum number of cycles available in DMA before the HSYNC
-	dmaMaxCycles = clksScanline - preDMA
+	dmaMaxCycles = clksScanline
 )
