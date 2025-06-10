@@ -811,7 +811,13 @@ func (mem *elfMemory) runInitialisation(arm *arm.ARM) error {
 	// the elf.File structure is no good for our purposes
 	for _, s := range mem.symbols {
 		if s.Name == "main" || s.Name == "elf_main" {
-			idx := mem.sectionsByName[".text"]
+			idx, ok := mem.sectionsByName[".text.main"]
+			if !ok {
+				idx, ok = mem.sectionsByName[".text"]
+				if !ok {
+					return fmt.Errorf("ELF: could not find .text section")
+				}
+			}
 			mem.resetPC = mem.sections[idx].origin + uint32(s.Value)
 			mem.resetPC &= 0xfffffffe
 			break // for loop
