@@ -313,37 +313,6 @@ func (m *debugger) run() bool {
 
 	m.console.MARIA.PushRender()
 
-	// output most recent coproc disassembly if enabled. we call this in the
-	// event of a coprocErr
-	outputCoprocDisasm := func() {
-		if m.coprocDisasm.enabled {
-			n := max(0, len(m.coprocDisasm.last)-maxRecentLen)
-			for _, e := range m.coprocDisasm.last[n:] {
-				// print processor specific information as appropriate
-				if a, ok := e.(arm.DisasmEntry); ok {
-					bytecode := fmt.Sprintf("%04x", a.Opcode)
-					if a.Is32bit {
-						bytecode = fmt.Sprintf("%04x %s", a.OpcodeHi, bytecode)
-					} else {
-						bytecode = fmt.Sprintf("%s     ", bytecode)
-					}
-
-					var annotation string
-					if a.Annotation != nil {
-						annotation = fmt.Sprintf("\t\t(%s)", a.Annotation.String())
-					}
-					fmt.Println(m.styles.coprocAsm.Render(
-						fmt.Sprintf("%s %s %s%s", a.Address, bytecode, a.String(), annotation),
-					))
-				} else {
-					fmt.Println(m.styles.coprocAsm.Render(
-						fmt.Sprintf("%s %s", e.Key(), e.String()),
-					))
-				}
-			}
-		}
-	}
-
 	if m.stepRule == nil {
 		// output recent CPU instructons on end of a non-step run
 		if len(m.recent) > 1 {
@@ -367,6 +336,35 @@ func (m *debugger) run() bool {
 		}
 	}
 
+	// output most recent coproc disassembly if enabled. we call this in the
+	// event of a coprocErr
+	if m.coprocDisasm.enabled {
+		n := max(0, len(m.coprocDisasm.last)-10)
+		for _, e := range m.coprocDisasm.last[n:] {
+			// print processor specific information as appropriate
+			if a, ok := e.(arm.DisasmEntry); ok {
+				bytecode := fmt.Sprintf("%04x", a.Opcode)
+				if a.Is32bit {
+					bytecode = fmt.Sprintf("%04x %s", a.OpcodeHi, bytecode)
+				} else {
+					bytecode = fmt.Sprintf("%s     ", bytecode)
+				}
+
+				var annotation string
+				if a.Annotation != nil {
+					annotation = fmt.Sprintf("\t\t(%s)", a.Annotation.String())
+				}
+				fmt.Println(m.styles.coprocAsm.Render(
+					fmt.Sprintf("%s %s %s%s", a.Address, bytecode, a.String(), annotation),
+				))
+			} else {
+				fmt.Println(m.styles.coprocAsm.Render(
+					fmt.Sprintf("%s %s", e.Key(), e.String()),
+				))
+			}
+		}
+	}
+
 	// instruction count and time elapsed
 	if m.stepRule == nil || instructionCt > 1 {
 		fmt.Println(m.styles.debugger.Render(
@@ -377,7 +375,6 @@ func (m *debugger) run() bool {
 	if errors.Is(err, endRunErr) {
 		// nothing extra to do if error is only indicating that the run has ended
 	} else if errors.Is(err, coprocErr) {
-		outputCoprocDisasm()
 		s := strings.TrimPrefix(err.Error(), coprocErr.Error())
 		fmt.Println(m.styles.coprocErr.Render(s))
 	} else if errors.Is(err, breakpointErr) {
