@@ -247,13 +247,13 @@ func getStrongArmDefinition(mem *elfMemory, name string) (bool, uint32, error) {
 			function: randint,
 			support:  true,
 		})
-	case "memset":
+	case "memset", "_aeabi_memset":
 		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
 			name:     name,
 			function: memset,
 			support:  true,
 		})
-	case "memcpy":
+	case "memcpy", "__aeabi_memcpy":
 		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
 			name:     name,
 			function: memcpy,
