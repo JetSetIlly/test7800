@@ -12,8 +12,7 @@ import (
 )
 
 type CartridgeReset struct {
-	// if BypassBIOS is true then the normal BIOS initialisation procedure is
-	// bypassed. in this case the INPTCTRL field is important for setting the
+	// if BypassBIOS is true then the normal BIOS initialisation procedure is bypassed
 	BypassBIOS bool
 }
 
@@ -21,6 +20,10 @@ type CartridgeInsertor struct {
 	data    []uint8
 	creator func(Context, []uint8) (cartridge, error)
 	reset   CartridgeReset
+
+	// whether controller should have two-buttons. NOTE: placeholder
+	// until we add more sophisticated controller requirements (paddle, etc.)
+	TwoButtonStick bool
 }
 
 func (c CartridgeInsertor) ResetProcedure() CartridgeReset {
@@ -50,12 +53,30 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 		logger.Logf(logger.Allow, "a78", "version %#02x", d[0x00])
 		logger.Logf(logger.Allow, "a78", "%s", strings.TrimSpace(string(d[0x11:0x31])))
 
+		// cartridge size
 		size := (uint32(d[0x31]) << 24) | (uint32(d[0x32]) << 16) | (uint32(d[0x33]) << 8) | uint32(d[0x34])
 		if len(d)-0x80 != int(size) {
 			logger.Logf(logger.Allow, "a78", "cropping payload data to %d", size)
 			d = d[:0x80+size]
 		}
 
+		// controller type
+		var twoButtonStick bool
+		controllerP0 := d[0x37]
+		switch controllerP0 {
+		case 0x00:
+			// no controller, don't care
+		case 0x01:
+			twoButtonStick = true
+			logger.Logf(logger.Allow, "a78", "using two-button stick")
+		case 0x05:
+			twoButtonStick = false
+			logger.Logf(logger.Allow, "a78", "using one-button stick")
+		default:
+			return CartridgeInsertor{}, fmt.Errorf("a78: unsupported controller (%#02x)", controllerP0)
+		}
+
+		// cartridge type
 		cartType := (uint16(d[0x35]) << 8) | uint16(d[0x36])
 
 		if cartType&0x40 == 0x40 {
@@ -68,6 +89,7 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 				creator: func(ctx Context, d []uint8) (cartridge, error) {
 					return NewFlat(ctx, d[0x80:])
 				},
+				TwoButtonStick: twoButtonStick,
 			}, nil
 		} else {
 			if cartType&0x02 == 0x02 {
@@ -78,17 +100,17 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 							cartType&0x08 == 0x08,
 							cartType&0x04 == 0x04)
 					},
+					TwoButtonStick: twoButtonStick,
 				}, nil
 			} else {
-				return CartridgeInsertor{}, fmt.Errorf("unsupported a78 cartridge type (%#02x)", cartType)
+				return CartridgeInsertor{}, fmt.Errorf("unsupported a78 cartridge type (%#04x)", cartType)
 			}
 		}
 	}
 
 	// check to see if data contains any non-ASCII bytes. if it does then we assume
 	// it is a flat cartridge dump. data continaing only ASCII suggests that it is a
-	// script or a boot file that can be further interpreted by the debugger, but we
-	// don't worry about that here
+	// script or a boot file that can be further interpreted by the debugger
 	for _, c := range d {
 		if c > unicode.MaxASCII {
 			return CartridgeInsertor{
@@ -96,6 +118,9 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 				creator: func(ctx Context, d []uint8) (cartridge, error) {
 					return NewFlat(ctx, d[:])
 				},
+
+				// default to two button stick if we don't have a header
+				TwoButtonStick: true,
 			}, nil
 		}
 	}

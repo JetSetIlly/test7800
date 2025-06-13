@@ -3,6 +3,8 @@ package riot
 import (
 	"fmt"
 	"slices"
+
+	"github.com/jetsetilly/test7800/hardware/memory/external"
 )
 
 type RIOT struct {
@@ -71,6 +73,17 @@ func (riot *RIOT) Label() string {
 
 func (riot *RIOT) Status() string {
 	return riot.Label()
+}
+
+func (riot *RIOT) Insert(c external.CartridgeInsertor) error {
+	// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
+	if c.TwoButtonStick {
+		// player one pulls SWCHB bit 2 low and player two pulls SWCHB bit 0 low
+		riot.Write(0x02, 0x00)
+	} else {
+		riot.Write(0x02, 0x05)
+	}
+	return nil
 }
 
 func (riot *RIOT) Access(write bool, idx uint16, data uint8) (uint8, error) {

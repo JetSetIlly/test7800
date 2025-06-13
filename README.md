@@ -18,3 +18,5 @@ References to "7800 Software Guide" in comments are referring to [this wiki page
 [A78 Header Specification](https://7800.8bitdev.org/index.php/A78_Header_Specification)
 
 [Bank Switching Specifics](https://7800.8bitdev.org/index.php/ATARI_7800_BANKSWITCHING_GUIDE)
+
+[Two Button Controllers](https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159)

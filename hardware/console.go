@@ -1,11 +1,14 @@
 package hardware
 
 import (
+	"fmt"
+
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/clocks"
 	"github.com/jetsetilly/test7800/hardware/cpu"
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory"
+	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
 )
@@ -44,6 +47,7 @@ func Create(ctx Context, g *gui.GUI) Console {
 
 	con.MC = cpu.Create(con.Mem)
 	con.RIOT = riot.Create()
+	con.TIA = tia.Create(ctx, g, con.RIOT)
 	con.MARIA = maria.Create(ctx, g, con.Mem, con.MC, con.TIA)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
@@ -61,6 +65,14 @@ func (con *Console) Reset(random bool) error {
 	con.MARIA.Reset()
 
 	return nil
+}
+
+func (con *Console) Insert(c external.CartridgeInsertor) error {
+	err := con.RIOT.Insert(c)
+	if err != nil {
+		return err
+	}
+	return con.Mem.External.Insert(c)
 }
 
 func (con *Console) Step() error {
@@ -97,26 +109,46 @@ func (con *Console) Step() error {
 					con.RIOT.PortWrite(0x00, 0x20, 0xdf)
 				}
 			case gui.StickButtonA:
-				if inp.Set {
-					con.TIA.PortWrite(0x0c, 0x00, 0x7f)
-				} else {
-					con.TIA.PortWrite(0x0c, 0x80, 0x7f)
+				// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
+				b, err := con.RIOT.Read(0x02)
+				if err != nil {
+					return fmt.Errorf("stick button a: %w", err)
 				}
-
-				// the dual-button stick write to INPT1 has an opposite logic to
-				// the write to INPT4/INPT5
-				if inp.Set {
-					con.TIA.PortWrite(0x09, 0x80, 0x7f)
+				if b&0x04 == 0x04 {
+					if inp.Set {
+						con.TIA.PortWrite(0x0c, 0x00, 0x7f)
+					} else {
+						con.TIA.PortWrite(0x0c, 0x80, 0x7f)
+					}
 				} else {
-					con.TIA.PortWrite(0x09, 0x00, 0x7f)
+					// the two-button stick write to INPT0/INPT1 has an opposite logic to
+					// the write to INPT4/INPT5
+					if inp.Set {
+						con.TIA.PortWrite(0x09, 0x80, 0x7f)
+					} else {
+						con.TIA.PortWrite(0x09, 0x00, 0x7f)
+					}
 				}
 			case gui.StickButtonB:
-				// the dual-button stick write to INPT0 has an opposite logic to
-				// the write to INPT4/INPT5
-				if inp.Set {
-					con.TIA.PortWrite(0x08, 0x80, 0x7f)
+				// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
+				b, err := con.RIOT.Read(0x02)
+				if err != nil {
+					return fmt.Errorf("stick button b: %w", err)
+				}
+				if b&0x04 == 0x04 {
+					if inp.Set {
+						con.TIA.PortWrite(0x0c, 0x00, 0x7f)
+					} else {
+						con.TIA.PortWrite(0x0c, 0x80, 0x7f)
+					}
 				} else {
-					con.TIA.PortWrite(0x08, 0x00, 0x7f)
+					// the two-button stick write to INPT0/INPT1 has an opposite logic to
+					// the write to INPT4/INPT5
+					if inp.Set {
+						con.TIA.PortWrite(0x08, 0x80, 0x7f)
+					} else {
+						con.TIA.PortWrite(0x08, 0x00, 0x7f)
+					}
 				}
 			case gui.Select:
 				if inp.Set {

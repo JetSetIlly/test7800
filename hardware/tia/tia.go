@@ -11,13 +11,20 @@ type TIA struct {
 	aud      *audio.Audio
 	buf      *audioBuffer
 	halfStep bool
+
+	// interface to the riot
+	riot riot
 }
 
 type Context interface {
 	IsAtari7800() bool
 }
 
-func Create(ctx Context, g *gui.GUI) *TIA {
+type riot interface {
+	Read(idx uint16) (uint8, error)
+}
+
+func Create(_ Context, g *gui.GUI, riot riot) *TIA {
 	tia := &TIA{
 		aud: audio.NewAudio(),
 

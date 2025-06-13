@@ -114,7 +114,7 @@ func (m *debugger) reset() {
 				}
 
 			} else {
-				err = m.console.Mem.External.Insert(c)
+				err = m.console.Insert(c)
 				if err != nil {
 					fmt.Println(m.styles.err.Render(err.Error()))
 				} else {
