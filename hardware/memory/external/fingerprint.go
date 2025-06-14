@@ -74,7 +74,7 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 				return CartridgeInsertor{
 					data: d,
 					creator: func(ctx Context, d []uint8) (cartridge, error) {
-						return NewSuper(ctx, d[0x80:],
+						return NewSupergame(ctx, d[0x80:],
 							cartType&0x08 == 0x08,
 							cartType&0x04 == 0x04)
 					},
