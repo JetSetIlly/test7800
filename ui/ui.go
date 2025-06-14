@@ -23,8 +23,8 @@ type State int
 
 // the emulation state can be either paused or running
 const (
-	StatePaused State = iota
-	StateRunning
+	StateRunning State = iota
+	StatePaused
 )
 
 type AudioReader interface {
@@ -40,7 +40,9 @@ type AudioSetup struct {
 type UI struct {
 	SetImage  chan Image
 	UserInput chan Input
-	State     chan State
+
+	// implementations of UI should default to StateRunning
+	State chan State
 
 	// AudioSetup should be nil if the emulation is to have no audio
 	AudioSetup chan AudioSetup

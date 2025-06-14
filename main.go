@@ -25,15 +25,15 @@ func main() {
 	resultGui = make(chan error, 1)
 	resultDebugger = make(chan error, 1)
 
-	ui := ui.NewUI().WithAudio()
+	u := ui.NewUI().WithAudio()
 
 	go func() {
-		resultGui <- gui.Launch(endGui, ui)
+		resultGui <- gui.Launch(endGui, u)
 		endDebugger <- true
 	}()
 
 	go func() {
-		resultDebugger <- debugger.Launch(endDebugger, ui, os.Args[1:])
+		resultDebugger <- debugger.Launch(endDebugger, u, os.Args[1:])
 		endGui <- true
 	}()
 

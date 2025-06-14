@@ -299,7 +299,7 @@ func (g *gui) Layout(width, height int) (int, int) {
 	return width, height
 }
 
-func Launch(endGui chan bool, ui *ui.UI) error {
+func Launch(endGui chan bool, u *ui.UI) error {
 	ebiten.SetWindowTitle("test7800")
 	ebiten.SetVsyncEnabled(true)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
@@ -308,7 +308,11 @@ func Launch(endGui chan bool, ui *ui.UI) error {
 
 	g := &gui{
 		endGui: endGui,
-		ui:     ui,
+		ui:     u,
+		state:  ui.StateRunning,
+		audio: audioPlayer{
+			state: ui.StateRunning,
+		},
 	}
 
 	err := onWindowOpen()

@@ -2,9 +2,11 @@ package main
 
 import (
 	"math/rand/v2"
+	"os"
 
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware"
+	"github.com/jetsetilly/test7800/logger"
 	"github.com/jetsetilly/test7800/ui"
 )
 
@@ -45,16 +47,29 @@ func (ctx *Context) UseOverlay() bool {
 	return ctx.useOverlay
 }
 
+// there is a problem with ebiten audio in the context of wasm so we launch
+// without audio for now
+const useAudio = false
+
 func main() {
-	ui := ui.NewUI().WithAudio()
+	// logger messages will be viewable in javascript log for WASM build
+	logger.SetEcho(os.Stderr, false)
+
+	u := ui.NewUI()
+	if useAudio {
+		u = u.WithAudio()
+	}
+
 	ctx := Context{
 		console:    "7800",
 		spec:       "PAL",
 		useOverlay: false,
 	}
 	ctx.Reset()
-	con := hardware.Create(&ctx, ui)
-	ui.UpdateGUI = func() error {
+
+	con := hardware.Create(&ctx, u)
+
+	u.UpdateGUI = func() error {
 		fn := con.MARIA.Coords.Frame
 		for con.MARIA.Coords.Frame == fn {
 			err := con.Step()
@@ -64,5 +79,6 @@ func main() {
 		}
 		return nil
 	}
-	gui.Launch(nil, ui)
+
+	gui.Launch(nil, u)
 }
