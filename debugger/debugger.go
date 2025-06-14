@@ -902,6 +902,7 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	var bios bool
 	var overlay bool
 	var run bool
+	var log bool
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
 	flgs.StringVar(&spec, "spec", "NTSC", "TV specification of the console: NTSC or PAL")
@@ -909,6 +910,7 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
+	flgs.BoolVar(&log, "log", false, "echo log to stderr")
 	err := flgs.Parse(args)
 	if err != nil {
 		return err
@@ -919,6 +921,10 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 		bootfile = args[0]
 	} else if len(args) > 1 {
 		return fmt.Errorf("too many arguments to debugger")
+	}
+
+	if log {
+		logger.SetEcho(os.Stderr, false)
 	}
 
 	ctx := context{

@@ -9,6 +9,7 @@ import (
 	"github.com/ebitengine/oto/v3"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/jetsetilly/test7800/logger"
 	"github.com/jetsetilly/test7800/ui"
 )
 
@@ -64,6 +65,7 @@ type gui struct {
 	prevID  int
 	cursor  [2]int
 
+	// width/height of incoming image from emulation. not to be confused with window dimensions
 	width  int
 	height int
 
@@ -279,6 +281,15 @@ func (g *gui) Draw(screen *ebiten.Image) {
 			screen.Set(g.cursor[0]+1, g.cursor[1]+1, color.RGBA{R: v, G: v, B: v, A: 255})
 		}
 	}
+
+	// if window is being close
+	if ebiten.IsWindowBeingClosed() {
+		err := onCloseWindow()
+		if err != nil {
+			logger.Logf(logger.Allow, "gui", err.Error())
+			return
+		}
+	}
 }
 
 func (g *gui) Layout(width, height int) (int, int) {
@@ -298,6 +309,11 @@ func Launch(endGui chan bool, ui *ui.UI) error {
 	g := &gui{
 		endGui: endGui,
 		ui:     ui,
+	}
+
+	err := onWindowOpen()
+	if err != nil {
+		logger.Logf(logger.Allow, "gui", err.Error())
 	}
 
 	return ebiten.RunGame(g)
