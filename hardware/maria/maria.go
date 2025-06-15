@@ -93,6 +93,11 @@ type Maria struct {
 	// the most recent DLLs. reset on start of DMA of a new frame. used for
 	// debugging feedback
 	RecentDLL []dll
+
+	// the DLI signal is sent at the end of DMA but because we process the entirity
+	// of the scanline as soon as DMA starts we store the signal until DMA has actually
+	// finished
+	dli bool
 }
 
 type Memory interface {
@@ -393,10 +398,6 @@ func (mar *Maria) PushRender() {
 }
 
 func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
-	// a display list interrupt can be triggered for the first DLL or for any
-	// DLL thereafter. the conditions for the first DLL is slightly different
-	var dli bool
-
 	mar.Coords.Clk++
 	if mar.Coords.Clk >= clksScanline {
 		mar.Coords.Clk = 0
@@ -669,11 +670,9 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					//
 					// and from Appendix 3: "Another timing consideration is there is one MPU
 					// (7.16 MHz) cycle between DMA shutdown and generation of a DLI."
-					//
-					// in practice the interrupt will be triggered but the CPU will be stalled unti
-					// dma has finished, so triggering it now amounts to the same thing
-					dli = mar.DLL.dli
+					mar.dli = mar.DLL.dli
 
+					// the interrupt will be sent when dma has finished
 					mar.requiredDMACycles += dmaInterruptOverhead
 				}
 			case 0x03:
@@ -716,6 +715,13 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 				mar.currentFrame.overlay.Set(x, y, color.RGBA{G: 255, A: 255})
 			}
 		}
+	}
+
+	// dli signal is sent once DMA has finished
+	var dli bool
+	if !mar.dma {
+		dli = mar.dli
+		mar.dli = false
 	}
 
 	return mar.dma, !mar.wsync, dli

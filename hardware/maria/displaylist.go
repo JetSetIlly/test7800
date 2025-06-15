@@ -247,11 +247,6 @@ func (l *dll) inHole(a uint16) bool {
 	return false
 }
 
-func (mar *Maria) peepInterrupt() (bool, error) {
-	d, err := mar.mem.Read(mar.DLL.origin + 3)
-	return d&0x80 == 0x80, err
-}
-
 func (mar *Maria) nextDLL(reset bool) (bool, error) {
 	if reset {
 		mar.DLL.ct = 0
