@@ -1,18 +1,18 @@
 package hardware
 
 import (
+	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/clocks"
 	"github.com/jetsetilly/test7800/hardware/cpu"
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory"
 	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
-	"github.com/jetsetilly/test7800/ui"
 )
 
 type Console struct {
 	ctx Context
-	ui  *ui.UI
+	g   *gui.GUI
 
 	MC    *cpu.CPU
 	Mem   *memory.Memory
@@ -34,19 +34,19 @@ type Context interface {
 	Rand16Bit() uint16
 }
 
-func Create(ctx Context, ui *ui.UI) Console {
+func Create(ctx Context, g *gui.GUI) Console {
 	con := Console{
 		ctx: ctx,
-		ui:  ui,
+		g:   g,
 	}
 
 	var addChips memory.AddChips
 	con.Mem, addChips = memory.Create(ctx)
 
 	con.MC = cpu.Create(ctx, con.Mem)
-	con.TIA = tia.Create(ctx, ui)
+	con.TIA = tia.Create(ctx, g)
 	con.RIOT = riot.Create()
-	con.MARIA = maria.Create(ctx, ui, con.Mem, con.MC, con.TIA)
+	con.MARIA = maria.Create(ctx, g, con.Mem, con.MC, con.TIA)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
@@ -75,33 +75,33 @@ func (con *Console) Step() error {
 		select {
 		default:
 			drained = true
-		case inp := <-con.ui.UserInput:
+		case inp := <-con.g.UserInput:
 			switch inp.Action {
-			case ui.StickLeft:
+			case gui.StickLeft:
 				if inp.Set {
 					con.RIOT.PortWrite(0x00, 0x00, 0xbf)
 				} else {
 					con.RIOT.PortWrite(0x00, 0x40, 0xbf)
 				}
-			case ui.StickUp:
+			case gui.StickUp:
 				if inp.Set {
 					con.RIOT.PortWrite(0x00, 0x00, 0xef)
 				} else {
 					con.RIOT.PortWrite(0x00, 0x10, 0xef)
 				}
-			case ui.StickRight:
+			case gui.StickRight:
 				if inp.Set {
 					con.RIOT.PortWrite(0x00, 0x00, 0x7f)
 				} else {
 					con.RIOT.PortWrite(0x00, 0x80, 0x7f)
 				}
-			case ui.StickDown:
+			case gui.StickDown:
 				if inp.Set {
 					con.RIOT.PortWrite(0x00, 0x00, 0xdf)
 				} else {
 					con.RIOT.PortWrite(0x00, 0x20, 0xdf)
 				}
-			case ui.StickButtonA:
+			case gui.StickButtonA:
 				if inp.Set {
 					con.TIA.PortWrite(0x0c, 0x00, 0x7f)
 				} else {
@@ -115,7 +115,7 @@ func (con *Console) Step() error {
 				} else {
 					con.TIA.PortWrite(0x09, 0x00, 0x7f)
 				}
-			case ui.StickButtonB:
+			case gui.StickButtonB:
 				// the dual-button stick write to INPT0 has an opposite logic to
 				// the write to INPT4/INPT5
 				if inp.Set {
@@ -123,31 +123,31 @@ func (con *Console) Step() error {
 				} else {
 					con.TIA.PortWrite(0x08, 0x00, 0x7f)
 				}
-			case ui.Select:
+			case gui.Select:
 				if inp.Set {
 					con.RIOT.PortWrite(0x02, 0x00, 0xfd)
 				} else {
 					con.RIOT.PortWrite(0x02, 0x02, 0xfd)
 				}
-			case ui.Start:
+			case gui.Start:
 				if inp.Set {
 					con.RIOT.PortWrite(0x02, 0x00, 0xfe)
 				} else {
 					con.RIOT.PortWrite(0x02, 0x01, 0xfe)
 				}
-			case ui.Pause:
+			case gui.Pause:
 				if inp.Set {
 					con.RIOT.PortWrite(0x02, 0x00, 0xf7)
 				} else {
 					con.RIOT.PortWrite(0x02, 0x08, 0xf7)
 				}
-			case ui.P0Pro:
+			case gui.P0Pro:
 				if inp.Set {
 					con.RIOT.PortWrite(0x02, 0x80, 0x7f)
 				} else {
 					con.RIOT.PortWrite(0x02, 0x00, 0x7f)
 				}
-			case ui.P1Pro:
+			case gui.P1Pro:
 				if inp.Set {
 					con.RIOT.PortWrite(0x02, 0x40, 0xbf)
 				} else {
@@ -208,7 +208,7 @@ func (con *Console) Run(hook func() error) error {
 	var drained bool
 	for !drained {
 		select {
-		case <-con.ui.UserInput:
+		case <-con.g.UserInput:
 		default:
 			drained = true
 		}

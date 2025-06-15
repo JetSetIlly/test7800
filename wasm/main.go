@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/jetsetilly/test7800/gui"
+	"github.com/jetsetilly/test7800/gui/ebiten"
 	"github.com/jetsetilly/test7800/hardware"
 	"github.com/jetsetilly/test7800/logger"
-	"github.com/jetsetilly/test7800/ui"
 )
 
 type Context struct {
@@ -55,9 +55,9 @@ func main() {
 	// logger messages will be viewable in javascript log for WASM build
 	logger.SetEcho(os.Stderr, false)
 
-	u := ui.NewUI()
+	g := gui.NewGUI()
 	if useAudio {
-		u = u.WithAudio()
+		g = g.WithAudio()
 	}
 
 	ctx := Context{
@@ -67,9 +67,9 @@ func main() {
 	}
 	ctx.Reset()
 
-	con := hardware.Create(&ctx, u)
+	con := hardware.Create(&ctx, g)
 
-	u.UpdateGUI = func() error {
+	g.UpdateGUI = func() error {
 		fn := con.MARIA.Coords.Frame
 		for con.MARIA.Coords.Frame == fn {
 			err := con.Step()
@@ -80,5 +80,5 @@ func main() {
 		return nil
 	}
 
-	gui.Launch(nil, u)
+	ebiten.Launch(nil, g)
 }

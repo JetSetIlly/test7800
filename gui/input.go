@@ -1,4 +1,4 @@
-package ui
+package gui
 
 type Action int
 

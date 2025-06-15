@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jetsetilly/test7800/disassembly"
+	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware"
 	"github.com/jetsetilly/test7800/hardware/arm"
 	"github.com/jetsetilly/test7800/hardware/cpu"
@@ -22,7 +23,6 @@ import (
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/logger"
-	"github.com/jetsetilly/test7800/ui"
 )
 
 type input struct {
@@ -38,7 +38,7 @@ type debugger struct {
 	input   chan input
 
 	// this channel is poassed to the debugger during creation via the UI type
-	state chan ui.State
+	state chan gui.State
 
 	console     hardware.Console
 	breakpoints map[uint16]bool
@@ -301,9 +301,9 @@ func (m *debugger) run() bool {
 
 	startTime = time.Now()
 
-	m.state <- ui.StateRunning
+	m.state <- gui.StateRunning
 	err := m.console.Run(hook)
-	m.state <- ui.StatePaused
+	m.state <- gui.StatePaused
 
 	if errors.Is(err, quitErr) {
 		return true
@@ -421,7 +421,7 @@ func (m *debugger) loop() {
 
 const programName = "test7800"
 
-func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
+func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var bootfile string
 	var spec string
 	var profile bool
@@ -463,7 +463,7 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 	m := &debugger{
 		ctx:          ctx,
 		guiQuit:      guiQuit,
-		state:        ui.State,
+		state:        g.State,
 		sig:          make(chan os.Signal, 1),
 		input:        make(chan input, 1),
 		loader:       bootfile,
@@ -474,7 +474,7 @@ func Launch(guiQuit chan bool, ui *ui.UI, args []string) error {
 		coprocDev:    newCoprocDev(),
 		bypassBIOS:   !bios,
 	}
-	m.console = hardware.Create(&m.ctx, ui)
+	m.console = hardware.Create(&m.ctx, g)
 
 	signal.Notify(m.sig, syscall.SIGINT)
 

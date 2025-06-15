@@ -1,9 +1,9 @@
 package tia
 
 import (
+	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/tia/audio"
 	"github.com/jetsetilly/test7800/hardware/tia/audio/mix"
-	"github.com/jetsetilly/test7800/ui"
 )
 
 type TIA struct {
@@ -17,7 +17,7 @@ type Context interface {
 	IsAtari7800() bool
 }
 
-func Create(ctx Context, ui *ui.UI) *TIA {
+func Create(ctx Context, g *gui.GUI) *TIA {
 	tia := &TIA{
 		aud: audio.NewAudio(),
 
@@ -27,7 +27,7 @@ func Create(ctx Context, ui *ui.UI) *TIA {
 			0x80, 0x80,
 		},
 	}
-	if ui.AudioSetup != nil {
+	if g.AudioSetup != nil {
 		tia.buf = &audioBuffer{
 			tia:  tia,
 			data: make([]uint8, 0, 4096),
@@ -36,7 +36,7 @@ func Create(ctx Context, ui *ui.UI) *TIA {
 	return tia
 }
 
-func (tia *TIA) AudioBuffer() ui.AudioReader {
+func (tia *TIA) AudioBuffer() gui.AudioReader {
 	return tia.buf
 }
 

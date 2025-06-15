@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/tia/audio"
-	"github.com/jetsetilly/test7800/ui"
 )
 
 // Context allows Maria to signal a break
@@ -41,7 +41,7 @@ type frame struct {
 
 type Maria struct {
 	ctx Context
-	ui  *ui.UI
+	g   *gui.GUI
 
 	bg       uint8
 	wsync    bool
@@ -110,13 +110,13 @@ type CPU interface {
 }
 
 type TIAAudio interface {
-	AudioBuffer() ui.AudioReader
+	AudioBuffer() gui.AudioReader
 }
 
-func Create(ctx Context, u *ui.UI, mem Memory, cpu CPU, tia TIAAudio) *Maria {
+func Create(ctx Context, g *gui.GUI, mem Memory, cpu CPU, tia TIAAudio) *Maria {
 	mar := &Maria{
 		ctx: ctx,
-		ui:  u,
+		g:   g,
 		mem: mem,
 		cpu: cpu,
 	}
@@ -135,9 +135,9 @@ func Create(ctx Context, u *ui.UI, mem Memory, cpu CPU, tia TIAAudio) *Maria {
 	mar.limiter = time.NewTicker(time.Second / time.Duration(hz))
 
 	// notify UI of audio requirements
-	if u.AudioSetup != nil {
+	if g.AudioSetup != nil {
 		select {
-		case u.AudioSetup <- ui.AudioSetup{
+		case g.AudioSetup <- gui.AudioSetup{
 			Freq: mar.spec.horizScan * audio.SamplesPerScanline,
 			Read: tia.AudioBuffer(),
 		}:
@@ -386,7 +386,7 @@ func (mar *Maria) PushRender() {
 
 	// send current frame to renderer
 	select {
-	case mar.ui.SetImage <- ui.Image{
+	case mar.g.SetImage <- gui.Image{
 		Main:    mar.currentFrame.main,
 		Overlay: mar.currentFrame.overlay,
 		PrevID:  mar.Coords.Frame - 1,

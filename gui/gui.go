@@ -1,324 +1,71 @@
 package gui
 
 import (
-	"fmt"
-	"image/color"
-	"math"
-	"sync"
-
-	"github.com/ebitengine/oto/v3"
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/jetsetilly/test7800/logger"
-	"github.com/jetsetilly/test7800/ui"
+	"image"
+	"io"
 )
 
-type audioPlayer struct {
-	p *oto.Player
-	r ui.AudioReader
+type Image struct {
+	Main    *image.RGBA
+	Overlay *image.RGBA
+	Prev    *image.RGBA
 
-	// the state field is accessed by the Read() function via the audio
-	// engine, and by the GUI which is in another goroutine. access to the state
-	// field therefore, is proctected by a mutex
-	crit  sync.Mutex
-	state ui.State
+	// the previous image includes an ID that can be used to decide if the
+	// previous image has changed
+	PrevID int
+
+	// the x/y coordinates of the next pixel to be drawn to Main
+	Cursor [2]int
 }
 
-func (a *audioPlayer) setState(state ui.State) {
-	a.crit.Lock()
-	defer a.crit.Unlock()
-	a.state = state
+// the state of the emulation
+type State int
+
+// the emulation state can be either paused or running
+const (
+	StateRunning State = iota
+	StatePaused
+)
+
+type AudioReader interface {
+	io.Reader
+	Prefetch(n int)
 }
 
-func (a *audioPlayer) Read(buf []uint8) (int, error) {
-	a.crit.Lock()
-	defer a.crit.Unlock()
-	if a.state != ui.StateRunning {
-		return 0, nil
-	}
-
-	const prefetch = 2048
-
-	sz := a.p.BufferedSize()
-	if sz < prefetch {
-		a.r.Prefetch(prefetch - sz)
-	}
-
-	n, err := a.r.Read(buf)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+type AudioSetup struct {
+	Freq float64
+	Read AudioReader
 }
 
-type gui struct {
-	started bool
+type GUI struct {
+	SetImage  chan Image
+	UserInput chan Input
 
-	endGui chan bool
-	ui     *ui.UI
+	// implementations of UI should default to StateRunning
+	State chan State
 
-	state ui.State
+	// AudioSetup should be nil if the emulation is to have no audio
+	AudioSetup chan AudioSetup
 
-	main    *ebiten.Image
-	overlay *ebiten.Image
-	prev    *ebiten.Image
-	prevID  int
-	cursor  [2]int
-
-	// width/height of incoming image from emulation. not to be confused with window dimensions
-	width  int
-	height int
-
-	// a simple counter used to implement a fade-in/fade-out effect for the
-	// debugging cursor
-	cursorFrame int
-
-	// the audio player can be stopped and recreated as required
-	audio audioPlayer
-
-	// the hardware of the difficulty switches have an implicit state (because
-	// they are switches) that we can't effectively store any other way besides
-	// keeping track of the physical state.
-	proDifficulty [2]bool
+	// optional function called by GUI during it's update loop
+	UpdateGUI func() error
 }
 
-func (g *gui) input() {
-	var pressed []ebiten.Key
-	var released []ebiten.Key
-	pressed = inpututil.AppendJustPressedKeys(pressed)
-	released = inpututil.AppendJustReleasedKeys(released)
-
-	var inp ui.Input
-
-	for _, p := range released {
-		switch p {
-		case ebiten.KeyArrowLeft:
-			inp = ui.Input{Action: ui.StickLeft}
-		case ebiten.KeyArrowRight:
-			inp = ui.Input{Action: ui.StickRight}
-		case ebiten.KeyArrowUp:
-			inp = ui.Input{Action: ui.StickUp}
-		case ebiten.KeyArrowDown:
-			inp = ui.Input{Action: ui.StickDown}
-		case ebiten.KeySpace:
-			inp = ui.Input{Action: ui.StickButtonA}
-		case ebiten.KeyB:
-			inp = ui.Input{Action: ui.StickButtonB}
-		case ebiten.KeyF1:
-			inp = ui.Input{Action: ui.Select}
-		case ebiten.KeyF2:
-			inp = ui.Input{Action: ui.Start}
-		case ebiten.KeyF3:
-			inp = ui.Input{Action: ui.Pause}
-		case ebiten.KeyF4:
-			inp = ui.Input{Action: ui.P0Pro, Set: g.proDifficulty[0]}
-		case ebiten.KeyF5:
-			inp = ui.Input{Action: ui.P1Pro, Set: g.proDifficulty[1]}
-		}
-
-		select {
-		case g.ui.UserInput <- inp:
-		default:
-			return
-		}
-	}
-
-	for _, r := range pressed {
-		switch r {
-		case ebiten.KeyArrowLeft:
-			inp = ui.Input{Action: ui.StickLeft, Set: true}
-		case ebiten.KeyArrowRight:
-			inp = ui.Input{Action: ui.StickRight, Set: true}
-		case ebiten.KeyArrowUp:
-			inp = ui.Input{Action: ui.StickUp, Set: true}
-		case ebiten.KeyArrowDown:
-			inp = ui.Input{Action: ui.StickDown, Set: true}
-		case ebiten.KeySpace:
-			inp = ui.Input{Action: ui.StickButtonA, Set: true}
-		case ebiten.KeyB:
-			inp = ui.Input{Action: ui.StickButtonB, Set: true}
-		case ebiten.KeyF1:
-			inp = ui.Input{Action: ui.Select, Set: true}
-		case ebiten.KeyF2:
-			inp = ui.Input{Action: ui.Start, Set: true}
-		case ebiten.KeyF3:
-			inp = ui.Input{Action: ui.Pause, Set: true}
-		case ebiten.KeyF4:
-			g.proDifficulty[0] = !g.proDifficulty[0]
-		case ebiten.KeyF5:
-			g.proDifficulty[1] = !g.proDifficulty[1]
-		}
-
-		select {
-		case g.ui.UserInput <- inp:
-		default:
-			return
-		}
+// NewGUI creates a new GUI instance. It does not initialise the RegisterAudio
+// channel. For that, use the WithAudio() function
+func NewGUI() *GUI {
+	return &GUI{
+		SetImage:  make(chan Image, 1),
+		UserInput: make(chan Input, 10),
+		State:     make(chan State, 1),
 	}
 }
 
-func (g *gui) Update() error {
-	// deal with quit condition
-	select {
-	case <-g.endGui:
-		if g.audio.p != nil {
-			g.audio.p.Close()
-		}
-		return ebiten.Termination
-	default:
+// WithAudio creates the RegisterAudio channel if it's not already created.
+// Should not be called if the UI is to have no audio.
+func (g *GUI) WithAudio() *GUI {
+	if g.AudioSetup == nil {
+		g.AudioSetup = make(chan AudioSetup, 1)
 	}
-
-	// handle user input
-	g.input()
-
-	// change state if necessary
-	select {
-	case g.state = <-g.ui.State:
-		g.audio.setState(g.state)
-	default:
-	}
-
-	// create audio if necessary
-	if g.ui.AudioSetup != nil {
-		select {
-		case s := <-g.ui.AudioSetup:
-			if g.ui.AudioSetup != nil {
-				if g.audio.p != nil {
-					err := g.audio.p.Close()
-					if err != nil {
-						return fmt.Errorf("ebiten: %w", err)
-					}
-				}
-
-				ctx, ready, err := oto.NewContext(&oto.NewContextOptions{
-					SampleRate:   int(s.Freq),
-					ChannelCount: 2,
-					Format:       oto.FormatSignedInt16LE,
-				})
-				if err != nil {
-					return fmt.Errorf("ebiten: %w", err)
-				}
-
-				<-ready
-
-				g.audio.r = s.Read
-				g.audio.p = ctx.NewPlayer(&g.audio)
-				g.audio.p.Play()
-			}
-
-		default:
-		}
-	}
-
-	// run option update function
-	if g.ui.UpdateGUI != nil {
-		err := g.ui.UpdateGUI()
-		if err != nil {
-			return fmt.Errorf("ebiten: %w", err)
-		}
-	}
-
-	// retrieve any pending images
-	select {
-	case img := <-g.ui.SetImage:
-		g.cursor = img.Cursor
-
-		dim := img.Main.Bounds()
-		if g.main == nil || (g.main == nil && g.main.Bounds() != dim) {
-			g.width = dim.Dx()
-			g.height = dim.Dy()
-			g.main = ebiten.NewImage(g.width, g.height)
-			g.prev = ebiten.NewImage(g.width, g.height)
-			g.overlay = ebiten.NewImage(g.width, g.height)
-		}
-
-		g.main.WritePixels(img.Main.Pix)
-
-		if img.Prev != nil && img.PrevID != g.prevID {
-			g.prevID = img.PrevID
-			g.prev.WritePixels(img.Prev.Pix)
-		}
-
-		if img.Overlay != nil {
-			g.overlay.WritePixels(img.Overlay.Pix)
-		}
-
-	default:
-	}
-
-	return nil
-}
-
-func (g *gui) Draw(screen *ebiten.Image) {
-	g.cursorFrame++
-
-	if g.main != nil {
-		if g.prev != nil {
-			var op ebiten.DrawImageOptions
-			op.ColorScale.SetR(0.2)
-			op.ColorScale.SetG(0.2)
-			op.ColorScale.SetB(0.2)
-			op.ColorScale.SetA(1.0)
-			screen.DrawImage(g.prev, &op)
-		}
-		if g.main != nil {
-			var op ebiten.DrawImageOptions
-			op.Blend = ebiten.BlendSourceOver
-			screen.DrawImage(g.main, &op)
-		}
-		if g.overlay != nil {
-			var op ebiten.DrawImageOptions
-			op.Blend = ebiten.BlendLighter
-			screen.DrawImage(g.overlay, &op)
-		}
-
-		// draw cursor if emulation is paused
-		if g.state == ui.StatePaused {
-			v := uint8((math.Sin(float64(g.cursorFrame/10))*0.5 + 0.5) * 255)
-			screen.Set(g.cursor[0], g.cursor[1], color.RGBA{R: v, G: v, B: v, A: 255})
-			screen.Set(g.cursor[0]+1, g.cursor[1], color.RGBA{R: v, G: v, B: v, A: 255})
-			screen.Set(g.cursor[0], g.cursor[1]+1, color.RGBA{R: v, G: v, B: v, A: 255})
-			screen.Set(g.cursor[0]+1, g.cursor[1]+1, color.RGBA{R: v, G: v, B: v, A: 255})
-		}
-	}
-
-	// if window is being close
-	if ebiten.IsWindowBeingClosed() {
-		err := onCloseWindow()
-		if err != nil {
-			logger.Logf(logger.Allow, "gui", err.Error())
-			return
-		}
-	}
-}
-
-func (g *gui) Layout(width, height int) (int, int) {
-	if g.main != nil {
-		return g.width, g.height
-	}
-	return width, height
-}
-
-func Launch(endGui chan bool, u *ui.UI) error {
-	ebiten.SetWindowTitle("test7800")
-	ebiten.SetVsyncEnabled(true)
-	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	ebiten.SetWindowPosition(10, 10)
-	ebiten.SetTPS(ebiten.SyncWithFPS)
-
-	g := &gui{
-		endGui: endGui,
-		ui:     u,
-		state:  ui.StateRunning,
-		audio: audioPlayer{
-			state: ui.StateRunning,
-		},
-	}
-
-	err := onWindowOpen()
-	if err != nil {
-		logger.Logf(logger.Allow, "gui", err.Error())
-	}
-
-	return ebiten.RunGame(g)
+	return g
 }

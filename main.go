@@ -6,7 +6,7 @@ import (
 
 	"github.com/jetsetilly/test7800/debugger"
 	"github.com/jetsetilly/test7800/gui"
-	"github.com/jetsetilly/test7800/ui"
+	"github.com/jetsetilly/test7800/gui/ebiten"
 )
 
 func main() {
@@ -25,15 +25,15 @@ func main() {
 	resultGui = make(chan error, 1)
 	resultDebugger = make(chan error, 1)
 
-	u := ui.NewUI().WithAudio()
+	g := gui.NewGUI().WithAudio()
 
 	go func() {
-		resultGui <- gui.Launch(endGui, u)
+		resultGui <- ebiten.Launch(endGui, g)
 		endDebugger <- true
 	}()
 
 	go func() {
-		resultDebugger <- debugger.Launch(endDebugger, u, os.Args[1:])
+		resultDebugger <- debugger.Launch(endDebugger, g, os.Args[1:])
 		endGui <- true
 	}()
 
