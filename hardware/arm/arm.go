@@ -279,6 +279,15 @@ type ARM struct {
 	// function if required
 	immediateMode bool
 
+	// if arm is in immediate mode then we don't call the clock function unless
+	// immediateModeCycle is set to true. normally the clock is ticked forward in
+	// the ARM driver code (eg. the CDF mapper) but for some mappers it is required
+	// that the ARM emulation does this
+	//
+	// not an ideal solution but necessary because drivers like ACE or ELF are more
+	// likely to want to measure an ARM timer without ever yielding
+	immediateModeCycle bool
+
 	// rather than call the cycle counting functions directly, we assign the
 	// functions to these fields. in this way, we can use stubs when executing
 	// in immediate mode (when cycle counting isn't necessary)
@@ -338,6 +347,12 @@ func NewARM(mmap architecture.Map, mem SharedMemory, hook CartridgeHook) *ARM {
 	arm.updatePrefs()
 
 	return arm
+}
+
+// Sets the immediate mode cycle flag. This is required to be set for ARM drivers that yield
+// less frequently (eg. ELF or ACE)
+func (arm *ARM) CycleDuringImmediateMode(set bool) {
+	arm.immediateModeCycle = true
 }
 
 // SetByteOrder changes the binary interface used to read memory returned by the
@@ -510,6 +525,10 @@ func (arm *ARM) logYield() {
 	}
 
 	// extended memory logging
+	const extendedMemoryLogging = false
+	if !extendedMemoryLogging {
+		return
+	}
 
 	if arm.state.programMemory == nil {
 		return
@@ -597,15 +616,7 @@ func (arm *ARM) ProcessProfiling() {
 func (arm *ARM) Run() (coprocessor.CoProcYield, float32) {
 	if arm.dev != nil {
 		defer func() {
-			// make sure T1 is up to date
-			if arm.state.t1 != nil {
-				arm.state.t1.Resolve()
-			}
-
-			// make sure TIM2 is up to date
-			if arm.state.tim2 != nil {
-				arm.state.tim2.Resolve()
-			}
+			// I used to call t1 and tim2 resolve() but that's no longer necessary
 
 			// breakpoints handle OnYield slightly differently
 			if arm.state.yield.Type != coprocessor.YieldBreakpoint {
@@ -849,8 +860,8 @@ func (arm *ARM) run() (coprocessor.CoProcYield, float32) {
 
 			// update clock
 			arm.clock(arm.state.stretchedCycles)
-		} else {
-			// update clock with nominal number of cycles
+		} else if arm.immediateModeCycle {
+			// nominal amount of cycles when in immediate mode
 			arm.clock(1.1)
 		}
 

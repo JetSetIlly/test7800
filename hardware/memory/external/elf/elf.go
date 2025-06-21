@@ -115,6 +115,7 @@ func NewElf(ctx Context, d []byte) (*Elf, error) {
 
 	cart.mem = newElfMemory(ctx)
 	cart.arm = arm.NewARM(cart.mem.model, cart.mem, cart)
+	cart.arm.CycleDuringImmediateMode(true)
 	cart.mem.arm = cart.arm
 	err = cart.mem.decode(ef)
 	if err != nil {
