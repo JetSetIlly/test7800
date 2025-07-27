@@ -239,11 +239,16 @@ func (mc *CPU) Reset() {
 	mc.A.Load(0)
 	mc.X.Load(0)
 	mc.Y.Load(0)
-	mc.SP.Load(0xff)
 	mc.Status.Reset()
 
-	mc.Status.Zero = mc.A.IsZero()
-	mc.Status.Sign = mc.A.IsNegative()
+	// the stack pointer always starts with a value of 0xfd
+	mc.SP.Load(0xfd)
+
+	// the interrupt disable flag is always set on reset
+	// note that the zero and negative flags remain undefined and is unaffected by the value in the
+	// A or any other register
+	mc.Status.InterruptDisable = true
+
 	mc.RdyFlg = true
 	mc.cycleCallback = nil
 
