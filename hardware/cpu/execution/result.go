@@ -97,9 +97,6 @@ func (r *Result) Reset() {
 // very rough disassembly. it should not be used in preference to the
 // disassembly package if at all possible. none-the-less it is useful for
 // development purposes.
-//
-// instructions executed inside of an interrupt are written with two leading
-// exclamation points
 func (r *Result) String() string {
 	return fmt.Sprintf("%04x %s %s %04x", r.Address, r.Defn.Operator, r.Defn.AddressingMode, r.InstructionData)
 }

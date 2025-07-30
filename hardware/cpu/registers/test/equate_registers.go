@@ -18,12 +18,12 @@ package test
 import (
 	"testing"
 
-	"github.com/jetsetilly/test7800/hardware/cpu/registers"
+	"github.com/jetsetilly/gopher2600/hardware/cpu/registers"
 )
 
 // EquateRegisters is used to test equality between two instances of a register
 // type. Used in testing packages.
-func EquateRegisters(t *testing.T, value, expectedValue any) {
+func EquateRegisters(t *testing.T, value, expected any) {
 	t.Helper()
 
 	switch value := value.(type) {
@@ -31,35 +31,35 @@ func EquateRegisters(t *testing.T, value, expectedValue any) {
 		t.Fatalf("not a register type (%T)", value)
 
 	case registers.Data:
-		switch expectedValue := expectedValue.(type) {
+		switch expectedValue := expected.(type) {
 		default:
 			t.Fatalf("unhandled type (%T)", value)
 
 		case int:
 			if int(value.Value()) != expectedValue {
-				t.Errorf("unexpected Register value (%#02x wanted %#02x)", value.Value(), expectedValue)
+				t.Errorf("unexpected Register value: %#02x (expected %#02x)", value.Value(), expectedValue)
 			}
 		}
 
 	case registers.ProgramCounter:
-		switch expectedValue := expectedValue.(type) {
+		switch expectedValue := expected.(type) {
 		default:
 			t.Fatalf("unhandled type (%T)", value)
 
 		case int:
 			if int(value.Address()) != expectedValue {
-				t.Errorf("unexpected ProgramCounter value (%#04x wanted %#04x)", value.Value(), expectedValue)
+				t.Errorf("unexpected ProgramCounter value: %#04x (expected %#04x)", value.Value(), expectedValue)
 			}
 		}
 
 	case registers.Status:
-		switch expectedValue := expectedValue.(type) {
+		switch expectedValue := expected.(type) {
 		default:
 			t.Fatalf("unhandled type (%T)", value)
 
 		case int:
 			if int(value.Value()) != expectedValue {
-				t.Errorf("unexpected StatusRegister value (%#02x wanted %#02x)", value.Value(), expectedValue)
+				t.Errorf("unexpected StatusRegister value: %#02x (expected %#02x)", value.Value(), expectedValue)
 			}
 
 		case string:
@@ -79,7 +79,7 @@ func EquateRegisters(t *testing.T, value, expectedValue any) {
 				t.Errorf("unexpected StatusRegister flag (decimal mode)")
 			}
 			if expectedValue[5] != 'i' && !value.InterruptDisable || expectedValue[5] != 'I' && value.InterruptDisable {
-				t.Errorf("unexpected StatusRegister flag (interrupt diable)")
+				t.Errorf("unexpected StatusRegister flag (interrupt disable)")
 			}
 			if expectedValue[6] != 'z' && !value.Zero || expectedValue[6] != 'Z' && value.Zero {
 				t.Errorf("unexpected StatusRegister flag (zero)")

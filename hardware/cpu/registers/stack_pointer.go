@@ -31,10 +31,9 @@ func NewStackPointer(val uint8) StackPointer {
 	}
 }
 
-// The stack is hardwired to page one addresses.
-//
-// In the case of the 6507 (the CPU in the Atari 2600) the stack actually
-// appears in page zero, which is a consequence of how the memory bus is wired
+// The stack is hardwired to page one addresses. Note that the VCS stack
+// actually appears in page zero but this is a consequence of how the memory
+// bus is wired.
 func (sp StackPointer) Address() uint16 {
 	return 0x0100 | uint16(sp.value)
 }

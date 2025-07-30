@@ -18,9 +18,9 @@ package registers_test
 import (
 	"testing"
 
-	"github.com/jetsetilly/test7800/hardware/cpu/registers"
-	rtest "github.com/jetsetilly/test7800/hardware/cpu/registers/test"
-	"github.com/jetsetilly/test7800/test"
+	"github.com/jetsetilly/gopher2600/hardware/cpu/registers"
+	rtest "github.com/jetsetilly/gopher2600/hardware/cpu/registers/test"
+	"github.com/jetsetilly/gopher2600/test"
 )
 
 func TestProgramCounter(t *testing.T) {

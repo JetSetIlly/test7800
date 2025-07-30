@@ -26,7 +26,6 @@ type Console struct {
 }
 
 type Context interface {
-	cpu.Context
 	memory.Context
 	tia.Context
 	maria.Context
@@ -43,29 +42,25 @@ func Create(ctx Context, g *gui.GUI) Console {
 	var addChips memory.AddChips
 	con.Mem, addChips = memory.Create(ctx)
 
-	con.MC = cpu.Create(ctx, con.Mem)
-	con.TIA = tia.Create(ctx, g)
+	con.MC = cpu.Create(con.Mem)
 	con.RIOT = riot.Create()
 	con.MARIA = maria.Create(ctx, g, con.Mem, con.MC, con.TIA)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
-	con.Reset(true)
 	return con
 }
 
 func (con *Console) Reset(random bool) error {
-	con.MC.Reset()
+	var rnd cpu.Random
 	if random {
-		con.MC.PC.Load(con.ctx.Rand16Bit())
-		con.MC.A.Load(con.ctx.Rand8Bit())
-		con.MC.X.Load(con.ctx.Rand8Bit())
-		con.MC.Y.Load(con.ctx.Rand8Bit())
+		rnd = con.ctx
 	}
+	con.MC.Reset(rnd)
 	con.Mem.Reset(random)
 	con.MARIA.Reset()
 
-	return con.MC.LoadPCIndirect(cpu.Reset)
+	return nil
 }
 
 func (con *Console) Step() error {

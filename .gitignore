@@ -10,3 +10,5 @@ examples/roms/*
 go.work*
 roms
 roms/*
+!hardware/cpu/klaus2m5/**/*.lst
+!hardware/cpu/klaus2m5/**/*.bin

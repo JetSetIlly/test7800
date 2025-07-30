@@ -68,6 +68,7 @@ func main() {
 	ctx.Reset()
 
 	con := hardware.Create(&ctx, g)
+	con.Reset(true)
 
 	g.UpdateGUI = func() error {
 		fn := con.MARIA.Coords.Frame

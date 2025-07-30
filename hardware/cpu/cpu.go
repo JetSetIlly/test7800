@@ -24,16 +24,9 @@ import (
 	"github.com/jetsetilly/test7800/hardware/cpu/registers"
 )
 
-// Context allows the CPU to signal a break or to enable/disable tracing
-type Context interface {
-	Break(error)
-}
-
 // CPU implements the 6507 found as found in the Atari 2600. Register logic is
 // implemented by the Register type in the registers sub-package.
 type CPU struct {
-	ctx Context
-
 	PC     registers.ProgramCounter
 	A      registers.Data
 	X      registers.Data
@@ -50,16 +43,12 @@ type CPU struct {
 	// cycleCallback is called for additional emulator functionality
 	cycleCallback func() error
 
-	// controls whether cpu executes a cycle when it receives a clock tick (pin
-	// 3 of the 6507)
+	// controls whether cpu executes a cycle when it receives a clock tick (pin 3 of the 6507)
 	RdyFlg bool
 
-	// last result. the address field is guaranteed to be always valid except
-	// when the CPU has just been reset. we use this fact to help us decide
-	// whether the CPU has just been reset (see HasReset() function)
-	//
-	// note a peculiarity in the current emulation means that LastResult is not
-	// reset unless the RdyFlg is true at the start of the execution.
+	// most recent execution result. the state of LastResult is used to detect if the CPU has just
+	// been reset. it is also used to ensure that ExecuteInstruction() or LoadPC() is not called
+	// when the CPU is not in a suitable state
 	LastResult execution.Result
 
 	// NoFlowControl sets whether the cpu responds accurately to instructions
@@ -71,12 +60,6 @@ type CPU struct {
 	// possible even if NoFlowControl is true. this is because bank switching
 	// is outside of the direct control of the CPU.
 	NoFlowControl bool
-
-	// Exceptional indicates that the CPU has been put into a state outside of
-	// its normal operation. When true work may be done on the CPU that would
-	// otherwise be considered an error. Resets to false on every call to
-	// ExecuteInstruction()
-	Exceptional bool
 
 	// whether the CPU is in an interrupt block of code. this field is >0 when
 	// the PC has been loaded with the address pointed to by the NMI address. it
@@ -121,11 +104,10 @@ type Memory interface {
 	Write(address uint16, data uint8) error
 }
 
-// Create is the preferred method of initialisation for the CPU structure. Note
+// NewCPU is the preferred method of initialisation for the CPU structure. Note
 // that the CPU will be initialised in a random state.
-func Create(ctx Context, mem Memory) *CPU {
+func Create(mem Memory) *CPU {
 	return &CPU{
-		ctx:    ctx,
 		mem:    mem,
 		PC:     registers.NewProgramCounter(0),
 		A:      registers.NewData(0, "A"),
@@ -150,11 +132,10 @@ func (mc *CPU) Plumb(mem Memory) {
 }
 
 func (mc *CPU) String() string {
-	return fmt.Sprintf("%s=%s %s=%s %s=%s %s=%s %s=%s %s=%s (intr=%d)",
+	return fmt.Sprintf("%s=%s %s=%s %s=%s %s=%s %s=%s %s=%s",
 		mc.PC.Label(), mc.PC, mc.A.Label(), mc.A,
 		mc.X.Label(), mc.X, mc.Y.Label(), mc.Y,
 		mc.SP.Label(), mc.SP, mc.Status.Label(), mc.Status,
-		mc.interruptDepth,
 	)
 }
 
@@ -226,60 +207,85 @@ func (mc *CPU) Interrupt(nonMaskable bool) error {
 	return mc.LoadPCIndirect(IRQ)
 }
 
-// Reset reinitialises all registers. Does not load PC with RESET vector. Use
-// cpu.LoadPCIndirect(cpubus.Reset) when appropriate.
-func (mc *CPU) Reset() {
+type Random interface {
+	Rand8Bit() uint8
+}
+
+// Reset CPU in either a random or non-random state. The random state is more accurate
+func (mc *CPU) Reset(rnd Random) error {
 	mc.LastResult.Reset()
-	mc.Exceptional = true
 	mc.Killed = false
-	mc.PhantomMemAccess = false
-	// not touching NoFlowControl
+	mc.cycleCallback = nil
+	mc.interruptDepth = 0
 
-	mc.PC.Load(0)
-	mc.A.Load(0)
-	mc.X.Load(0)
-	mc.Y.Load(0)
-	mc.Status.Reset()
-
-	// the stack pointer always starts with a value of 0xfd
-	mc.SP.Load(0xfd)
+	if rnd == nil {
+		mc.PC.Load(0x0000)
+		mc.A.Load(0x00)
+		mc.X.Load(0x00)
+		mc.Y.Load(0x00)
+		mc.Status.Load(0x00)
+		mc.SP.Load(0x00)
+	} else {
+		mc.PC.Load(uint16(rnd.Rand8Bit()))
+		mc.A.Load(rnd.Rand8Bit())
+		mc.X.Load(rnd.Rand8Bit())
+		mc.Y.Load(rnd.Rand8Bit())
+		mc.Status.Load(rnd.Rand8Bit())
+		mc.SP.Load(rnd.Rand8Bit())
+	}
 
 	// the interrupt disable flag is always set on reset
 	// note that the zero and negative flags remain undefined and is unaffected by the value in the
 	// A or any other register
 	mc.Status.InterruptDisable = true
 
-	mc.RdyFlg = true
-	mc.cycleCallback = nil
+	// the reset procedure is special in that it leaves the information about the last executed
+	// instruction in the "final" state
+	mc.LastResult.Final = true
 
-	mc.interruptDepth = 0
+	// we simplify the reset procedure to reducing the stack value three times and then loading the
+	// reset address into the PC. there's no need to emulate the full eight cycles of the
+	// initilisation process
+	mc.SP.Add(0xff, false)
+	mc.SP.Add(0xff, false)
+	mc.SP.Add(0xff, false)
+	err := mc.LoadPCIndirect(Reset)
+	if err != nil {
+		return err
+	}
+
+	// cpu is ready immediately after reset
+	mc.RdyFlg = true
+
+	return nil
 }
 
 // HasReset checks whether the CPU has recently been reset.
 func (mc *CPU) HasReset() bool {
-	return mc.LastResult.Address == 0 && mc.LastResult.Defn == nil
+	// instead of an explicit "has reset" flag, we can use the information about the last executed
+	// to detect wehether the CPU has been recently reset
+	//
+	// the Final flag in LastResult is not normally set when the defintion field is nil. however, we
+	// explicitely set the Final flag to true when resetting the CPU
+	return mc.LastResult.Defn == nil && mc.LastResult.Final == true
 }
 
-// LoadPCIndirect loads the contents of indirectAddress into the PC.
-func (mc *CPU) LoadPCIndirect(indirectAddress uint16) error {
+// LoadPC loads the contents of directAddress into the PC.
+func (mc *CPU) LoadPCIndirect(address uint16) error {
+	if !mc.LastResult.Final {
+		return fmt.Errorf("cpu: load PC invalid mid-instruction")
+	}
+
 	mc.PhantomMemAccess = false
 
-	if !mc.LastResult.Final && !mc.Exceptional {
-		return fmt.Errorf("cpu: load PC indirect invalid mid-instruction")
-	}
-
-	// read 16 bit address from specified indirect address
-
-	lo, err := mc.mem.Read(indirectAddress)
+	lo, err := mc.mem.Read(address)
 	if err != nil {
 		return err
 	}
-
-	hi, err := mc.mem.Read(indirectAddress + 1)
+	hi, err := mc.mem.Read(address + 1)
 	if err != nil {
 		return err
 	}
-
 	mc.PC.Load((uint16(hi) << 8) | uint16(lo))
 
 	return nil
@@ -287,12 +293,10 @@ func (mc *CPU) LoadPCIndirect(indirectAddress uint16) error {
 
 // LoadPC loads the contents of directAddress into the PC.
 func (mc *CPU) LoadPC(directAddress uint16) error {
-	if !mc.LastResult.Final && !mc.Exceptional {
+	if !mc.LastResult.Final {
 		return fmt.Errorf("cpu: load PC invalid mid-instruction")
 	}
-
 	mc.PC.Load(directAddress)
-
 	return nil
 }
 
@@ -586,12 +590,9 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 
 	// a previous call to ExecuteInstruction() has not yet completed. it is
 	// impossible to begin a new instruction
-	if !mc.LastResult.Final && !mc.Exceptional {
+	if !mc.LastResult.Final {
 		return fmt.Errorf("cpu: starting a new instruction is invalid mid-instruction")
 	}
-
-	// reset Interrupted flag
-	mc.Exceptional = false
 
 	// do nothing and return nothing if ready flag is false
 	if !mc.RdyFlg {
@@ -1470,8 +1471,6 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 		_, err = mc.read8Bit(mc.PC.Address(), false)
 
 	case instructions.Brk:
-		// BRK is software generated and so does not obey the interrupt disable flag
-
 		// push PC onto register (same effect as JSR)
 		err := mc.write8Bit(mc.SP.Address(), uint8(mc.PC.Address()>>8), false)
 		if err != nil {
@@ -1538,12 +1537,9 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 				// no longer in the interrupt state. if however, the an interrupt
 				// happened whilst inside an interrupt, the count will still be >0
 				mc.interruptDepth--
-			} else if mc.ctx != nil {
-				// this isn't really an error but it's doubtful that a program would
-				// want to call an RTI outisde of an interrupt. while we're
-				// debugging the interrupt implemention it's a good idea to flag
-				// this up to alert ourselves to check that we're working correctly
-				mc.ctx.Break(errors.New("RTI called outside of an interrupt"))
+			} else {
+				// if interruptDepth is zero then that means that RTI has been called outside of
+				// interupt block
 			}
 		}
 

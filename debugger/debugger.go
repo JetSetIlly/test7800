@@ -150,6 +150,9 @@ func (m *debugger) reset() {
 
 		// set 6507 program-counter to normal reset address
 		m.console.MC.LoadPCIndirect(cpu.Reset)
+		if err != nil {
+			fmt.Println(m.styles.err.Render(err.Error()))
+		}
 
 		// feedback on the current state of INPTCTRL
 		fmt.Println(m.styles.cpu.Render(
@@ -475,6 +478,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		bypassBIOS:   !bios,
 	}
 	m.console = hardware.Create(&m.ctx, g)
+	m.console.Reset(true)
 
 	signal.Notify(m.sig, syscall.SIGINT)
 

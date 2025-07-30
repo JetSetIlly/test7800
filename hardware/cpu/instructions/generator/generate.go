@@ -28,7 +28,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/jetsetilly/test7800/hardware/cpu/instructions"
+	"github.com/jetsetilly/gopher2600/hardware/cpu/instructions"
 )
 
 const definitionsCSVFile = "./instructions.csv"
