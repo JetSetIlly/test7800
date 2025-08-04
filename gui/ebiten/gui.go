@@ -316,6 +316,14 @@ func Launch(endGui chan bool, g *gui.GUI) error {
 		},
 	}
 
+	// wait for the first state change and a possible quit request
+	select {
+	case eg.state = <-g.State:
+		eg.audio.setState(eg.state)
+	case <-endGui:
+		return nil
+	}
+
 	err := onWindowOpen()
 	if err != nil {
 		logger.Log(logger.Allow, "gui", err.Error())

@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jetsetilly/dialog"
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware"
@@ -23,6 +24,7 @@ import (
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/logger"
+	"github.com/jetsetilly/test7800/resources"
 )
 
 type input struct {
@@ -425,7 +427,7 @@ func (m *debugger) loop() {
 const programName = "test7800"
 
 func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
-	var bootfile string
+	var filename string
 	var spec string
 	var profile bool
 	var bios bool
@@ -446,8 +448,44 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	}
 	args = flgs.Args()
 
-	if len(args) == 1 {
-		bootfile = args[0]
+	// exit program immediately if program launched with a file dialog
+	var runQuitImmediately bool
+
+	// if no filename has been specified then open a file dialog
+	if len(args) == 0 {
+		lastSelectedROM, err := resources.Read("lastSelectedROM")
+		if err != nil {
+			return err
+		}
+
+		dlg := dialog.File()
+		dlg = dlg.Title("Select 7800 ROM")
+		dlg = dlg.Filter("7800 Files", "a78", "bin", "elf", "boot")
+		dlg = dlg.Filter("A78 Files Only", "a78")
+		dlg = dlg.Filter("All Files")
+		dlg = dlg.SetStartDir(filepath.Dir(lastSelectedROM))
+		filename, err = dlg.Load()
+		if err != nil {
+			if errors.Is(err, dialog.ErrCancelled) {
+				return nil
+			}
+			return err
+		}
+
+		err = resources.Write("lastSelectedROM", filename)
+		if err != nil {
+			return err
+		}
+
+		// we always want to run immediately if the filename has been chosen through the file dialog
+		run = true
+		runQuitImmediately = true
+
+	} else if len(args) == 1 {
+		if args[0] != "-" {
+			filename = args[0]
+		}
+
 	} else if len(args) > 1 {
 		return fmt.Errorf("too many arguments to debugger")
 	}
@@ -469,7 +507,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		state:        g.State,
 		sig:          make(chan os.Signal, 1),
 		input:        make(chan input, 1),
-		loader:       bootfile,
+		loader:       filename,
 		styles:       newStyles(),
 		breakpoints:  make(map[uint16]bool),
 		watches:      make(map[uint16]watch),
@@ -518,13 +556,20 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		defer pprof.StopCPUProfile()
 	}
 
-	// start in run state if required. the debugger will start if run() is
-	// interrupt with a SIGINT
+	// start off gui in the paused state. gui won't properly begin until it receives a state change
+	g.State <- gui.StatePaused
+
+	// start in run state if required
 	if run {
 		if m.run() {
 			return nil
 		}
+		if runQuitImmediately {
+			return nil
+		}
 	}
+
+	// start debugging loop
 	m.loop()
 
 	return nil
