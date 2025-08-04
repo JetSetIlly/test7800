@@ -286,7 +286,7 @@ func (eg *guiEbiten) Draw(screen *ebiten.Image) {
 	if ebiten.IsWindowBeingClosed() {
 		err := onCloseWindow()
 		if err != nil {
-			logger.Logf(logger.Allow, "gui", err.Error())
+			logger.Log(logger.Allow, "gui", err.Error())
 			return
 		}
 	}
@@ -317,7 +317,7 @@ func Launch(endGui chan bool, g *gui.GUI) error {
 
 	err := onWindowOpen()
 	if err != nil {
-		logger.Logf(logger.Allow, "gui", err.Error())
+		logger.Log(logger.Allow, "gui", err.Error())
 	}
 
 	return ebiten.RunGame(eg)

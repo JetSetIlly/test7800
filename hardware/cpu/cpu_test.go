@@ -737,7 +737,7 @@ func testKIL(t *testing.T, mc *cpu.CPU, mem *testMem) {
 
 func TestCPU(t *testing.T) {
 	mem := newTestMem()
-	mc := cpu.NewCPU(mem)
+	mc := cpu.Create(mem)
 
 	testStatusInstructions(t, mc, mem)
 	testRegsiterArithmetic(t, mc, mem)

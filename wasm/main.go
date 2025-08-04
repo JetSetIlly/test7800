@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand/v2"
 	"os"
 
@@ -67,7 +68,11 @@ func main() {
 	}
 	ctx.Reset()
 
-	con := hardware.Create(&ctx, g)
+	con, err := hardware.Create(&ctx, g)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	con.Reset(true)
 
 	g.UpdateGUI = func() error {
