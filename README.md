@@ -1,3 +1,37 @@
+Test7800 is an experimental emulator for the Atari 7800. It's not complete and is missing some important features but it plays many of the 7800 ROM files that are available. 
+
+It supports a78 files and will emulate regular "flat" ROM files and also "supergame" ROM files. It does not yet emulate the POKEY chip and similar hardware.
+
+The 6502, TIA and RIOT emulation is taken from [Gopher2600](https://github.com/JetSetIlly/Gopher2600) and is therefore well tested. The implemenation of the MARIA is new to this project.
+
+### Basic Usage
+
+Running the program from the desktop icon will open a file selection dialog. Opening a 7800 ROM will cause the emulation window to open.
+
+A command line debugger is available if the program is run from a terminal. In this case, the ROM file should be specified as part of the command line (eg. `test7800 centipede.a76`). The debugger will start in a halted state. To run the emulation from this point, type `RUN` in the terminal.
+
+Pressing `Ctrl-C` when the emulation is running will cause it to halt and to resume the debugger.
+
+The debugger is currently very basic and missing a lot of features. However, some useful commands include `STEP`, `RESET`, `CPU`, `MARIA`, `DL`, `DLL`, `VIDEO`, `INPTCTRL`, `RAM7800`, `RAMRIOT`. 
+
+A useful option to the program is the `-overlay` argument. (eg. `test7800 -overlay centipede.a76)`). This adds an additional overlay to the TV screen, showing the state of the MARIA at each point in the display. The colours in the overlay are as follows
+
+| Colour | Meaning |
+|--------|---------|
+| Red  | DMA Active |
+| Blue | WSYNC Active |
+| Green | CPU in Interrupt |
+| Orange | CPU in Interrupt (stalling for DMA) |
+
+By default, the NTSC BIOS is used. To select a PAL BIOS use the `-tv` argument (eg `test7800 -tv=pal centipede.a76`).
+
+If you want the emulation to ignore the BIOS startup routine use the `-bios` argument (eg. `test7800 -bios=false centipede.a76`).
+
+### Limitations and Future
+
+This emulation was developed in order to gain an understanding of the Atari 7800 and so is missing many features. The debugger in particular only exists so that I could more easily debug the emulator itself during development. It probably isn't that useful for ROM development as it currently exists.
+
+The ultimate plan is to combine this 7800 emulation with [Gopher2600](https://github.com/JetSetIlly/Gopher2600). However, it is proving to be a convenient stand-alone emulator and so is being released for general consumption. The integration with Gopher2600 will happen but probably not any time soon.
 
 ### Resources Used
 
@@ -20,3 +54,7 @@ References to "7800 Software Guide" in comments are referring to [this wiki page
 [Bank Switching Specifics](https://7800.8bitdev.org/index.php/ATARI_7800_BANKSWITCHING_GUIDE)
 
 [Two Button Controllers](https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159)
+
+### Acknowledgements
+
+Zachary Scolaro helped with the MARIA emulation, particular to get it off the ground when I wasn't sure about it at all. And Rob Tuccitto has provided much advice and links to information about the 7800 internals. Thanks to both.
