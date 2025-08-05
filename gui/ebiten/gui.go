@@ -11,6 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/logger"
+	"github.com/jetsetilly/test7800/version"
 )
 
 type audioPlayer struct {
@@ -300,7 +301,7 @@ func (eg *guiEbiten) Layout(width, height int) (int, int) {
 }
 
 func Launch(endGui chan bool, g *gui.GUI) error {
-	ebiten.SetWindowTitle("test7800")
+	ebiten.SetWindowTitle(version.Title())
 	ebiten.SetVsyncEnabled(true)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowPosition(10, 10)
