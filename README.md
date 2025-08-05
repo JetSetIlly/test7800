@@ -8,6 +8,8 @@ The 6502, TIA and RIOT emulation is taken from [Gopher2600](https://github.com/J
 
 Running the program from the desktop icon will open a file selection dialog. Opening a 7800 ROM will cause the emulation window to open.
 
+Only one-button and two-button joysticks for the first player are supported for now. Also, the keyboard must be used. The cursor keys control the stick and the space bar is the fire button. The 'B' key acts as the second fire button.
+
 A command line debugger is available if the program is run from a terminal. In this case, the ROM file should be specified as part of the command line (eg. `test7800 centipede.a76`). The debugger will start in a halted state. To run the emulation from this point, type `RUN` in the terminal.
 
 Pressing `Ctrl-C` when the emulation is running will cause it to halt and to resume the debugger.
