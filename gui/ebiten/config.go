@@ -3,18 +3,17 @@ package ebiten
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jetsetilly/test7800/resources"
 )
 
 func onWindowOpen() error {
-	pth, err := os.UserConfigDir()
+	pth, err := resources.JoinPath("window")
 	if err != nil {
 		return err
 	}
 
-	pth = filepath.Join(pth, "test7800", "window")
 	f, err := os.Open(pth)
 	if err != nil {
 		return err
@@ -38,18 +37,11 @@ func onWindowOpen() error {
 }
 
 func onCloseWindow() error {
-	pth, err := os.UserConfigDir()
+	pth, err := resources.JoinPath("window")
 	if err != nil {
 		return err
 	}
 
-	pth = filepath.Join(pth, "test7800")
-	err = os.MkdirAll(pth, 0700)
-	if err != nil {
-		return err
-	}
-
-	pth = filepath.Join(pth, "window")
 	f, err := os.Create(pth)
 	if err != nil {
 		return err

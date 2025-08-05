@@ -12,3 +12,6 @@ roms
 roms/*
 !hardware/cpu/klaus2m5/**/*.lst
 !hardware/cpu/klaus2m5/**/*.bin
+.test7800
+portable.txt
+Test7800_UserData
