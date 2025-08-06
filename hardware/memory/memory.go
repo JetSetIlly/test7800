@@ -27,8 +27,8 @@ type Memory struct {
 	LastWrite Area
 
 	// was last memory cycle an access of a TIA or RIOT address
-	isTIA  bool
-	isRIOT bool
+	addressBusIsTIA  bool
+	addressBusIsRIOT bool
 
 	// most recent state of the address and data buses
 	addressBus uint16
@@ -108,11 +108,8 @@ func Create(ctx Context) (*Memory, AddChips) {
 	}
 }
 
-func (mem *Memory) IsSlow() bool {
-	isSlow := mem.isTIA || mem.isRIOT
-	mem.isTIA = false
-	mem.isRIOT = false
-	return isSlow
+func (mem *Memory) IsSlowAddressBus() bool {
+	return mem.addressBusIsTIA || mem.addressBusIsRIOT
 }
 
 func (mem *Memory) Reset(random bool) {
@@ -154,7 +151,6 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	// 2140 to 21FF 	Block One Shadow
 	// 2200 to 27FF 	RAM
 	// 2800 to 2FFF 	Unavailable for mapping by external devices. (BIOS conflict)
-	// 3000 to FF7F 	Available for mapping by external devices
 	// FF80 to FFF7 	Reserved for cart encryption signature
 	// FFF8 to FFFF 	Reserved for startup flags and 6502 vectors
 	//
@@ -349,8 +345,8 @@ func (mem *Memory) Read(address uint16) (uint8, error) {
 		return 0, nil
 	}
 
-	_, mem.isTIA = area.(*tia.TIA)
-	_, mem.isRIOT = area.(*riot.RIOT)
+	_, mem.addressBusIsTIA = area.(*tia.TIA)
+	_, mem.addressBusIsRIOT = area.(*riot.RIOT)
 
 	data, err := area.Access(false, idx, mem.dataBus)
 	if err != nil {
@@ -385,7 +381,8 @@ func (mem *Memory) Write(address uint16, data uint8) error {
 		return nil
 	}
 
-	_, mem.isTIA = area.(*tia.TIA)
+	_, mem.addressBusIsTIA = area.(*tia.TIA)
+	_, mem.addressBusIsRIOT = area.(*riot.RIOT)
 	mem.LastWrite = area
 
 	data, err := area.Access(true, idx, data)

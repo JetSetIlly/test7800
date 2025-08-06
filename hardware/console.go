@@ -199,7 +199,7 @@ func (con *Console) Step() error {
 	// if the TIA bus is active then the CPU runs at a slower clock
 	tick := func() error {
 		mariaCycles := clocks.MariaCycles
-		if con.Mem.IsSlow() {
+		if con.Mem.IsSlowAddressBus() {
 			mariaCycles = clocks.MariaCycles_for_SlowMemory
 		}
 
