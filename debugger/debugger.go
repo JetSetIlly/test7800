@@ -138,14 +138,20 @@ func (m *debugger) reset() {
 		coproc.SetYieldHook(m)
 	}
 
+	var noBIOS = m.bypassBIOS || cartridgeReset.BypassBIOS
+
 	err := m.console.Reset(true)
 	if err != nil {
 		fmt.Println(m.styles.err.Render(err.Error()))
 	} else {
-		fmt.Println(m.styles.debugger.Render("console reset"))
+		if noBIOS {
+			fmt.Println(m.styles.debugger.Render("console reset with no BIOS"))
+		} else {
+			fmt.Println(m.styles.debugger.Render("console reset"))
+		}
 	}
 
-	if m.bypassBIOS || cartridgeReset.BypassBIOS {
+	if noBIOS {
 		// writing to the INPTCTRL twice to make sure the halt line has been enabled
 		m.console.Mem.INPTCTRL.Write(0x01, 0x07)
 		m.console.Mem.INPTCTRL.Write(0x01, 0x07)

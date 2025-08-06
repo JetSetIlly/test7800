@@ -65,6 +65,12 @@ func NewSupergame(_ Context, d []byte, exrom bool, exram bool) (*Supergame, erro
 }
 
 func (ext *Supergame) Label() string {
+	if len(ext.exram) > 0 {
+		return "Supergame (extra ram)"
+	}
+	if len(ext.exrom) > 0 {
+		return "Supergame (extra rom)"
+	}
 	return "Supergame"
 }
 
