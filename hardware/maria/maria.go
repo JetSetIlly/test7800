@@ -6,11 +6,9 @@ import (
 	"image"
 	"image/color"
 	"strings"
-	"time"
 
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/spec"
-	"github.com/jetsetilly/test7800/hardware/tia/audio"
 )
 
 // Context allows Maria to signal a break
@@ -18,6 +16,10 @@ type Context interface {
 	Break(error)
 	Spec() spec.Spec
 	UseOverlay() bool
+}
+
+type limiter interface {
+	Wait()
 }
 
 // the wrapping error for any errors passed to Context.Break()
@@ -85,9 +87,6 @@ type Maria struct {
 	currentFrame frame
 	prevFrame    frame
 
-	// frame limiter
-	limiter *time.Ticker
-
 	// interface to CPU (for debugging purposes only)
 	cpu CPU
 
@@ -99,6 +98,9 @@ type Maria struct {
 	// of the scanline as soon as DMA starts we store the signal until DMA has actually
 	// finished
 	dli bool
+
+	// frame limiter
+	limit limiter
 }
 
 type Memory interface {
@@ -110,35 +112,14 @@ type CPU interface {
 	InInterrupt() bool
 }
 
-type TIAAudio interface {
-	AudioBuffer() gui.AudioReader
-}
-
-func Create(ctx Context, g *gui.GUI, mem Memory, cpu CPU, tia TIAAudio) *Maria {
+func Create(ctx Context, g *gui.GUI, mem Memory, cpu CPU, limit limiter) *Maria {
 	mar := &Maria{
-		ctx:            ctx,
-		g:              g,
-		mem:            mem,
-		cpu:            cpu,
-		spec:           ctx.Spec(),
-		limiterPreempt: make(chan bool, 1),
-	}
-
-	const speed = 0.90
-
-	// calculate refresh rate and start frame limiter
-	hz := mar.spec.HorizScan / float64(mar.spec.AbsoluteBottom)
-	mar.limiter = time.NewTicker(time.Second / time.Duration(hz*speed))
-
-	// notify UI of audio requirements
-	if g.AudioSetup != nil {
-		select {
-		case g.AudioSetup <- gui.AudioSetup{
-			Freq: mar.spec.HorizScan * audio.SamplesPerScanline * speed,
-			Read: tia.AudioBuffer(),
-		}:
-		default:
-		}
+		ctx:   ctx,
+		g:     g,
+		mem:   mem,
+		cpu:   cpu,
+		spec:  ctx.Spec(),
+		limit: limit,
 	}
 
 	mar.lineram.initialise()
@@ -407,7 +388,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 			mar.Coords.Scanline = 0
 			mar.Coords.Frame++
 
-			<-mar.limiter.C
+			mar.limit.Wait()
 			mar.PushRender()
 
 			// it's no longer safe to use that frame in this context. create a

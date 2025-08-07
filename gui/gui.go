@@ -29,7 +29,7 @@ const (
 
 type AudioReader interface {
 	io.Reader
-	Prefetch(n int)
+	Nudge()
 }
 
 type AudioSetup struct {

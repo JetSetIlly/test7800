@@ -42,7 +42,7 @@ func (a *audioPlayer) Read(buf []uint8) (int, error) {
 
 	sz := a.p.BufferedSize()
 	if sz < prefetch {
-		a.r.Prefetch(prefetch - sz)
+		a.r.Nudge()
 	}
 
 	n, err := a.r.Read(buf)

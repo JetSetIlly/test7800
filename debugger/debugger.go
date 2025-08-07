@@ -42,7 +42,7 @@ type debugger struct {
 	// this channel is poassed to the debugger during creation via the UI type
 	state chan gui.State
 
-	console     hardware.Console
+	console     *hardware.Console
 	breakpoints map[uint16]bool
 	watches     map[uint16]watch
 

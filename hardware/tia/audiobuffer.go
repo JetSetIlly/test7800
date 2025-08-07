@@ -5,25 +5,13 @@ import "sync"
 // audioBuffer is an io.Reader implementation that forwards TIA audio generated
 // data to something that can play it back (or store it, etc.)
 type audioBuffer struct {
-	tia  tiaTick
-	crit sync.Mutex
-	data []uint8
+	limit limiter
+	crit  sync.Mutex
+	data  []uint8
 }
 
-type tiaTick interface {
-	tick() bool
-}
-
-// Prefetch makes sure that the audio buffer has a minimum amount of data
-func (b *audioBuffer) Prefetch(n int) {
-	b.crit.Lock()
-	defer b.crit.Unlock()
-
-	for n > 0 {
-		if b.tia.tick() {
-			n--
-		}
-	}
+func (b *audioBuffer) Nudge() {
+	b.limit.Nudge()
 }
 
 func (b *audioBuffer) Read(buf []uint8) (int, error) {

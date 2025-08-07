@@ -7,10 +7,9 @@ import (
 )
 
 type TIA struct {
-	inpt     [6]uint8
-	aud      *audio.Audio
-	buf      *audioBuffer
-	halfStep bool
+	inpt [6]uint8
+	aud  *audio.Audio
+	buf  *audioBuffer
 
 	// interface to the riot
 	riot riot
@@ -24,7 +23,11 @@ type riot interface {
 	Read(idx uint16) (uint8, error)
 }
 
-func Create(_ Context, g *gui.GUI, riot riot) *TIA {
+type limiter interface {
+	Nudge()
+}
+
+func Create(_ Context, g *gui.GUI, riot riot, limiter limiter) *TIA {
 	tia := &TIA{
 		aud: audio.NewAudio(),
 
@@ -36,8 +39,8 @@ func Create(_ Context, g *gui.GUI, riot riot) *TIA {
 	}
 	if g.AudioSetup != nil {
 		tia.buf = &audioBuffer{
-			tia:  tia,
-			data: make([]uint8, 0, 4096),
+			data:  make([]uint8, 0, 4096),
+			limit: limiter,
 		}
 	}
 	return tia
@@ -125,24 +128,12 @@ func (tia *TIA) Tick() {
 		return
 	}
 
-	tia.halfStep = !tia.halfStep
-	if tia.halfStep {
-		return
+	if tia.aud.Step() {
+		tia.buf.crit.Lock()
+		defer tia.buf.crit.Unlock()
+
+		m := mix.Mono(tia.aud.Vol0, tia.aud.Vol1)
+		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
+		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
 	}
-
-	tia.buf.crit.Lock()
-	defer tia.buf.crit.Unlock()
-
-	tia.tick()
-}
-
-func (tia *TIA) tick() bool {
-	if !tia.aud.Step() {
-		return false
-	}
-
-	m := mix.Mono(tia.aud.Vol0, tia.aud.Vol1)
-	tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
-	tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
-	return true
 }

@@ -2,6 +2,7 @@ package hardware
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/clocks"
@@ -11,7 +12,29 @@ import (
 	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
+	"github.com/jetsetilly/test7800/hardware/tia/audio"
 )
+
+type limiter struct {
+	tick  *time.Ticker
+	nudge chan bool
+}
+
+const limiterSpeed = 1.00
+
+func (l *limiter) Wait() {
+	select {
+	case <-l.tick.C:
+	case <-l.nudge:
+	}
+}
+
+func (l *limiter) Nudge() {
+	select {
+	case l.nudge <- true:
+	default:
+	}
+}
 
 type Console struct {
 	ctx Context
@@ -26,6 +49,12 @@ type Console struct {
 	// the HLT and RDY lines to the CPU is set by MARIA
 	hlt bool
 	rdy bool
+
+	// counts the number of maria cycles between RIOT/TIA ticks, regardless of current CPU speed
+	cycleRegulator int
+
+	// frame limiter
+	limit limiter
 }
 
 type Context interface {
@@ -36,21 +65,41 @@ type Context interface {
 	Rand16Bit() uint16
 }
 
-func Create(ctx Context, g *gui.GUI) Console {
-	con := Console{
+func Create(ctx Context, g *gui.GUI) *Console {
+	con := &Console{
 		ctx: ctx,
 		g:   g,
 	}
 
+	// setup frame limiter
+	spec := ctx.Spec()
+	hz := spec.HorizScan / float64(spec.AbsoluteBottom)
+	con.limit = limiter{
+		tick:  time.NewTicker(time.Second / time.Duration(hz*limiterSpeed)),
+		nudge: make(chan bool, 1),
+	}
+
+	// create and attach console components
 	var addChips memory.AddChips
 	con.Mem, addChips = memory.Create(ctx)
 
 	con.MC = cpu.Create(con.Mem)
 	con.RIOT = riot.Create()
-	con.TIA = tia.Create(ctx, g, con.RIOT)
-	con.MARIA = maria.Create(ctx, g, con.Mem, con.MC, con.TIA)
+	con.TIA = tia.Create(ctx, g, con.RIOT, &con.limit)
+	con.MARIA = maria.Create(ctx, g, con.Mem, con.MC, &con.limit)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
+
+	// notify UI of audio requirements
+	if g.AudioSetup != nil {
+		select {
+		case g.AudioSetup <- gui.AudioSetup{
+			Freq: spec.HorizScan * audio.SamplesPerScanline * limiterSpeed,
+			Read: con.TIA.AudioBuffer(),
+		}:
+		default:
+		}
+	}
 
 	return con
 }
@@ -207,10 +256,14 @@ func (con *Console) Step() error {
 			var interrupt bool
 			con.hlt, con.rdy, interrupt = con.MARIA.Tick()
 			interruptNext = interruptNext || interrupt
-		}
 
-		con.RIOT.Tick()
-		con.TIA.Tick()
+			con.cycleRegulator++
+			if con.cycleRegulator > 6 {
+				con.RIOT.Tick()
+				con.TIA.Tick()
+				con.cycleRegulator = 0
+			}
+		}
 
 		return nil
 	}
