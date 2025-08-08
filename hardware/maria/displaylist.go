@@ -75,12 +75,8 @@ func (mar *Maria) nextDL(reset bool) error {
 		mar.DL.origin += uint16(prevSize)
 	}
 
-	var err error
-
-	mar.DL.lowAddress, err = mar.mem.Read(mar.DL.origin)
-	if err != nil {
-		return err
-	}
+	// we read the second byte in the header first because it controls whether the other fields
+	// contain meaningful information
 
 	// second byte controls whether the display list is direct or indirect and
 	// also whether this is the end of the DLL
@@ -107,6 +103,11 @@ func (mar *Maria) nextDL(reset bool) error {
 		// when specified by a 5 byte DL header
 
 		return nil
+	}
+
+	mar.DL.lowAddress, err = mar.mem.Read(mar.DL.origin)
+	if err != nil {
+		return err
 	}
 
 	setWidth := func(v uint8) {

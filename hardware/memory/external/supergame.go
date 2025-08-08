@@ -2,8 +2,6 @@ package external
 
 import (
 	"fmt"
-
-	"github.com/jetsetilly/test7800/logger"
 )
 
 // https://7800.8bitdev.org/index.php/ATARI_7800_BANKSWITCHING_GUIDE
@@ -33,7 +31,7 @@ func NewSupergame(_ Context, d []byte, exrom bool, exram bool) (*Supergame, erro
 	}
 
 	if exram {
-		ext.exram = make([]byte, 0x8000-0x4000)
+		ext.exram = make([]byte, 0x4000)
 	}
 
 	const bankSize = 0x4000
@@ -42,14 +40,10 @@ func NewSupergame(_ Context, d []byte, exrom bool, exram bool) (*Supergame, erro
 		return nil, fmt.Errorf("supergame: unexpected payload size: %#x", len(d))
 	}
 
-	// supergame should have eight banks but I see no reason not to support other
-	// sized cartridges. although anything less than two banks and it becomes pointless
+	// supergame should have eight banks
 	numBanks := len(d) / bankSize
 	if numBanks != 8 {
-		logger.Logf(logger.Allow, "supergame", "it's not normal for a supergame cartridge to have %d banks", len(ext.data))
-	}
-	if numBanks < 2 {
-		return nil, fmt.Errorf("supergame: should have at least two banks")
+		return nil, fmt.Errorf("supergame: it's not normal for a supergame cartridge to have %d banks", len(ext.data))
 	}
 
 	ext.data = make([][]byte, numBanks)
@@ -59,7 +53,7 @@ func NewSupergame(_ Context, d []byte, exrom bool, exram bool) (*Supergame, erro
 		o := bankSize * i
 		ext.data[i] = d[o : o+bankSize]
 	}
-	ext.bank = len(ext.data) - 2
+	ext.bank = 6
 
 	return ext, nil
 }
@@ -92,24 +86,22 @@ func (ext *Supergame) Access(write bool, address uint16, data uint8) (uint8, err
 			return ext.exram[address-0x4000], nil
 		}
 
-		// return data from bank N-2 if there is no exrom and no exram
+		// return data from bank 6 if there is no exrom and no exram
 		//
-		// there is a bit in the a64 header that controls this but there is at least one
-		// exampl (Ace of Aces) where it's not set but the game still expects bank 6 to
-		// be there
-		return ext.data[max(0, len(ext.data)-2)][address-0x4000], nil
+		// there is a bit in the a64 header that controls this but there is at least one example
+		// (Ace of Aces) where it's not set but the game still expects bank 6 to be there
+		return ext.data[6][address-0x4000], nil
 	}
 
 	if address < 0xc000 {
 		if write {
 			// it's not clear how the write data is treated if the value is greater
-			// than the number of banks
-			ext.bank = int(data) % len(ext.data)
-			return 0, nil
+			// than the number of banks. masking the three LSBs seems sensible
+			ext.bank = int(data & 0x07)
 		}
 		return ext.data[ext.bank][address-0x8000], nil
 	}
 
-	// return data from bank N-1 for all addresses of 0xc000 and above
-	return ext.data[max(0, len(ext.data)-1)][address-0xc000], nil
+	// return data from bank 7 for all addresses of 0xc000 and above
+	return ext.data[7][address-0xc000], nil
 }

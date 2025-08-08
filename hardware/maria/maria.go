@@ -546,11 +546,6 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 							break // for loop
 						}
 
-						a := ((uint16(mar.DL.highAddress) << 8) | uint16(mar.DL.lowAddress))
-
-						// width of the display list
-						a += uint16(w)
-
 						// write data to line ram
 						write := func(b uint8, secondWrite bool) {
 							dbl := mar.ctrl.charWidth && mar.DL.indirect
@@ -589,6 +584,10 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 								}
 							}
 						}
+
+						// the basic address is the same for indirect and direct modes
+						a := ((uint16(mar.DL.highAddress) << 8) | uint16(mar.DL.lowAddress))
+						a += uint16(w)
 
 						if mar.DL.indirect {
 							b, err := mar.mem.Read(a)
