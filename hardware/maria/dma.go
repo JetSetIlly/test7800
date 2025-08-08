@@ -3,9 +3,42 @@ package maria
 import "github.com/jetsetilly/test7800/hardware/clocks"
 
 const (
-	// Appendix 3 of '7800 Software Guide': "DMA does not begin until 7 CPU
-	// (1.79 MHz) cycles into each scan line"
-	preDMA = (7 * clocks.MariaCycles)
+	// the pre-DMA value seems to be the key to getting the DMA timing correct. the two games we're
+	// using to help get the value correct is Summer Games and Karateka
+	//
+	// for the Summer Games ROM the line just below the judge's scores will flicker if this preDMA
+	// value is not correct
+	//
+	// for Karateka the very bottom of the red of the game area will not extend all the way to the
+	// right of the screen if the preDMA is not correct
+	//
+	// Count   Summer    Karateka
+	//  7       N         N
+	//  8       Y         N
+	//  15      Y         Y
+	//  16      Y         Y
+	//  17      Y         Y
+	//  18      N         Y
+	//
+	// a value of 15 is the lowest value for which Summer Games and Karateka displays correctly
+	//
+	// this value is not supported in any of the existing 7800 research documentation. appendix 3 of
+	// '7800 Software Guide' statues that "DMA does not begin until 7 CPU (1.79 MHz) cycles into
+	// each scan line"
+	//
+	// it also acknowledges that "there is some uncertainty as to the number of cycles DMA will
+	// require, because the internal MARIA chip timing resolution is 7.16 MHz, while the 6502 runs
+	// at either 1.79 MHz or 1.19MHz. As a result, it is not known how many extra cycles will be
+	// needed in DMA startup/shutdown to make the 6502 happy"
+	//
+	// the fact that the document takes about the CPU running at varying speeds suggests that the
+	// author is looking at this problem from a slightly different perspective. the varying CPU
+	// speed is taken care of in the console.Step() function and the Maria is stepped according to
+	// the current speed. I believe that this means that the number of cycles taken by the Maria is
+	// constant. so rather than saying DMA takes (approx) 7 CPU cycles, we can say that it takes
+	// exactly N cycles
+	//
+	preDMA = (15 * clocks.MariaCycles)
 
 	// from the table "DMA Timing" in the '7800 Software Guide'
 	dmaStart           = 16
