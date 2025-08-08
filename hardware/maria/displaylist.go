@@ -88,7 +88,10 @@ func (mar *Maria) nextDL(reset bool) error {
 	if err != nil {
 		return err
 	}
-	mar.DL.isEnd = mode == 0x00
+
+	// "Maria ignores bits 7 and 5, so your terminator check should be for '!(value & 0x5F)'"
+	// https://7800.8bitdev.org/index.php/Common_Emulator_Development_Issues
+	mar.DL.isEnd = mode&0x5f == 0x00
 
 	// return early if this the end of the DLL
 	if mar.DL.isEnd {
