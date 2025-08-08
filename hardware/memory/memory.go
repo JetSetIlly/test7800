@@ -163,7 +163,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	// different map to the above. we prefer this software guide map because it
 	// is based on modern research
 
-	// page one
+	// page 1
 	if address >= 0x0000 && address <= 0x001f {
 		// INPTCTRL or TIA
 		if mem.INPTCTRL.Lock() {
@@ -303,7 +303,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	if address >= 0x2800 && address <= 0x2fff {
 		// 0x2800 to 0x2fff is considered to be an unreliable mirror of RAM 7800
 
-		// there's a very specific reason to believe the range 0x2800 to 0x28ff
+		// however, there's a very specific reason to believe the range 0x2800 to 0x28ff
 		// is a valid mirror
 		// https://forums.atariage.com/topic/370030-does-anyone-abuse-the-ram-mirrors/#findComment-5507270
 		if address >= 0x2800 && address <= 0x28ff {
@@ -321,10 +321,12 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		if mem.INPTCTRL.BIOS() {
 			return address, mem.BIOS
 		}
+
+		// everything else can be handled by the external package
+		return address, mem.External
 	}
 
-	// everything else can be handled by the external package
-	return address, mem.External
+	panic("unhandled address in memory.MapAddress()")
 }
 
 // Read memory address as viewed by the CPU. This method of reading creates
