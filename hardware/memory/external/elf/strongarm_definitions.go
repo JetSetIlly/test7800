@@ -265,7 +265,7 @@ func getStrongArmDefinition(mem *elfMemory, name string) (bool, uint32, error) {
 		tgt = mem.relocateStrongArmTable(reverseByteTable)
 
 	case "ColorLookup":
-		switch mem.ctx.Spec() {
+		switch mem.ctx.Spec().ID {
 		case "PAL":
 			tgt = mem.relocateStrongArmTable(palColorTable)
 		case "NTSC":

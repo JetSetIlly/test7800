@@ -1,10 +1,12 @@
 package maria
 
+import "github.com/jetsetilly/test7800/hardware/spec"
+
 type lineram struct {
 	// lineram is implemented as a single line image. this isn't an exact
 	// representation of lineram but it's workable and produces adequate results
 	// for now
-	lineram [2][clksVisible]lineEntry
+	lineram [2][spec.ClksVisible]lineEntry
 
 	// the index into the lineram. the values should be 0 or 1 and not equal
 	lineramRead  int
@@ -18,7 +20,7 @@ func (l *lineram) initialise() {
 
 func (l *lineram) newScanline() {
 	l.lineramRead, l.lineramWrite = l.lineramWrite, l.lineramRead
-	for s := range clksVisible {
+	for s := range spec.ClksVisible {
 		l.lineram[l.lineramWrite][s].set = false
 	}
 }

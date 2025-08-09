@@ -1,4 +1,4 @@
-package maria
+package spec
 
 import (
 	_ "embed"
@@ -15,46 +15,49 @@ var ntscRaw []byte
 //go:embed "palettes/PAL_A7800_CRTTV.pal"
 var palRaw []byte
 
-const clksScanline = 454
-const clksHBLANK = 134
-const clksVisible = 320
+const ClksScanline = 454
+const ClksHBLANK = 134
+const ClksVisible = 320
 
-type spec struct {
-	palette        [256]color.RGBA
-	visibleTop     int
-	visibleBottom  int
-	safeTop        int
-	safeBottom     int
-	absoluteBottom int
-	horizScan      float64
+type Spec struct {
+	ID             string
+	Palette        [256]color.RGBA
+	VisibleTop     int
+	VisibleBottom  int
+	SafeTop        int
+	SafeBottom     int
+	AbsoluteBottom int
+	HorizScan      float64
 }
 
-var ntsc spec
-var pal spec
+var NTSC Spec
+var PAL Spec
 
 func init() {
-	ntsc = spec{
+	NTSC = Spec{
 		// "For NTSC consoles, there are a total of 263 rasters per frame (~1/60th
 		// second). The 'visible' screen (during which MARIA attempts display)
 		// starts on raster 16 and ends on raster 258."
-		visibleTop:     16,
-		visibleBottom:  259,
-		safeTop:        41,
-		safeBottom:     233,
-		absoluteBottom: 263,
-		horizScan:      15734.26,
+		ID:             "NTSC",
+		VisibleTop:     16,
+		VisibleBottom:  259,
+		SafeTop:        41,
+		SafeBottom:     233,
+		AbsoluteBottom: 263,
+		HorizScan:      15734.26,
 	}
 
-	pal = spec{
+	PAL = Spec{
 		// 	"For PAL consoles, there are a total of 313 rasters per frame. (~1/50th
 		// 	per second). The 'visible' screen starts on raster 16 and ends on raster
 		// 	308"
-		visibleTop:     16,
-		visibleBottom:  309,
-		safeTop:        41,
-		safeBottom:     283,
-		absoluteBottom: 313,
-		horizScan:      15625.00,
+		ID:             "PAL",
+		VisibleTop:     16,
+		VisibleBottom:  309,
+		SafeTop:        41,
+		SafeBottom:     283,
+		AbsoluteBottom: 313,
+		HorizScan:      15625.00,
 	}
 
 	if len(ntscRaw) != 768 {
@@ -66,7 +69,7 @@ func init() {
 
 	for i := range 256 {
 		p := i * 3
-		ntsc.palette[i] = color.RGBA{R: ntscRaw[p], G: ntscRaw[p+1], B: ntscRaw[p+2], A: 255}
-		pal.palette[i] = color.RGBA{R: palRaw[p], G: palRaw[p+1], B: palRaw[p+2], A: 255}
+		NTSC.Palette[i] = color.RGBA{R: ntscRaw[p], G: ntscRaw[p+1], B: ntscRaw[p+2], A: 255}
+		PAL.Palette[i] = color.RGBA{R: palRaw[p], G: palRaw[p+1], B: palRaw[p+2], A: 255}
 	}
 }

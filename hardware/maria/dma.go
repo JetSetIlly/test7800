@@ -1,6 +1,9 @@
 package maria
 
-import "github.com/jetsetilly/test7800/hardware/clocks"
+import (
+	"github.com/jetsetilly/test7800/hardware/clocks"
+	"github.com/jetsetilly/test7800/hardware/spec"
+)
 
 const (
 	// the pre-DMA value seems to be the key to getting the DMA timing correct. the two games we're
@@ -68,5 +71,5 @@ const (
 	dmaInterruptOverhead = 17
 
 	// the maximum number of cycles available in DMA before the HSYNC
-	dmaMaxCycles = clksScanline
+	dmaMaxCycles = spec.ClksScanline
 )

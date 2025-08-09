@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/jetsetilly/test7800/gui"
+	"github.com/jetsetilly/test7800/hardware/spec"
 	"github.com/jetsetilly/test7800/hardware/tia/audio"
 )
 
 // Context allows Maria to signal a break
 type Context interface {
 	Break(error)
-	Spec() string
+	Spec() spec.Spec
 	UseOverlay() bool
 }
 
@@ -78,7 +79,7 @@ type Maria struct {
 	Coords coords
 
 	// the current spec (NTSC, PAL, etc.)
-	spec spec
+	spec spec.Spec
 
 	// the image that is sent to the user interface
 	currentFrame frame
@@ -115,30 +116,25 @@ type TIAAudio interface {
 
 func Create(ctx Context, g *gui.GUI, mem Memory, cpu CPU, tia TIAAudio) *Maria {
 	mar := &Maria{
-		ctx: ctx,
-		g:   g,
-		mem: mem,
-		cpu: cpu,
+		ctx:            ctx,
+		g:              g,
+		mem:            mem,
+		cpu:            cpu,
+		spec:           ctx.Spec(),
+		limiterPreempt: make(chan bool, 1),
 	}
 
-	switch ctx.Spec() {
-	case "NTSC":
-		mar.spec = ntsc
-	case "PAL":
-		mar.spec = pal
-	default:
-		panic("currently unsupported specification")
-	}
+	const speed = 0.90
 
 	// calculate refresh rate and start frame limiter
-	hz := mar.spec.horizScan / float64(mar.spec.absoluteBottom)
-	mar.limiter = time.NewTicker(time.Second / time.Duration(hz))
+	hz := mar.spec.HorizScan / float64(mar.spec.AbsoluteBottom)
+	mar.limiter = time.NewTicker(time.Second / time.Duration(hz*speed))
 
 	// notify UI of audio requirements
 	if g.AudioSetup != nil {
 		select {
 		case g.AudioSetup <- gui.AudioSetup{
-			Freq: mar.spec.horizScan * audio.SamplesPerScanline,
+			Freq: mar.spec.HorizScan * audio.SamplesPerScanline * speed,
 			Read: tia.AudioBuffer(),
 		}:
 		default:
@@ -357,14 +353,14 @@ func (mar *Maria) newFrame() {
 	mar.currentFrame.debug = mar.ctx.UseOverlay()
 	if mar.currentFrame.debug {
 		mar.currentFrame.left = 0
-		mar.currentFrame.right = clksScanline
+		mar.currentFrame.right = spec.ClksScanline
 		mar.currentFrame.top = 0
-		mar.currentFrame.bottom = mar.spec.absoluteBottom
+		mar.currentFrame.bottom = mar.spec.AbsoluteBottom
 	} else {
-		mar.currentFrame.left = clksHBLANK
-		mar.currentFrame.right = clksScanline
-		mar.currentFrame.top = mar.spec.visibleTop + 10
-		mar.currentFrame.bottom = mar.spec.visibleBottom - 8
+		mar.currentFrame.left = spec.ClksHBLANK
+		mar.currentFrame.right = spec.ClksScanline
+		mar.currentFrame.top = mar.spec.VisibleTop + 10
+		mar.currentFrame.bottom = mar.spec.VisibleBottom - 8
 	}
 
 	mar.currentFrame.main = image.NewRGBA(image.Rect(0, 0,
@@ -399,7 +395,7 @@ func (mar *Maria) PushRender() {
 
 func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 	mar.Coords.Clk++
-	if mar.Coords.Clk >= clksScanline {
+	if mar.Coords.Clk >= spec.ClksScanline {
 		mar.Coords.Clk = 0
 		mar.Coords.Scanline++
 		mar.wsync = false
@@ -407,7 +403,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 		mar.requiredDMACycles = 0
 		mar.lineram.newScanline()
 
-		if mar.Coords.Scanline >= mar.spec.absoluteBottom {
+		if mar.Coords.Scanline >= mar.spec.AbsoluteBottom {
 			mar.Coords.Scanline = 0
 			mar.Coords.Frame++
 
@@ -420,7 +416,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 			// this can almost certainly be improved in efficiency
 			mar.newFrame()
 
-		} else if mar.Coords.Scanline == mar.spec.visibleTop {
+		} else if mar.Coords.Scanline == mar.spec.VisibleTop {
 			mar.mstat = vblankDisable
 
 			// "The end of VBLANK is made up of a DMA startup plus a Long shutdown."
@@ -429,7 +425,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 			// reset list of DLLs seen this frame
 			mar.RecentDLL = mar.RecentDLL[:0]
 
-		} else if mar.Coords.Scanline == mar.spec.visibleBottom {
+		} else if mar.Coords.Scanline == mar.spec.VisibleBottom {
 			mar.mstat = vblankEnable
 		}
 	}
@@ -442,20 +438,20 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 
 	// read from lineram and draw to screen on a clock-by-clock basis
 	if mar.Coords.Scanline >= mar.currentFrame.top && mar.Coords.Scanline <= mar.currentFrame.bottom {
-		if mar.Coords.Clk >= clksHBLANK && mar.Coords.Clk&0x01 == clksHBLANK&0x01 {
-			e := mar.lineram.read(mar.Coords.Clk - clksHBLANK)
-			mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
-			mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.bg])
+		if mar.Coords.Clk >= spec.ClksHBLANK && mar.Coords.Clk&0x01 == spec.ClksHBLANK&0x01 {
+			e := mar.lineram.read(mar.Coords.Clk - spec.ClksHBLANK)
+			mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.bg])
+			mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.bg])
 			if e.set {
 				switch mar.ctrl.readMode {
 				case 0:
 					// 160A/B
 					if e.idx == 0 {
-						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
-						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.bg])
+						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.bg])
+						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.bg])
 					} else {
-						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.palette[e.palette][e.idx-1]])
-						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.palette[e.palette][e.idx-1]])
+						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.palette[e.palette][e.idx-1]])
+						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.palette[e.palette][e.idx-1]])
 					}
 				case 1:
 					mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", ContextError))
@@ -472,30 +468,30 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					d := e.idx & 0x02
 					d |= (e.palette & 0x02) >> 1
 					if d == 0 {
-						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
+						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.bg])
 					} else {
-						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.palette[p][d-1]])
+						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.palette[p][d-1]])
 					}
 					d = (e.idx & 0x01) << 1
 					d |= e.palette & 0x01
 					if d == 0 {
-						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.bg])
+						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.bg])
 					} else {
-						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.palette[p][d-1]])
+						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.palette[p][d-1]])
 					}
 				case 3:
 					// 320A/C
 					d := e.idx & 0x02
 					if d == 0 {
-						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.bg])
+						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.bg])
 					} else {
-						mar.currentFrame.main.Set(x, y, mar.spec.palette[mar.palette[e.palette][d-1]])
+						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.palette[e.palette][d-1]])
 					}
 					d = (e.idx << 1) & 0x02
 					if d == 0 {
-						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.bg])
+						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.bg])
 					} else {
-						mar.currentFrame.main.Set(x+1, y, mar.spec.palette[mar.palette[e.palette][d-1]])
+						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.palette[e.palette][d-1]])
 					}
 				}
 			}
@@ -568,7 +564,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 									c := (b >> (((1 - i) * 2) + 4)) & 0x03
 									p := (mar.DL.palette & 0x04) + ((b >> ((1 - i) * 2)) & 0x03)
 									x := int(mar.DL.horizontalPosition+(offset*2)+uint8(i)) * 2
-									if x < clksVisible {
+									if x < spec.ClksVisible {
 										if c > 0 || mar.ctrl.kangaroo {
 											mar.lineram.write(x, p, c)
 											mar.lineram.write(x+1, p, c)
@@ -579,7 +575,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 								for i := range 4 {
 									c := (b >> ((3 - i) * 2)) & 0x03
 									x := int(mar.DL.horizontalPosition+(offset*4)+uint8(i)) * 2
-									if x < clksVisible {
+									if x < spec.ClksVisible {
 										if c > 0 || mar.ctrl.kangaroo {
 											mar.lineram.write(x, mar.DL.palette, c)
 											mar.lineram.write(x+1, mar.DL.palette, c)
@@ -657,7 +653,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 
 				// DLL sequence is reset at beginning of vblankDisable (ie. when scanline is
 				// equal to 'visible top')
-				ok, err := mar.nextDLL(mar.Coords.Scanline == mar.spec.visibleTop)
+				ok, err := mar.nextDLL(mar.Coords.Scanline == mar.spec.VisibleTop)
 				if err != nil {
 					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 				}

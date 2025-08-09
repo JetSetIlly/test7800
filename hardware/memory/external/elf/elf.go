@@ -23,6 +23,7 @@ import (
 	"github.com/jetsetilly/test7800/coprocessor"
 	"github.com/jetsetilly/test7800/hardware/arm"
 	"github.com/jetsetilly/test7800/hardware/cpu"
+	"github.com/jetsetilly/test7800/hardware/spec"
 )
 
 const (
@@ -37,7 +38,7 @@ const (
 type Context interface {
 	Rand8Bit() uint8
 	Break(e error)
-	Spec() string
+	Spec() spec.Spec
 	IsAtari7800() bool
 }
 
@@ -165,7 +166,7 @@ func (cart *Elf) reset() {
 
 	// set arguments for initial execution of ARM program
 	systemType := argSystemType_NTSC_7800
-	switch cart.ctx.Spec() {
+	switch cart.ctx.Spec().ID {
 	case "NTSC":
 		if cart.ctx.IsAtari7800() {
 			systemType = argSystemType_NTSC_7800

@@ -8,6 +8,7 @@ import (
 	"github.com/jetsetilly/test7800/hardware/memory/inptctrl"
 	"github.com/jetsetilly/test7800/hardware/memory/ram"
 	"github.com/jetsetilly/test7800/hardware/riot"
+	"github.com/jetsetilly/test7800/hardware/spec"
 	"github.com/jetsetilly/test7800/hardware/tia"
 	"github.com/jetsetilly/test7800/logger"
 )
@@ -38,7 +39,7 @@ type Memory struct {
 type Context interface {
 	ram.Context
 	external.Context
-	Spec() string
+	Spec() spec.Spec
 }
 
 // AddChips is returned by the Create() function and should be called to
@@ -85,7 +86,7 @@ type Area interface {
 
 func Create(ctx Context) (*Memory, AddChips) {
 	var b bios.BIOS
-	switch ctx.Spec() {
+	switch ctx.Spec().ID {
 	case "PAL":
 		b = bios.NewPAL()
 	case "NTSC":

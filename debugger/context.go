@@ -2,6 +2,8 @@ package debugger
 
 import (
 	"math/rand/v2"
+
+	"github.com/jetsetilly/test7800/hardware/spec"
 )
 
 type context struct {
@@ -12,8 +14,14 @@ type context struct {
 	useOverlay bool
 }
 
-func (ctx *context) Spec() string {
-	return ctx.spec
+func (ctx *context) Spec() spec.Spec {
+	switch ctx.spec {
+	case "NTSC":
+		return spec.NTSC
+	case "PAL":
+		return spec.PAL
+	}
+	panic("currently unsupported specification")
 }
 
 func (ctx *context) IsAtari7800() bool {
