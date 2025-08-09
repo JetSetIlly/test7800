@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"math/rand/v2"
 	"os"
 
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/gui/ebiten"
 	"github.com/jetsetilly/test7800/hardware"
+	"github.com/jetsetilly/test7800/hardware/spec"
 	"github.com/jetsetilly/test7800/logger"
 )
 
@@ -19,8 +19,14 @@ type Context struct {
 	useOverlay bool
 }
 
-func (ctx *Context) Spec() string {
-	return ctx.spec
+func (ctx *Context) Spec() spec.Spec {
+	switch ctx.spec {
+	case "NTSC":
+		return spec.NTSC
+	case "PAL":
+		return spec.PAL
+	}
+	panic("currently unsupported specification")
 }
 
 func (ctx *Context) IsAtari7800() bool {
@@ -61,18 +67,14 @@ func main() {
 		g = g.WithAudio()
 	}
 
+	// using PAL BIOS so we get asteroids for free
 	ctx := Context{
-		console:    "7800",
-		spec:       "PAL",
-		useOverlay: false,
+		console: "7800",
+		spec:    "PAL",
 	}
 	ctx.Reset()
 
-	con, err := hardware.Create(&ctx, g)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	con := hardware.Create(&ctx, g)
 	con.Reset(true)
 
 	g.UpdateGUI = func() error {
@@ -85,6 +87,9 @@ func main() {
 		}
 		return nil
 	}
+
+	// start off gui in the paused state. gui won't properly begin until it receives a state change
+	g.State <- gui.StatePaused
 
 	ebiten.Launch(nil, g)
 }
