@@ -20,8 +20,6 @@ type limiter struct {
 	nudge chan bool
 }
 
-const limiterSpeed = 1.00
-
 func (l *limiter) Wait() {
 	select {
 	case <-l.tick.C:
@@ -71,11 +69,15 @@ func Create(ctx Context, g *gui.GUI) *Console {
 		g:   g,
 	}
 
+	// we slow the ticker down a little bit. this seems to create better synchronisation between the
+	// video and audio. if the audio needs the video to speed up then it can send a nudge signal
+	const tickerLag = 0.90
+
 	// setup frame limiter
 	spec := ctx.Spec()
 	hz := spec.HorizScan / float64(spec.AbsoluteBottom)
 	con.limit = limiter{
-		tick:  time.NewTicker(time.Second / time.Duration(hz*limiterSpeed)),
+		tick:  time.NewTicker(time.Second / time.Duration(hz*tickerLag)),
 		nudge: make(chan bool, 1),
 	}
 
@@ -94,7 +96,7 @@ func Create(ctx Context, g *gui.GUI) *Console {
 	if g.AudioSetup != nil {
 		select {
 		case g.AudioSetup <- gui.AudioSetup{
-			Freq: spec.HorizScan * audio.SamplesPerScanline * limiterSpeed,
+			Freq: spec.HorizScan * audio.SamplesPerScanline,
 			Read: con.TIA.AudioBuffer(),
 		}:
 		default:
@@ -258,7 +260,7 @@ func (con *Console) Step() error {
 			interruptNext = interruptNext || interrupt
 
 			con.cycleRegulator++
-			if con.cycleRegulator > 6 {
+			if con.cycleRegulator > 5 {
 				con.RIOT.Tick()
 				con.TIA.Tick()
 				con.cycleRegulator = 0
