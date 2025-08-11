@@ -39,7 +39,7 @@ func (m *debugger) commands(cmd []string) bool {
 		} else {
 			// step one instruction by default
 			m.stepRule = func() bool {
-				return false
+				return true
 			}
 		}
 		return m.run()
