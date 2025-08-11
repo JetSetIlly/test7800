@@ -253,6 +253,10 @@ func (l *dll) inHole(a uint16) bool {
 func (mar *Maria) nextDLL(reset bool) (bool, error) {
 	if reset {
 		mar.DLL.ct = 0
+
+		// "Once DMA is on, DPPH and DPPL may be written at any time, as they are only read at
+		// thebeginning of the screen."
+		mar.DLL.origin = (uint16(mar.dpph) << 8) | uint16(mar.dppl)
 	} else {
 		// offset is an unsigned integer between 0 and 15 and is the "height of
 		// the zone, minus one". the DLL has expired therefore when the value is
@@ -264,10 +268,8 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 			return false, nil
 		}
 		mar.DLL.ct++
+		mar.DLL.origin += 3
 	}
-
-	mar.DLL.origin = (uint16(mar.dpph) << 8) | uint16(mar.dppl)
-	mar.DLL.origin += uint16(mar.DLL.ct * 3)
 
 	d, err := mar.mem.Read(mar.DLL.origin)
 	if err != nil {
