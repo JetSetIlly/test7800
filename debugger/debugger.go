@@ -440,6 +440,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var overlay bool
 	var run bool
 	var log bool
+	var audio bool
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
 	flgs.StringVar(&spec, "spec", "NTSC", "TV specification of the console: NTSC or PAL")
@@ -448,6 +449,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
 	flgs.BoolVar(&log, "log", false, "echo log to stderr")
+	flgs.BoolVar(&audio, "audio", true, "enable audio")
 	err := flgs.Parse(args)
 	if err != nil {
 		return err
@@ -498,6 +500,10 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 
 	if log {
 		logger.SetEcho(os.Stderr, false)
+	}
+
+	if !audio {
+		g.AudioSetup = nil
 	}
 
 	ctx := context{
