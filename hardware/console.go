@@ -2,7 +2,6 @@ package hardware
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/clocks"
@@ -14,25 +13,6 @@ import (
 	"github.com/jetsetilly/test7800/hardware/tia"
 	"github.com/jetsetilly/test7800/hardware/tia/audio"
 )
-
-type limiter struct {
-	tick  *time.Ticker
-	nudge chan bool
-}
-
-func (l *limiter) Wait() {
-	select {
-	case <-l.tick.C:
-	case <-l.nudge:
-	}
-}
-
-func (l *limiter) Nudge() {
-	select {
-	case l.nudge <- true:
-	default:
-	}
-}
 
 type Console struct {
 	ctx Context
@@ -52,7 +32,7 @@ type Console struct {
 	cycleRegulator int
 
 	// frame limiter
-	limit limiter
+	limit *limiter
 }
 
 type Context interface {
@@ -64,21 +44,12 @@ type Context interface {
 }
 
 func Create(ctx Context, g *gui.GUI) *Console {
-	con := &Console{
-		ctx: ctx,
-		g:   g,
-	}
-
-	// we slow the ticker down a little bit. this seems to create better synchronisation between the
-	// video and audio. if the audio needs the video to speed up then it can send a nudge signal
-	const tickerLag = 0.90
-
-	// setup frame limiter
 	spec := ctx.Spec()
-	hz := spec.HorizScan / float64(spec.AbsoluteBottom)
-	con.limit = limiter{
-		tick:  time.NewTicker(time.Second / time.Duration(hz*tickerLag)),
-		nudge: make(chan bool, 1),
+
+	con := &Console{
+		ctx:   ctx,
+		g:     g,
+		limit: newLimiter(spec),
 	}
 
 	// create and attach console components
@@ -87,8 +58,8 @@ func Create(ctx Context, g *gui.GUI) *Console {
 
 	con.MC = cpu.Create(con.Mem)
 	con.RIOT = riot.Create()
-	con.TIA = tia.Create(ctx, g, con.RIOT, &con.limit)
-	con.MARIA = maria.Create(ctx, g, con.Mem, con.MC, &con.limit)
+	con.TIA = tia.Create(ctx, g, con.RIOT, con.limit)
+	con.MARIA = maria.Create(ctx, g, con.Mem, con.MC, con.limit)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
