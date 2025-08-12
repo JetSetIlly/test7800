@@ -98,6 +98,7 @@ type Maria struct {
 	// the most recent DLLs. reset on start of DMA of a new frame. used for
 	// debugging feedback
 	RecentDLL []dll
+	RecentDL  []dl
 
 	// the DLI signal is sent at the end of DMA but because we process the entirity
 	// of the scanline as soon as DMA starts we store the signal until DMA has actually
@@ -388,6 +389,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 		mar.dma = false
 		mar.requiredDMACycles = 0
 		mar.lineram.newScanline()
+		mar.RecentDL = mar.RecentDL[:0]
 
 		if mar.Coords.Scanline >= mar.spec.AbsoluteBottom {
 			mar.Coords.Scanline = 0
@@ -649,6 +651,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 						}
 					}
 
+					mar.RecentDL = append(mar.RecentDL, mar.DL)
 					err := mar.nextDL(false)
 					if err != nil {
 						mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))

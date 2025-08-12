@@ -89,6 +89,18 @@ func (m *debugger) parseStepRule(cmd []string) bool {
 			return false
 		}
 
+	case "DL":
+		id := m.console.MARIA.DL.ID()
+		m.stepRule = func() bool {
+			if id != m.console.MARIA.DL.ID() {
+				fmt.Println(m.styles.mem.Render(
+					m.console.MARIA.DL.Status(),
+				))
+				return true
+			}
+			return false
+		}
+
 	default:
 		// check if rule is in a CPU operator
 		var found bool

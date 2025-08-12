@@ -39,6 +39,14 @@ type dl struct {
 	origin uint16
 }
 
+func (l *dl) ID() string {
+	return fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin)
+}
+
+func (l *dl) String() string {
+	return l.Status()
+}
+
 func (l *dl) Status() string {
 	var s strings.Builder
 	s.WriteString(fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin))

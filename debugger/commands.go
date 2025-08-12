@@ -81,9 +81,15 @@ func (m *debugger) commands(cmd []string) bool {
 		))
 
 	case "DL":
-		fmt.Println(m.styles.mem.Render(
-			m.console.MARIA.DL.Status(),
-		))
+		if len(m.console.MARIA.RecentDL) == 0 {
+			fmt.Println(m.styles.mem.Render("no DL activity this scanline"))
+		}
+		for _, dl := range m.console.MARIA.RecentDL {
+			fmt.Println("")
+			fmt.Println(m.styles.mem.Render(
+				dl.String(),
+			))
+		}
 
 	case "DLL":
 		if len(cmd) == 2 {
@@ -96,7 +102,7 @@ func (m *debugger) commands(cmd []string) bool {
 				}
 			} else {
 				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("unrecognised argument for COPROC command: %s", cmd[2]),
+					fmt.Sprintf("unrecognised argument for DLL command: %s", cmd[2]),
 				))
 			}
 		} else {
