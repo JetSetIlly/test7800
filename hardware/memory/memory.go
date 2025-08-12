@@ -306,10 +306,24 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 
 		// however, there's a very specific reason to believe the range 0x2800 to 0x28ff
 		// is a valid mirror
+		//
 		// https://forums.atariage.com/topic/370030-does-anyone-abuse-the-ram-mirrors/#findComment-5507270
-		if address >= 0x2800 && address <= 0x28ff {
-			return address - 0x1900, mem.RAM7800
-		}
+		//
+		// "Hardware tests show that only the page at 0x2700 appears at 0x2800, and only on some
+		// hardware (MARIA? motherboard?) revisions, and even then with inconsistent and unreliable
+		// results."
+
+		// not mapping these addresses however because it in fact breaks choplifter in a very subtle
+		// way. tank explosions will "wrap around" unpredictably when this mirror is enabled
+		//
+		// https://github.com/JetSetIlly/test7800/issues/4
+		//
+		// the suggestion is that some 7800 revisions do map these addresses. if that's the case
+		// then perhaps the tank explosion bug is a visible indicator of it
+
+		//	if address >= 0x2800 && address <= 0x28ff {
+		//		return address - 0x1900, mem.RAM7800
+		//	}
 
 		return 0, nil
 	}
