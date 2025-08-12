@@ -5,14 +5,17 @@ import (
 	"image/color"
 )
 
-// palettes downloaded from
+// NTSC palette downloaded from
 // https://forums.atariage.com/topic/210082-colorswhat-do-you-want/#comment-2716653
 // using files in option (A)
 
 //go:embed "palettes/NTSC_A7800_CRTTV.pal"
 var ntscRaw []byte
 
-//go:embed "palettes/PAL_A7800_CRTTV.pal"
+// PAL palette downloaded from
+// https://forums.atariage.com/topic/383566-emulator-test7800/#comment-5700807
+
+//go:embed "palettes/PAL_LUM3_COOL.pal"
 var palRaw []byte
 
 const ClksScanline = 454
