@@ -18,6 +18,7 @@ var palRaw []byte
 const ClksScanline = 454
 const ClksHBLANK = 134
 const ClksVisible = 320
+const ClksColourBurst = 16
 
 type Spec struct {
 	ID             string

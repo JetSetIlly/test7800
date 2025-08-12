@@ -59,6 +59,11 @@ type Maria struct {
 	DLL dll
 	DL  dl
 
+	// if the colour burst signal has been sent to the TV. it will not be sent if the colour kill
+	// bit was set in the ctrl register at beginning of the scanline when the colour burst is to be
+	// sent
+	colourBurst bool
+
 	// whether dma is active at the current moment. it is enabled if ctrl.dma is
 	// enabled when the clock counter reaches preDMA; and then disabled when the
 	// number of required DMA cycles for the DLL is reacehd
@@ -411,28 +416,47 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 		}
 	}
 
+	// sent colour burst only if the colour kill bit in the ctrl register is cleared
+	if mar.Coords.Clk == spec.ClksColourBurst {
+		mar.colourBurst = !mar.ctrl.colourKill
+	}
+
 	// the x and y values are the frame coordinates where lineram information
 	// (and debugging overlay information) is plotted. they are adjusted according to
 	// whether the overlay is active or not
 	x := mar.Coords.Clk - mar.currentFrame.left
 	y := mar.Coords.Scanline - mar.currentFrame.top
 
+	// reduce colour to greyscale if colourburst signal was not sent. an example of a game that uses
+	// the colour kill bit to affect the colour burst signal is Midnight Mutants. the greyscale can
+	// be seen in the text at the top of the screen. without correct handling of the colour kill bit
+	// the text area will contain red pixels
+	colourBurst := func(col color.RGBA) color.RGBA {
+		if mar.colourBurst {
+			return col
+		}
+
+		// if colour burst has not been sent for this scanline then the colour is reduced to grayscale
+		Y := uint8(0.299*float64(col.R) + 0.587*float64(col.G) + 0.114*float64(col.B))
+		return color.RGBA{R: Y, G: Y, B: Y, A: col.A}
+	}
+
 	// read from lineram and draw to screen on a clock-by-clock basis
 	if mar.Coords.Scanline >= mar.currentFrame.top && mar.Coords.Scanline <= mar.currentFrame.bottom {
 		if mar.Coords.Clk >= spec.ClksHBLANK && mar.Coords.Clk&0x01 == spec.ClksHBLANK&0x01 {
 			e := mar.lineram.read(mar.Coords.Clk - spec.ClksHBLANK)
-			mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.bg])
-			mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.bg])
+			mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
+			mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
 			if e.set {
 				switch mar.ctrl.readMode {
 				case 0:
 					// 160A/B
 					if e.idx == 0 {
-						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.bg])
-						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.bg])
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.palette[e.palette][e.idx-1]])
-						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.palette[e.palette][e.idx-1]])
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
 					}
 				case 1:
 					mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", ContextError))
@@ -449,30 +473,30 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					d := e.idx & 0x02
 					d |= (e.palette & 0x02) >> 1
 					if d == 0 {
-						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.bg])
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.palette[p][d-1]])
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
 					}
 					d = (e.idx & 0x01) << 1
 					d |= e.palette & 0x01
 					if d == 0 {
-						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.bg])
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.palette[p][d-1]])
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
 					}
 				case 3:
 					// 320A/C
 					d := e.idx & 0x02
 					if d == 0 {
-						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.bg])
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x, y, mar.spec.Palette[mar.palette[e.palette][d-1]])
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
 					}
 					d = (e.idx << 1) & 0x02
 					if d == 0 {
-						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.bg])
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x+1, y, mar.spec.Palette[mar.palette[e.palette][d-1]])
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
 					}
 				}
 			}
