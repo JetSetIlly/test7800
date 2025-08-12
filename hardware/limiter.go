@@ -15,24 +15,26 @@ type limiter struct {
 }
 
 func newLimiter(spec spec.Spec) *limiter {
-	// the nominal speed of the console
-	hz := spec.HorizScan / float64(spec.AbsoluteBottom)
-
 	l := &limiter{
-		tick:  time.NewTicker(time.Second / time.Duration(hz)),
 		nudge: make(chan bool, 1),
 	}
 
-	// the wait() function changes after a few nudges. this helps ensure that the audio and video
-	// synchronise after startup. the technique employed here simplifies the code path of the wait()
-	// function once the emulation is up-and-running
+	// the ideal speed of the console
+	hz := spec.HorizScan / float64(spec.AbsoluteBottom)
+	d := time.Second / time.Duration(hz)
+
+	// the wait() function deliberatey starts slow and then changes state after a few nudges to
+	// normal operation
+	//
+	// this helps ensure that the audio and video synchronise after startup
 	var ct int
 	l.wait = func() {
 		select {
-		case <-time.After(20 * time.Millisecond):
+		case <-time.After(time.Duration(float64(d) * 1.025)):
 		case <-l.nudge:
 			ct++
 			if ct > 2 {
+				l.tick = time.NewTicker(d)
 				l.wait = func() {
 					select {
 					case <-l.tick.C:
