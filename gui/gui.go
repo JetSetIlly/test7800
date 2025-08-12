@@ -35,6 +35,7 @@ type AudioReader interface {
 type AudioSetup struct {
 	Freq float64
 	Read AudioReader
+	Mute bool
 }
 
 type GUI struct {
@@ -55,17 +56,9 @@ type GUI struct {
 // channel. For that, use the WithAudio() function
 func NewGUI() *GUI {
 	return &GUI{
-		SetImage:  make(chan Image, 1),
-		UserInput: make(chan Input, 10),
-		State:     make(chan State, 1),
+		SetImage:   make(chan Image, 1),
+		UserInput:  make(chan Input, 10),
+		State:      make(chan State, 1),
+		AudioSetup: make(chan AudioSetup, 1),
 	}
-}
-
-// WithAudio creates the RegisterAudio channel if it's not already created.
-// Should not be called if the UI is to have no audio.
-func (g *GUI) WithAudio() *GUI {
-	if g.AudioSetup == nil {
-		g.AudioSetup = make(chan AudioSetup, 1)
-	}
-	return g
 }

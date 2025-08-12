@@ -204,6 +204,11 @@ func (eg *guiEbiten) Update() error {
 
 				eg.audio.r = s.Read
 				eg.audio.p = ctx.NewPlayer(&eg.audio)
+				if s.Mute {
+					eg.audio.p.SetVolume(0.0)
+				} else {
+					eg.audio.p.SetVolume(0.9)
+				}
 				eg.audio.p.Play()
 			}
 

@@ -41,6 +41,7 @@ type Context interface {
 	maria.Context
 	Rand8Bit() uint8
 	Rand16Bit() uint16
+	UseAudio() bool
 }
 
 func Create(ctx Context, g *gui.GUI) *Console {
@@ -64,14 +65,13 @@ func Create(ctx Context, g *gui.GUI) *Console {
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
 	// notify UI of audio requirements
-	if g.AudioSetup != nil {
-		select {
-		case g.AudioSetup <- gui.AudioSetup{
-			Freq: spec.HorizScan * audio.SamplesPerScanline,
-			Read: con.TIA.AudioBuffer(),
-		}:
-		default:
-		}
+	select {
+	case g.AudioSetup <- gui.AudioSetup{
+		Freq: spec.HorizScan * audio.SamplesPerScanline,
+		Read: con.TIA.AudioBuffer(),
+		Mute: !ctx.UseAudio(),
+	}:
+	default:
 	}
 
 	return con

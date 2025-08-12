@@ -25,7 +25,7 @@ func main() {
 	resultGui = make(chan error, 1)
 	resultDebugger = make(chan error, 1)
 
-	g := gui.NewGUI().WithAudio()
+	g := gui.NewGUI()
 
 	go func() {
 		resultGui <- ebiten.Launch(endGui, g)

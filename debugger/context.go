@@ -12,6 +12,7 @@ type context struct {
 	rand       *rand.Rand
 	Breaks     []error
 	useOverlay bool
+	useAudio   bool
 }
 
 func (ctx *context) Spec() spec.Spec {
@@ -47,4 +48,8 @@ func (ctx *context) Break(e error) {
 
 func (ctx *context) UseOverlay() bool {
 	return ctx.useOverlay
+}
+
+func (ctx *context) UseAudio() bool {
+	return ctx.useAudio
 }

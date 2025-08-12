@@ -54,6 +54,10 @@ func (ctx *Context) UseOverlay() bool {
 	return ctx.useOverlay
 }
 
+func (ctx *Context) UseAudio() bool {
+	return false
+}
+
 // there is a problem with ebiten audio in the context of wasm so we launch
 // without audio for now
 const useAudio = false
@@ -63,9 +67,6 @@ func main() {
 	logger.SetEcho(os.Stderr, false)
 
 	g := gui.NewGUI()
-	if useAudio {
-		g = g.WithAudio()
-	}
 
 	// using PAL BIOS so we get asteroids for free
 	ctx := Context{

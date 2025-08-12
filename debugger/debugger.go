@@ -502,14 +502,11 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		logger.SetEcho(os.Stderr, false)
 	}
 
-	if !audio {
-		g.AudioSetup = nil
-	}
-
 	ctx := context{
 		console:    "7800",
 		spec:       strings.ToUpper(spec),
 		useOverlay: overlay,
+		useAudio:   audio,
 	}
 	ctx.Reset()
 
