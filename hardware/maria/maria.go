@@ -55,6 +55,10 @@ type Maria struct {
 	offset   uint8
 	ctrl     mariaCtrl
 
+	// a ticker for the background colour register. we could generalise this if there are any other
+	// late ticking requirements. but for now, we only need the one function
+	lateBackground func()
+
 	// current DLL
 	DLL dll
 	DL  dl
@@ -259,7 +263,18 @@ func (mar *Maria) Read(idx uint16) (uint8, error) {
 func (mar *Maria) Write(idx uint16, data uint8) error {
 	switch idx {
 	case 0x020:
-		mar.bg = data
+		// see comment for the preDMA value in dma.go for an explanation of this delay mechanism
+		if mar.lateBackground != nil {
+			panic("maria: unresolved background colour write")
+		}
+		var ct int
+		mar.lateBackground = func() {
+			ct++
+			if ct >= 19 {
+				mar.bg = data
+				mar.lateBackground = nil
+			}
+		}
 	case 0x021:
 		mar.palette[0][0] = data
 	case 0x022:
@@ -381,6 +396,11 @@ func (mar *Maria) PushRender() {
 }
 
 func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
+	// tick the late background function if it has recently been set
+	if mar.lateBackground != nil {
+		mar.lateBackground()
+	}
+
 	mar.Coords.Clk++
 	if mar.Coords.Clk >= spec.ClksScanline {
 		mar.Coords.Clk = 0

@@ -18,6 +18,7 @@ const (
 	// Count   Summer    Karateka
 	//  7       N         N
 	//  8       Y         N
+	//  14      Y         N
 	//  15      Y         Y
 	//  16      Y         Y
 	//  17      Y         Y
@@ -41,7 +42,37 @@ const (
 	// constant. so rather than saying DMA takes (approx) 7 CPU cycles, we can say that it takes
 	// exactly N cycles
 	//
-	preDMA = (15 * clocks.MariaCycles)
+	// karateka
+	// --------
+	// a strong indicator that 15 is the correct value is how Karateka sets the black background
+	// value at the end of the red play area (scanline 219). it deliberately uses two NOP
+	// instructions to push back the write until the beginning of the next scanline
+	//
+	// the value of 15 is approximate but it is no more than 16. if it was 16 cycles there would be
+	// no need for the second NOP. the absolute lowest value seems to be 14.25
+	//
+	// ballblazer
+	// ----------
+	// a value over 10 causes ballblazer to render background pixels in the middle of the playfield
+	// and a value of less than 4 causes other issues
+	//
+	// crossbow
+	// --------
+	// a value of under 10 causes severe graphics corruption in crossbow
+	//
+	// the precise requirements of crossbow and ballblazer strongly suggest that the preDMA value
+	// must be exactly 10. however, this leaves us with the problem of karateka
+	//
+	// karateka (again)
+	// ----------------
+	// an alternative strategy is required for karateka which isn't supported by anything in the
+	// existing research material. for the case of background writes, it has been decided that the
+	// write should be delayed by 19 cycles (see the Write() function in maria.go)
+	//
+	// this isn't a great solution and without more supporting evidince I'm hesitant to accept it as
+	// the correct solution
+	//
+	preDMA = (10 * clocks.MariaCycles)
 
 	// from the table "DMA Timing" in the '7800 Software Guide'
 	dmaStart           = 16
