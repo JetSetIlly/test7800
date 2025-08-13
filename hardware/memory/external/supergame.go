@@ -2,6 +2,8 @@ package external
 
 import (
 	"fmt"
+
+	"github.com/jetsetilly/test7800/logger"
 )
 
 // https://7800.8bitdev.org/index.php/ATARI_7800_BANKSWITCHING_GUIDE
@@ -18,11 +20,11 @@ type Supergame struct {
 	exram []byte
 }
 
-func NewSupergame(_ Context, d []byte, exrom bool, exram bool) (*Supergame, error) {
+func NewSupergame(_ Context, d []byte, banked bool, exrom bool, exram bool) (*Supergame, error) {
 	ext := &Supergame{}
 
 	if exrom && exram {
-		return nil, fmt.Errorf("supergame: cannot support extra ROM and extra RAM")
+		return nil, fmt.Errorf("supergame: cannot support extra ROM and extra RAM simultaneously")
 	}
 
 	if exrom {
@@ -37,13 +39,16 @@ func NewSupergame(_ Context, d []byte, exrom bool, exram bool) (*Supergame, erro
 	const bankSize = 0x4000
 
 	if len(d)%bankSize != 0 {
-		return nil, fmt.Errorf("supergame: unexpected payload size: %#x", len(d))
+		return nil, fmt.Errorf("supergame: unexpected size: %#x", len(d))
 	}
 
-	// supergame should have eight banks
 	numBanks := len(d) / bankSize
-	if numBanks != 8 {
-		return nil, fmt.Errorf("supergame: it's not normal for a supergame cartridge to have %d banks", len(ext.data))
+	if banked && numBanks == 1 {
+		logger.Log(logger.Allow, "supergame", "banked supergame cartridge has just 1 bank")
+	} else if !banked && numBanks > 1 {
+		logger.Log(logger.Allow, "supergame", "assuming supergame cartridge is banked")
+	} else {
+		logger.Logf(logger.Allow, "supergame", "%d banks", numBanks)
 	}
 
 	ext.data = make([][]byte, numBanks)
@@ -53,7 +58,7 @@ func NewSupergame(_ Context, d []byte, exrom bool, exram bool) (*Supergame, erro
 		o := bankSize * i
 		ext.data[i] = d[o : o+bankSize]
 	}
-	ext.bank = 6
+	ext.bank = 0
 
 	return ext, nil
 }
@@ -90,18 +95,18 @@ func (ext *Supergame) Access(write bool, address uint16, data uint8) (uint8, err
 		//
 		// there is a bit in the a64 header that controls this but there is at least one example
 		// (Ace of Aces) where it's not set but the game still expects bank 6 to be there
-		return ext.data[6][address-0x4000], nil
+		return ext.data[len(ext.data)-2][address-0x4000], nil
 	}
 
 	if address < 0xc000 {
 		if write {
 			// it's not clear how the write data is treated if the value is greater
-			// than the number of banks. masking the three LSBs seems sensible
-			ext.bank = int(data & 0x07)
+			// than the number of banks
+			ext.bank = int(data % uint8(len(ext.data)))
 		}
 		return ext.data[ext.bank][address-0x8000], nil
 	}
 
 	// return data from bank 7 for all addresses of 0xc000 and above
-	return ext.data[7][address-0xc000], nil
+	return ext.data[len(ext.data)-1][address-0xc000], nil
 }

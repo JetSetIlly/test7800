@@ -55,9 +55,10 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 	// a78 header
 	// https://7800.8bitdev.org/index.php/A78_Header_Specification
 	// https://forums.atariage.com/topic/333208-old-world-a78-format-10-31-primer/
-	if bytes.Compare(d[0x01:0x0a], []byte("ATARI7800")) == 0 {
-		logger.Logf(logger.Allow, "a78", "version %#02x", d[0x00])
-		logger.Logf(logger.Allow, "a78", "%s", strings.TrimSpace(string(d[0x11:0x31])))
+	if bytes.Equal(d[0x01:0x0a], []byte("ATARI7800")) {
+		// log a78 version and game title
+		logger.Logf(logger.Allow, "a78", "version: %#02x", d[0x00])
+		logger.Logf(logger.Allow, "a78", "title: %s", strings.TrimSpace(string(d[0x11:0x31])))
 
 		// cartridge size
 		size := (uint32(d[0x31]) << 24) | (uint32(d[0x32]) << 16) | (uint32(d[0x33]) << 8) | uint32(d[0x34])
@@ -74,21 +75,37 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 			// no controller, don't care
 		case 0x01:
 			twoButtonStick = true
-			logger.Logf(logger.Allow, "a78", "using two-button stick")
+			logger.Logf(logger.Allow, "a78", "controllers: using two-button stick")
 		case 0x05:
 			twoButtonStick = false
-			logger.Logf(logger.Allow, "a78", "using one-button stick")
+			logger.Logf(logger.Allow, "a78", "controllers: using one-button stick")
 		default:
 			return CartridgeInsertor{}, fmt.Errorf("a78: unsupported controller (%#02x)", controllerP0)
 		}
 
 		// cartridge type
 		cartType := (uint16(d[0x35]) << 8) | uint16(d[0x36])
+		cartType_info := cartType
+		logger.Logf(logger.Allow, "a78", "cart type: %08b %08b", uint8(cartType>>8), uint8(cartType))
 
-		if cartType&0x40 == 0x40 {
-			logger.Logf(logger.Allow, "a78", "POKEY required but not supported")
+		if cartType&0x0001 == 0x0001 {
+			logger.Logf(logger.Allow, "a78", "POKEY (at $4000) required but not supported")
+			cartType &= (0x01 ^ 0xff)
+		}
+		if cartType&0x0040 == 0x0040 {
+			logger.Logf(logger.Allow, "a78", "POKEY (at $440) required but not supported")
+			cartType &= (0x0040 ^ 0xff)
+		}
+		if cartType&0x0800 == 0x0800 {
+			logger.Logf(logger.Allow, "a78", "YM2151 required but not supported")
+			cartType &= (0x0800 ^ 0xff)
+		}
+		if cartType&0x8000 == 0x8000 {
+			logger.Logf(logger.Allow, "a78", "POKEY (at $800) required but not supported")
+			cartType &= (0x8000 ^ 0xff)
 		}
 
+		// flat cartridge type
 		if cartType == 0x00 {
 			return CartridgeInsertor{
 				data: d,
@@ -97,21 +114,26 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 				},
 				TwoButtonStick: twoButtonStick,
 			}, nil
-		} else {
-			if cartType&0x02 == 0x02 {
-				return CartridgeInsertor{
-					data: d,
-					creator: func(ctx Context, d []uint8) (cartridge, error) {
-						return NewSupergame(ctx, d[0x80:],
-							cartType&0x08 == 0x08,
-							cartType&0x04 == 0x04)
-					},
-					TwoButtonStick: twoButtonStick,
-				}, nil
-			} else {
-				return CartridgeInsertor{}, fmt.Errorf("unsupported a78 cartridge type (%#04x)", cartType)
-			}
 		}
+
+		// supergame bits
+		banked := cartType&0x02 == 0x02
+		exram := cartType&0x04 == 0x04
+		exrom := cartType&0x08 == 0x08
+
+		if banked || exrom || exram {
+			return CartridgeInsertor{
+				data: d,
+				creator: func(ctx Context, d []uint8) (cartridge, error) {
+					return NewSupergame(ctx, d[0x80:],
+						banked, exrom, exram,
+					)
+				},
+				TwoButtonStick: twoButtonStick,
+			}, nil
+		}
+
+		return CartridgeInsertor{}, fmt.Errorf("unsupported a78 cartridge type (%#04x)", cartType_info)
 	}
 
 	// check to see if data contains any non-ASCII bytes. if it does then we assume
