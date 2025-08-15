@@ -50,23 +50,19 @@ func (m *debugger) parseStepRule(cmd []string) bool {
 		}
 
 	case "SCANLINE", "SL":
-		var tgt int
+		var sl int
 		if len(cmd) > 1 {
 			var err error
-			tgt, err = strconv.Atoi(cmd[1])
+			sl, err = strconv.Atoi(cmd[1])
 			if err != nil {
 				fmt.Println(m.styles.err.Render(err.Error()))
 				return false
 			}
-			if tgt <= m.console.MARIA.Coords.Scanline {
-				fmt.Println(m.styles.err.Render(fmt.Sprintf("SCANLINE %d is in the past", tgt)))
-				return false
-			}
 		} else {
-			tgt = m.console.MARIA.Coords.Scanline + 1
+			sl = m.console.MARIA.Coords.Scanline + 1
 		}
 		m.stepRule = func() bool {
-			return m.console.MARIA.Coords.Scanline == tgt
+			return m.console.MARIA.Coords.Scanline == sl
 		}
 
 	case "INTERRUPT", "INTR":
