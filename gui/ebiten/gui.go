@@ -69,7 +69,7 @@ type guiEbiten struct {
 	main    *ebiten.Image
 	overlay *ebiten.Image
 	prev    *ebiten.Image
-	prevID  int
+	prevID  string
 	cursor  [2]int
 
 	// width/height of incoming image from emulation. not to be confused with window dimensions
@@ -246,8 +246,8 @@ func (eg *guiEbiten) Update() error {
 
 		eg.main.WritePixels(img.Main.Pix)
 
-		if img.Prev != nil && img.PrevID != eg.prevID {
-			eg.prevID = img.PrevID
+		if img.Prev != nil && img.ID != eg.prevID {
+			eg.prevID = img.ID
 			eg.prev.WritePixels(img.Prev.Pix)
 		}
 

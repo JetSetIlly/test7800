@@ -10,9 +10,8 @@ type Image struct {
 	Overlay *image.RGBA
 	Prev    *image.RGBA
 
-	// the previous image includes an ID that can be used to decide if the
-	// previous image has changed
-	PrevID int
+	// the ID of the image
+	ID string
 
 	// the x/y coordinates of the next pixel to be drawn to Main
 	Cursor [2]int

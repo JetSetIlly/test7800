@@ -362,7 +362,7 @@ func (mar *Maria) newFrame() {
 }
 
 func (mar *Maria) PushRender() {
-	var limits = [2]int{
+	var cursor = [2]int{
 		mar.Coords.Clk - mar.currentFrame.left,
 		mar.Coords.Scanline - mar.currentFrame.top,
 	}
@@ -372,9 +372,9 @@ func (mar *Maria) PushRender() {
 	case mar.g.SetImage <- gui.Image{
 		Main:    mar.currentFrame.main,
 		Overlay: mar.currentFrame.overlay,
-		PrevID:  mar.Coords.Frame - 1,
 		Prev:    mar.prevFrame.main,
-		Cursor:  limits,
+		ID:      mar.Coords.ShortString(),
+		Cursor:  cursor,
 	}:
 	default:
 	}

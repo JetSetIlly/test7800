@@ -382,7 +382,7 @@ func (m *debugger) run() bool {
 	}
 
 	if errors.Is(err, endRunErr) {
-		// nothing extra to do if error is only indicating that the run has ended
+		// nothing else to do in the case of an endRunErr error
 	} else if errors.Is(err, coprocErr) {
 		s := strings.TrimPrefix(err.Error(), coprocErr.Error())
 		fmt.Println(m.styles.coprocErr.Render(s))
