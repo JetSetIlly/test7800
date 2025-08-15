@@ -52,8 +52,14 @@ func (a *audioPlayer) Read(buf []uint8) (int, error) {
 	return n, nil
 }
 
+type windowGeometry struct {
+	x, y int
+	w, h int
+}
+
 type guiEbiten struct {
-	g *gui.GUI
+	g    *gui.GUI
+	geom windowGeometry
 
 	started bool
 	endGui  chan bool
@@ -288,14 +294,8 @@ func (eg *guiEbiten) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	// if window is being close
-	if ebiten.IsWindowBeingClosed() {
-		err := onCloseWindow()
-		if err != nil {
-			logger.Log(logger.Allow, "gui", err.Error())
-			return
-		}
-	}
+	eg.geom.x, eg.geom.y = ebiten.WindowPosition()
+	eg.geom.w, eg.geom.h = ebiten.WindowSize()
 }
 
 func (eg *guiEbiten) Layout(width, height int) (int, int) {
@@ -333,6 +333,14 @@ func Launch(endGui chan bool, g *gui.GUI) error {
 	if err != nil {
 		logger.Log(logger.Allow, "gui", err.Error())
 	}
+
+	defer func() {
+		err := onWindowClose(eg.geom)
+		if err != nil {
+			logger.Log(logger.Allow, "gui", err.Error())
+			return
+		}
+	}()
 
 	return ebiten.RunGame(eg)
 }

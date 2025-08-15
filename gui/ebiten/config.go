@@ -26,9 +26,7 @@ func onWindowOpen() error {
 	return nil
 }
 
-func onCloseWindow() error {
-	x, y := ebiten.WindowPosition()
-	w, h := ebiten.WindowSize()
-	s := fmt.Sprintf("%d %d %d %d", x, y, w, h)
+func onWindowClose(geom windowGeometry) error {
+	s := fmt.Sprintf("%d %d %d %d", geom.x, geom.y, geom.w, geom.h)
 	return resources.Write("window", s)
 }
