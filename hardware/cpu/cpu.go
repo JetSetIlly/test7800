@@ -159,6 +159,9 @@ func (mc *CPU) Interrupt(nonMaskable bool) error {
 	// interrupted state. if the CPU has been interrupted previously without an
 	// intervening RTI then the field will be >1
 	mc.interruptDepth++
+	if mc.interruptDepth > 1 {
+		fmt.Println(mc.interruptDepth)
+	}
 
 	// an interrupt has occurred and will be indicated in the restul for the next instruction
 	mc.interrupt = true
@@ -1531,7 +1534,7 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 	case instructions.Rti:
 		// software breaks (the BRK instruction) can be distinguished from
 		// hardware interrupts by the break flag
-		if !mc.Status.Break {
+		if mc.Status.Break {
 			if mc.interruptDepth > 0 {
 				// reduce depth count by one. if the count is now zero then the CPU is
 				// no longer in the interrupt state. if however, the an interrupt
