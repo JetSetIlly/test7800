@@ -159,9 +159,6 @@ func (mc *CPU) Interrupt(nonMaskable bool) error {
 	// interrupted state. if the CPU has been interrupted previously without an
 	// intervening RTI then the field will be >1
 	mc.interruptDepth++
-	if mc.interruptDepth > 1 {
-		fmt.Println(mc.interruptDepth)
-	}
 
 	// an interrupt has occurred and will be indicated in the restul for the next instruction
 	mc.interrupt = true
