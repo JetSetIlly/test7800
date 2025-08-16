@@ -108,24 +108,30 @@ func (con *Console) Step() error {
 			switch inp.Action {
 			case gui.StickLeft:
 				if inp.Set {
+					// unset the opposite direction first (applies to all
+					// other directions below)
+					con.RIOT.PortWrite(0x00, 0x80, 0x7f)
 					con.RIOT.PortWrite(0x00, 0x00, 0xbf)
 				} else {
 					con.RIOT.PortWrite(0x00, 0x40, 0xbf)
 				}
 			case gui.StickUp:
 				if inp.Set {
+					con.RIOT.PortWrite(0x00, 0x20, 0xdf)
 					con.RIOT.PortWrite(0x00, 0x00, 0xef)
 				} else {
 					con.RIOT.PortWrite(0x00, 0x10, 0xef)
 				}
 			case gui.StickRight:
 				if inp.Set {
+					con.RIOT.PortWrite(0x00, 0x40, 0xbf)
 					con.RIOT.PortWrite(0x00, 0x00, 0x7f)
 				} else {
 					con.RIOT.PortWrite(0x00, 0x80, 0x7f)
 				}
 			case gui.StickDown:
 				if inp.Set {
+					con.RIOT.PortWrite(0x00, 0x10, 0xef)
 					con.RIOT.PortWrite(0x00, 0x00, 0xdf)
 				} else {
 					con.RIOT.PortWrite(0x00, 0x20, 0xdf)
