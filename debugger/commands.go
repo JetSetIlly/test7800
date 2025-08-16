@@ -310,6 +310,15 @@ func (m *debugger) commands(cmd []string) bool {
 				))
 			}
 			break // switch
+
+		} else if arg == "CONTEXT" {
+			m.breakspointCtx = !m.breakspointCtx
+			if m.breakspointCtx {
+				fmt.Println(m.styles.debugger.Render("context breakpoints enabled"))
+			} else {
+				fmt.Println(m.styles.debugger.Render("context breakpoints disabled"))
+			}
+			break // switch
 		}
 
 		for i := 1; i < len(cmd); i++ {

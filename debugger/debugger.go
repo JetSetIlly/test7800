@@ -42,9 +42,10 @@ type debugger struct {
 	// this channel is poassed to the debugger during creation via the UI type
 	state chan gui.State
 
-	console     *hardware.Console
-	breakpoints map[uint16]bool
-	watches     map[uint16]watch
+	console        *hardware.Console
+	breakpoints    map[uint16]bool
+	watches        map[uint16]watch
+	breakspointCtx bool
 
 	// recent execution results to be printed on emulation halt
 	recent []execution.Result
@@ -178,6 +179,11 @@ func (m *debugger) reset() {
 
 func (m *debugger) contextBreaks() error {
 	if len(m.ctx.Breaks) == 0 {
+		return nil
+	}
+
+	if !m.breakspointCtx {
+		m.ctx.Breaks = m.ctx.Breaks[:0]
 		return nil
 	}
 
