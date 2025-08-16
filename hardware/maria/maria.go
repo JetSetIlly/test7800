@@ -55,10 +55,6 @@ type Maria struct {
 	offset   uint8
 	ctrl     mariaCtrl
 
-	// a ticker for the background colour register. we could generalise this if there are any other
-	// late ticking requirements. but for now, we only need the one function
-	lateBackground func()
-
 	// current DLL
 	DLL dll
 	DL  dl
@@ -179,102 +175,87 @@ func (mar *Maria) Access(write bool, idx uint16, data uint8) (uint8, error) {
 }
 
 func (mar *Maria) Read(idx uint16) (uint8, error) {
+	// From the '7800 Software Guide'
+	// "All the palette and BACKGRND registers are write-only."
+
 	switch idx {
 	case 0x020:
-		return mar.bg, nil
+		// background
 	case 0x021:
-		return mar.palette[0][0], nil
+		// palette[0][0]
 	case 0x022:
-		return mar.palette[0][1], nil
+		// palette[0][1]
 	case 0x023:
-		return mar.palette[0][2], nil
+		// palette[0][2]
 	case 0x024:
-		// wsync
-		// (write only)
-		return 0, nil
+		// wsync (write only)
 	case 0x025:
-		return mar.palette[1][0], nil
+		// palette[1][0]
 	case 0x026:
-		return mar.palette[1][1], nil
+		// palette[1][1]
 	case 0x027:
-		return mar.palette[1][2], nil
+		// palette[1][2]
 	case 0x028:
 		// maria status
 		return mar.mstat, nil
 	case 0x029:
-		return mar.palette[2][0], nil
+		// palette[2][0]
 	case 0x02a:
-		return mar.palette[2][1], nil
+		// palette[2][1]
 	case 0x02b:
-		return mar.palette[2][2], nil
+		// palette[2][2]
 	case 0x02c:
-		// display list point high
-		// (write only)
-		return 0, nil
+		// display list point high (write only)
 	case 0x02d:
-		return mar.palette[3][0], nil
+		// palette[3][0]
 	case 0x02e:
-		return mar.palette[3][1], nil
+		// palette[3][1]
 	case 0x02f:
-		return mar.palette[3][2], nil
+		// palette[3][2]
 	case 0x030:
-		// display list point low
-		// (write only)
-		return 0, nil
+		// display list point low (write only)
 	case 0x031:
-		return mar.palette[4][0], nil
+		// palette[4][0]
 	case 0x032:
-		return mar.palette[4][1], nil
+		// palette[4][1]
 	case 0x033:
-		return mar.palette[4][2], nil
+		// palette[4][2]
 	case 0x034:
-		// character base address
-		// (write only)
-		return 0, nil
+		// character base address (write only)
 	case 0x035:
-		return mar.palette[5][0], nil
+		// palette[5][0]
 	case 0x036:
-		return mar.palette[5][1], nil
+		// palette[5][1]
 	case 0x037:
-		return mar.palette[5][2], nil
+		// palette[5][2]
 	case 0x038:
 		// reserved for future expansion. this should always be zero
 		return mar.offset, nil
 	case 0x039:
-		return mar.palette[6][0], nil
+		// palette[6][0]
 	case 0x03a:
-		return mar.palette[6][1], nil
+		// palette[6][1]
 	case 0x03b:
-		return mar.palette[6][2], nil
+		// palette[6][2]
 	case 0x03c:
-		// maria control
-		// (write only)
+		// maria control (write only)
 		return 0, nil
 	case 0x03d:
-		return mar.palette[7][0], nil
+		// palette[7][0]
 	case 0x03e:
-		return mar.palette[7][1], nil
+		// palette[7][1]
 	case 0x03f:
-		return mar.palette[7][2], nil
+		// palette[7][2]
+	default:
+		return 0, fmt.Errorf("not a maria address (%#04x)", idx)
 	}
-	return 0x00, fmt.Errorf("not a maria address (%#04x)", idx)
+	return 0, nil
 }
 
 func (mar *Maria) Write(idx uint16, data uint8) error {
 	switch idx {
 	case 0x020:
-		// see comment for the preDMA value in dma.go for an explanation of this delay mechanism
-		if mar.lateBackground != nil {
-			panic("maria: unresolved background colour write")
-		}
-		var ct int
-		mar.lateBackground = func() {
-			ct++
-			if ct >= 19 {
-				mar.bg = data
-				mar.lateBackground = nil
-			}
-		}
+		mar.bg = data
 	case 0x021:
 		mar.palette[0][0] = data
 	case 0x022:
@@ -396,11 +377,6 @@ func (mar *Maria) PushRender() {
 }
 
 func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
-	// tick the late background function if it has recently been set
-	if mar.lateBackground != nil {
-		mar.lateBackground()
-	}
-
 	mar.Coords.Clk++
 	if mar.Coords.Clk >= spec.ClksScanline {
 		mar.Coords.Clk = 0
@@ -465,20 +441,25 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 
 	// read from lineram and draw to screen on a clock-by-clock basis
 	if mar.Coords.Scanline >= mar.currentFrame.top && mar.Coords.Scanline <= mar.currentFrame.bottom {
-		if mar.Coords.Clk >= spec.ClksHBLANK && mar.Coords.Clk&0x01 == spec.ClksHBLANK&0x01 {
-			e := mar.lineram.read(mar.Coords.Clk - spec.ClksHBLANK)
-			mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
-			mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+		if mar.Coords.Clk >= spec.ClksHBLANK-pipelineLength && mar.Coords.Clk < spec.ClksScanline-pipelineLength &&
+			mar.Coords.Clk&0x01 == spec.ClksHBLANK&0x01 {
+
+			px := x + pipelineLength
+
+			e := mar.lineram.read(mar.Coords.Clk - spec.ClksHBLANK + pipelineLength)
+			mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.bg]))
+			mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+
 			if e.set {
 				switch mar.ctrl.readMode {
 				case 0:
 					// 160A/B
 					if e.idx == 0 {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
+						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
+						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
 					}
 				case 1:
 					mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", ContextError))
@@ -495,30 +476,30 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					d := e.idx & 0x02
 					d |= (e.palette & 0x02) >> 1
 					if d == 0 {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
+						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
 					}
 					d = (e.idx & 0x01) << 1
 					d |= e.palette & 0x01
 					if d == 0 {
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
+						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
 					}
 				case 3:
 					// 320A/C
 					d := e.idx & 0x02
 					if d == 0 {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
+						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
 					}
 					d = (e.idx << 1) & 0x02
 					if d == 0 {
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
+						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
 					}
 				}
 			}

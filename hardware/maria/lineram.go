@@ -1,6 +1,8 @@
 package maria
 
-import "github.com/jetsetilly/test7800/hardware/spec"
+import (
+	"github.com/jetsetilly/test7800/hardware/spec"
+)
 
 type lineram struct {
 	// lineram is implemented as a single line image. this isn't an exact
@@ -9,30 +11,30 @@ type lineram struct {
 	lineram [2][spec.ClksVisible]lineEntry
 
 	// the index into the lineram. the values should be 0 or 1 and not equal
-	lineramRead  int
-	lineramWrite int
+	readIdx  int
+	writeIdx int
 }
 
 func (l *lineram) initialise() {
-	l.lineramRead = 0
-	l.lineramWrite = 1
+	l.readIdx = 0
+	l.writeIdx = 1
 }
 
 func (l *lineram) newScanline() {
-	l.lineramRead, l.lineramWrite = l.lineramWrite, l.lineramRead
+	l.readIdx, l.writeIdx = l.writeIdx, l.readIdx
 	for s := range spec.ClksVisible {
-		l.lineram[l.lineramWrite][s].set = false
+		l.lineram[l.writeIdx][s].set = false
 	}
 }
 
 func (l *lineram) read(x int) lineEntry {
-	return l.lineram[l.lineramRead][x]
+	return l.lineram[l.readIdx][x]
 }
 
 func (l *lineram) write(x int, palette uint8, idx uint8) {
-	l.lineram[l.lineramWrite][x].set = true
-	l.lineram[l.lineramWrite][x].palette = palette
-	l.lineram[l.lineramWrite][x].idx = idx
+	l.lineram[l.writeIdx][x].set = true
+	l.lineram[l.writeIdx][x].palette = palette
+	l.lineram[l.writeIdx][x].idx = idx
 }
 
 // each entry in lineram is a lineEntry instance
@@ -49,8 +51,3 @@ type lineEntry struct {
 	// * the data in the palette and idx fields are treated slightly differently
 	// in 320B/D modes
 }
-
-// the index value to use in the lineEntry struct to indicate that the colour of
-// the lineram entry should be the currently selected background colour. this
-// happens when kangaroo mode is enabled
-const bgIdx = 255

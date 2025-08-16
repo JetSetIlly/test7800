@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	// the pre-DMA value seems to be the key to getting the DMA timing correct. the two games we're
-	// using to help get the value correct is Summer Games and Karateka
+	// the pre-DMA value seems to be the key to getting the DMA timing correct. there are four games
+	// games that we have used we're using to help get the value correct. the games are Summer
+	// Games, Karateka, Ballblazer and Crossbow. we'll concentrate on the first two games for now
 	//
 	// for the Summer Games ROM the line just below the judge's scores will flicker if this preDMA
 	// value is not correct
@@ -15,62 +16,34 @@ const (
 	// for Karateka the very bottom of the red of the game area will not extend all the way to the
 	// right of the screen if the preDMA is not correct
 	//
-	// Count   Summer    Karateka
-	//  7       N         N
-	//  8       Y         N
-	//  14      Y         N
-	//  15      Y         Y
-	//  16      Y         Y
-	//  17      Y         Y
-	//  18      N         Y
+	// Factor    Summer    Karateka
+	//  7          N         N
+	//  8          Y         N
+	//  14         Y         N
+	//  15         Y         Y
+	//  16         Y         Y
+	//  17         Y         Y
+	//  18         N         Y
 	//
 	// a value of 15 is the lowest value for which Summer Games and Karateka displays correctly
 	//
-	// this value is not supported in any of the existing 7800 research documentation. appendix 3 of
-	// '7800 Software Guide' statues that "DMA does not begin until 7 CPU (1.79 MHz) cycles into
-	// each scan line"
+	// the other two games suggest quite different values however. In the case of Ballblazer a value
+	// over 10 causes red background pixels in the middle of the playfield; and a value of less than 4
+	// causes other more severe issues
 	//
-	// it also acknowledges that "there is some uncertainty as to the number of cycles DMA will
-	// require, because the internal MARIA chip timing resolution is 7.16 MHz, while the 6502 runs
-	// at either 1.79 MHz or 1.19MHz. As a result, it is not known how many extra cycles will be
-	// needed in DMA startup/shutdown to make the 6502 happy"
+	// for Crossbow, on the other hand, a value of under 10 causes severe graphics corruption in
+	// crossbow.
 	//
-	// the fact that the document takes about the CPU running at varying speeds suggests that the
-	// author is looking at this problem from a slightly different perspective. the varying CPU
-	// speed is taken care of in the console.Step() function and the Maria is stepped according to
-	// the current speed. I believe that this means that the number of cycles taken by the Maria is
-	// constant. so rather than saying DMA takes (approx) 7 CPU cycles, we can say that it takes
-	// exactly N cycles
+	// so taking these two games into account there is a very specific value of 10
 	//
-	// karateka
-	// --------
-	// a strong indicator that 15 is the correct value is how Karateka sets the black background
-	// value at the end of the red play area (scanline 219). it deliberately uses two NOP
-	// instructions to push back the write until the beginning of the next scanline
-	//
-	// the value of 15 is approximate but it is no more than 16. if it was 16 cycles there would be
-	// no need for the second NOP. the absolute lowest value seems to be 14.25
-	//
-	// ballblazer
-	// ----------
-	// a value over 10 causes ballblazer to render background pixels in the middle of the playfield
-	// and a value of less than 4 causes other issues
-	//
-	// crossbow
-	// --------
-	// a value of under 10 causes severe graphics corruption in crossbow
 	//
 	// the precise requirements of crossbow and ballblazer strongly suggest that the preDMA value
-	// must be exactly 10. however, this leaves us with the problem of karateka
+	// is exactly 10. (note that this contradicts the '7800 Software Guide' when it says that there is
+	// "some uncertainty" with regard to this value)
 	//
-	// karateka (again)
-	// ----------------
-	// an alternative strategy is required for karateka which isn't supported by anything in the
-	// existing research material. for the case of background writes, it has been decided that the
-	// write should be delayed by 19 cycles (see the Write() function in maria.go)
-	//
-	// this isn't a great solution and without more supporting evidince I'm hesitant to accept it as
-	// the correct solution
+	// a value of 10 is also satisfactory for Summer Games. it does not solve the Karateka problem
+	// however. for that problem we need to take into consideration the length of the pixel
+	// pipeline. see the pipelineLength constant below
 	//
 	preDMA = (10 * clocks.MariaCycles)
 
@@ -103,4 +76,15 @@ const (
 
 	// the maximum number of cycles available in DMA before the HSYNC
 	dmaMaxCycles = spec.ClksScanline
+
+	// the number of pixels to read ahead in the lineram when decoding the fetch instructions. this
+	// is a theoretical mechanism which I believe must exist in order to account for some DMA
+	// related effects in some games - the Karateka background problem described in the comments for
+	// the preDMA comment
+	//
+	// when reading the fetch instructions from lineram, is is postulated that the amount of time
+	// required to decode the instruction and to reference the colour registers is not in absolute
+	// lockstep with the TV raster scan. instead, we begin the decoding for pixel X of a scanline at
+	// position (X-pipelineLength)
+	pipelineLength = 18
 )
