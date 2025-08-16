@@ -717,6 +717,11 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 				// executing instruction inside an interrupt
 				mar.currentFrame.overlay.Set(x, y, color.RGBA{G: 255, A: 255})
 			}
+
+			// vblank is indicated by grey stripes
+			if mar.mstat == vblankEnable && mar.Coords.Clk&0x07 == mar.Coords.Scanline&0x07 {
+				mar.currentFrame.overlay.Set(x, y, color.RGBA{R: 100, G: 100, B: 100, A: 100})
+			}
 		}
 	}
 
