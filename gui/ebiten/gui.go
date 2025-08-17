@@ -99,17 +99,17 @@ func (eg *guiEbiten) input() {
 
 	for _, p := range released {
 		switch p {
-		case ebiten.KeyArrowLeft:
+		case ebiten.KeyArrowLeft, ebiten.KeyNumpad4:
 			inp = gui.Input{Action: gui.StickLeft}
-		case ebiten.KeyArrowRight:
+		case ebiten.KeyArrowRight, ebiten.KeyNumpad6:
 			inp = gui.Input{Action: gui.StickRight}
-		case ebiten.KeyArrowUp:
+		case ebiten.KeyArrowUp, ebiten.KeyNumpad8:
 			inp = gui.Input{Action: gui.StickUp}
-		case ebiten.KeyArrowDown:
+		case ebiten.KeyArrowDown, ebiten.KeyNumpad2:
 			inp = gui.Input{Action: gui.StickDown}
-		case ebiten.KeySpace:
+		case ebiten.KeySpace, ebiten.KeyZ:
 			inp = gui.Input{Action: gui.StickButtonA}
-		case ebiten.KeyB:
+		case ebiten.KeyB, ebiten.KeyX:
 			inp = gui.Input{Action: gui.StickButtonB}
 		case ebiten.KeyF1:
 			inp = gui.Input{Action: gui.Select}
@@ -132,17 +132,17 @@ func (eg *guiEbiten) input() {
 
 	for _, r := range pressed {
 		switch r {
-		case ebiten.KeyArrowLeft:
+		case ebiten.KeyArrowLeft, ebiten.KeyNumpad4:
 			inp = gui.Input{Action: gui.StickLeft, Set: true}
-		case ebiten.KeyArrowRight:
+		case ebiten.KeyArrowRight, ebiten.KeyNumpad6:
 			inp = gui.Input{Action: gui.StickRight, Set: true}
-		case ebiten.KeyArrowUp:
+		case ebiten.KeyArrowUp, ebiten.KeyNumpad8:
 			inp = gui.Input{Action: gui.StickUp, Set: true}
-		case ebiten.KeyArrowDown:
+		case ebiten.KeyArrowDown, ebiten.KeyNumpad2:
 			inp = gui.Input{Action: gui.StickDown, Set: true}
-		case ebiten.KeySpace:
+		case ebiten.KeySpace, ebiten.KeyZ:
 			inp = gui.Input{Action: gui.StickButtonA, Set: true}
-		case ebiten.KeyB:
+		case ebiten.KeyB, ebiten.KeyX:
 			inp = gui.Input{Action: gui.StickButtonB, Set: true}
 		case ebiten.KeyF1:
 			inp = gui.Input{Action: gui.Select, Set: true}
