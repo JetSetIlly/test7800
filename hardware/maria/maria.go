@@ -543,6 +543,10 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 						mar.requiredDMACycles += dmaDLHeader
 					}
 
+					// keeps track of whether the DMA cycle accumulation has happened for a holey
+					// read already. we only want one dmaHoleyRead accumulation per display list
+					var inHole bool
+
 					for w := range mar.DL.width {
 						// the DMA can't go on too long so we exit early if appropriate
 						if mar.requiredDMACycles > dmaMaxCycles {
@@ -607,8 +611,11 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 							// if this address is in a hole then all addresses in the DL will
 							// be in the hole also
 							if mar.DLL.inHole(a) {
-								mar.requiredDMACycles += dmaHoleyRead
-								break // for width loop
+								if !inHole {
+									mar.requiredDMACycles += dmaHoleyRead
+									inHole = true
+								}
+								continue // for width loop
 							}
 
 							b, err = mar.mem.Read(a)
@@ -624,9 +631,13 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 								}
 								write(b, true)
 
-								mar.requiredDMACycles += dmaIndirectWideGfx
+								if !inHole {
+									mar.requiredDMACycles += dmaIndirectWideGfx
+								}
 							} else {
-								mar.requiredDMACycles += dmaIndirectGfx
+								if !inHole {
+									mar.requiredDMACycles += dmaIndirectGfx
+								}
 							}
 
 						} else {
@@ -638,8 +649,11 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 							// if this address is in a hole then all addresses in the DL will
 							// be in the hole also
 							if mar.DLL.inHole(a) {
-								mar.requiredDMACycles += dmaHoleyRead
-								break // for width loop
+								if !inHole {
+									mar.requiredDMACycles += dmaHoleyRead
+									inHole = true
+								}
+								continue // for width loop
 							}
 
 							b, err := mar.mem.Read(a)
