@@ -9,13 +9,13 @@ import (
 // https://forums.atariage.com/topic/210082-colorswhat-do-you-want/#comment-2716653
 // using files in option (A)
 
-//go:embed "palettes/NTSC_A7800_CRTTV.pal"
+//go:embed "palettes/trebor/NTSC_A78_CRTTV_BRT.pal"
 var ntscRaw []byte
 
 // PAL palette downloaded from
 // https://forums.atariage.com/topic/383566-emulator-test7800/#comment-5700807
 
-//go:embed "palettes/PAL_LUM3_COOL.pal"
+//go:embed "palettes/trebor/PAL_A78_CRTTV_BRT.pal"
 var palRaw []byte
 
 const ClksScanline = 454
