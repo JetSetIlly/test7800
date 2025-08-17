@@ -225,7 +225,8 @@ func (con *Console) Step() error {
 	// the CPU and so there are multiple ticks of the MARIA per CPU cycle
 	//
 	// if the TIA bus is active then the CPU runs at a slower clock
-	tick := func() error {
+	var tick func() error
+	tick = func() error {
 		mariaCycles := clocks.MariaCycles
 		if con.Mem.IsSlowAddressBus() {
 			mariaCycles = clocks.MariaCycles_for_SlowMemory
@@ -244,14 +245,20 @@ func (con *Console) Step() error {
 			}
 		}
 
+		// consume DMA cycles (but not WSYNC cycles)
+		for con.hlt && con.Mem.INPTCTRL.HaltEnabled() {
+			err := tick()
+			if err != nil {
+				return err
+			}
+		}
+
 		return nil
 	}
 
-	// swallow all DMA activity. the CPU will be halted during this time so.
-	// INPTCTRL only allows the HALT line to be raised after an initial
-	// phase. the HaltEnabled() function tells us the state of that condition
-	//
-	// WSYNC also causes HALT to be enabled
+	// swallow all DMA activity. the CPU will be halted during this time so. INPTCTRL only allows
+	// the HALT line to be raised after an initial phase. the HaltEnabled() function tells us the
+	// state of that condition. WSYNC also causes HALT to be enabled
 	for (con.hlt && con.Mem.INPTCTRL.HaltEnabled()) || !con.rdy {
 		err := tick()
 		if err != nil {

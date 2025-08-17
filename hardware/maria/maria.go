@@ -384,6 +384,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 		mar.wsync = false
 		mar.dma = false
 		mar.requiredDMACycles = 0
+
 		mar.lineram.newScanline()
 		mar.RecentDL = mar.RecentDL[:0]
 
@@ -441,25 +442,23 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 
 	// read from lineram and draw to screen on a clock-by-clock basis
 	if mar.Coords.Scanline >= mar.currentFrame.top && mar.Coords.Scanline <= mar.currentFrame.bottom {
-		if mar.Coords.Clk >= spec.ClksHBLANK-pipelineLength && mar.Coords.Clk < spec.ClksScanline-pipelineLength &&
+		if mar.Coords.Clk >= spec.ClksHBLANK && mar.Coords.Clk < spec.ClksScanline &&
 			mar.Coords.Clk&0x01 == spec.ClksHBLANK&0x01 {
 
-			px := x + pipelineLength
-
-			e := mar.lineram.read(mar.Coords.Clk - spec.ClksHBLANK + pipelineLength)
-			mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.bg]))
-			mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+			e := mar.lineram.read(mar.Coords.Clk - spec.ClksHBLANK)
+			mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
+			mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
 
 			if e.set {
 				switch mar.ctrl.readMode {
 				case 0:
 					// 160A/B
 					if e.idx == 0 {
-						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.bg]))
-						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
-						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
 					}
 				case 1:
 					mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", ContextError))
@@ -476,30 +475,30 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					d := e.idx & 0x02
 					d |= (e.palette & 0x02) >> 1
 					if d == 0 {
-						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
 					}
 					d = (e.idx & 0x01) << 1
 					d |= e.palette & 0x01
 					if d == 0 {
-						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
 					}
 				case 3:
 					// 320A/C
 					d := e.idx & 0x02
 					if d == 0 {
-						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(px, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
 					}
 					d = (e.idx << 1) & 0x02
 					if d == 0 {
-						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(px+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
 					}
 				}
 			}
@@ -519,11 +518,12 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 				// dma is now active
 				mar.dma = true
 
-				if mar.DLL.offset == 0 {
+				if mar.DLL.workingOffset == 0x00 {
 					mar.requiredDMACycles += dmaStartLastInZone
 				} else {
 					mar.requiredDMACycles += dmaStart
 				}
+				mar.requiredDMACycles += dmaStartAdditional
 
 				err := mar.nextDL(true)
 				if err != nil {
@@ -631,13 +631,9 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 								}
 								write(b, true)
 
-								if !inHole {
-									mar.requiredDMACycles += dmaIndirectWideGfx
-								}
+								mar.requiredDMACycles += dmaIndirectWideGfx
 							} else {
-								if !inHole {
-									mar.requiredDMACycles += dmaIndirectGfx
-								}
+								mar.requiredDMACycles += dmaIndirectGfx
 							}
 
 						} else {
@@ -691,7 +687,9 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					mar.dli = mar.DLL.dli
 
 					// the interrupt will be sent when dma has finished
-					mar.requiredDMACycles += dmaInterruptOverhead
+					if mar.dli {
+						mar.requiredDMACycles += dmaInterruptOverhead
+					}
 				}
 			case 0x03:
 				// dma is off. showing only background colour
