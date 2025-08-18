@@ -79,6 +79,9 @@ type Result struct {
 
 	// was this result as a result of an interrupt
 	FromInterrupt bool
+
+	// was this result executed inside an interrupt
+	InInterrupt bool
 }
 
 // Reset nullifies all members of the Result instance.

@@ -213,7 +213,7 @@ func (m *debugger) contextBreaks() error {
 }
 
 func (m *debugger) printInstruction(res *disassembly.Entry) {
-	if m.console.MC.InInterrupt() {
+	if res.Result.InInterrupt {
 		fmt.Print(m.styles.instruction.Render("!! "))
 	}
 	fmt.Println(m.styles.instruction.Render(

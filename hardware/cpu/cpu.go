@@ -607,6 +607,7 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 	mc.LastResult.Address = mc.PC.Address()
 	mc.LastResult.FromInterrupt = mc.interrupt
 	mc.interrupt = false
+	mc.LastResult.InInterrupt = mc.InInterrupt()
 
 	var err error
 
