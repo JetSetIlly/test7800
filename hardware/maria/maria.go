@@ -523,7 +523,6 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 				} else {
 					mar.requiredDMACycles += dmaStart
 				}
-				mar.requiredDMACycles += dmaStartAdditional
 
 				err := mar.nextDL(true)
 				if err != nil {
@@ -531,16 +530,11 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 				}
 
 				for !mar.DL.isEnd {
-					// the DMA can't go on too long so we exit early if appropriate
-					if mar.requiredDMACycles > dmaMaxCycles {
-						break // for loop
-					}
-
 					// DMA cycle accumulation for DL header
 					if mar.DL.long {
 						mar.requiredDMACycles += dmaLongDLHeader
 					} else {
-						mar.requiredDMACycles += dmaDLHeader
+						mar.requiredDMACycles += dmaShortDLHeader
 					}
 
 					// keeps track of whether the DMA cycle accumulation has happened for a holey
@@ -548,7 +542,6 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					var inHole bool
 
 					for w := range mar.DL.width {
-						// the DMA can't go on too long so we exit early if appropriate
 						if mar.requiredDMACycles > dmaMaxCycles {
 							break // for loop
 						}
@@ -668,6 +661,10 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 						mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 					}
 				}
+
+				// to get to this point we must have read the DL header which indicates the end of
+				// the display list. this contributes to the DMA requirements too
+				mar.requiredDMACycles += dmaLastDLHeader
 
 				// DLL sequence is reset at beginning of vblankDisable (ie. when scanline is
 				// equal to 'visible top')
