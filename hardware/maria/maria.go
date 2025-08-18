@@ -710,18 +710,13 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 				// value for every odd numbered DLL
 				var v uint8
 				if mar.DLL.ct&0x01 == 0x01 {
-					v = 200
+					v = 175
 				} else {
 					v = 255
 				}
 
-				// while DMA is active the debugging overlay is red. however, if the cpu is inside
-				// an interrupt and therefore temporarily stalled the overlay is orange (a mix of red and green)
-				if mar.cpu.InInterrupt() && !mar.wsync {
-					mar.currentFrame.overlay.Set(x, y, color.RGBA{R: v, G: v, A: 255})
-				} else {
-					mar.currentFrame.overlay.Set(x, y, color.RGBA{R: v, A: 255})
-				}
+				// while DMA is active the debugging overlay is red
+				mar.currentFrame.overlay.Set(x, y, color.RGBA{R: v, A: 255})
 			} else if mar.wsync {
 				// wsync overlay is blue
 				mar.currentFrame.overlay.Set(x, y, color.RGBA{B: 255, A: 255})
