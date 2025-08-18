@@ -60,9 +60,19 @@ func (m *debugger) parseStepRule(cmd []string) bool {
 			}
 		} else {
 			sl = m.console.MARIA.Coords.Scanline + 1
+			if sl >= m.console.MARIA.Spec.AbsoluteBottom {
+				sl -= m.console.MARIA.Spec.AbsoluteBottom
+			}
 		}
-		m.stepRule = func() bool {
-			return m.console.MARIA.Coords.Scanline == sl
+		if m.console.MARIA.Coords.Scanline == sl {
+			fr := m.console.MARIA.Coords.Frame
+			m.stepRule = func() bool {
+				return m.console.MARIA.Coords.Scanline == sl && m.console.MARIA.Coords.Frame == fr+1
+			}
+		} else {
+			m.stepRule = func() bool {
+				return m.console.MARIA.Coords.Scanline == sl
+			}
 		}
 
 	case "INTERRUPT", "INTR":

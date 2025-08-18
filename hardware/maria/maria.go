@@ -85,8 +85,8 @@ type Maria struct {
 	// the current coordinates of the TV image
 	Coords coords
 
-	// the current spec (NTSC, PAL, etc.)
-	spec spec.Spec
+	// the current television specificaion (NTSC, PAL, etc.)
+	Spec spec.Spec
 
 	// the image that is sent to the user interface
 	currentFrame frame
@@ -124,7 +124,7 @@ func Create(ctx Context, g *gui.GUI, mem Memory, cpu CPU, limit limiter) *Maria 
 		g:     g,
 		mem:   mem,
 		cpu:   cpu,
-		spec:  ctx.Spec(),
+		Spec:  ctx.Spec(),
 		limit: limit,
 	}
 
@@ -338,12 +338,12 @@ func (mar *Maria) newFrame() {
 		mar.currentFrame.left = 0
 		mar.currentFrame.right = spec.ClksScanline
 		mar.currentFrame.top = 0
-		mar.currentFrame.bottom = mar.spec.AbsoluteBottom
+		mar.currentFrame.bottom = mar.Spec.AbsoluteBottom
 	} else {
 		mar.currentFrame.left = spec.ClksHBLANK
 		mar.currentFrame.right = spec.ClksScanline
-		mar.currentFrame.top = mar.spec.VisibleTop + 10
-		mar.currentFrame.bottom = mar.spec.VisibleBottom - 8
+		mar.currentFrame.top = mar.Spec.VisibleTop + 10
+		mar.currentFrame.bottom = mar.Spec.VisibleBottom - 8
 	}
 
 	mar.currentFrame.main = image.NewRGBA(image.Rect(0, 0,
@@ -388,7 +388,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 		mar.lineram.newScanline()
 		mar.RecentDL = mar.RecentDL[:0]
 
-		if mar.Coords.Scanline >= mar.spec.AbsoluteBottom {
+		if mar.Coords.Scanline >= mar.Spec.AbsoluteBottom {
 			mar.Coords.Scanline = 0
 			mar.Coords.Frame++
 
@@ -401,7 +401,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 			// this can almost certainly be improved in efficiency
 			mar.newFrame()
 
-		} else if mar.Coords.Scanline == mar.spec.VisibleTop {
+		} else if mar.Coords.Scanline == mar.Spec.VisibleTop {
 			mar.mstat = vblankDisable
 
 			// "The end of VBLANK is made up of a DMA startup plus a Long shutdown."
@@ -410,7 +410,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 			// reset list of DLLs seen this frame
 			mar.RecentDLL = mar.RecentDLL[:0]
 
-		} else if mar.Coords.Scanline == mar.spec.VisibleBottom {
+		} else if mar.Coords.Scanline == mar.Spec.VisibleBottom {
 			mar.mstat = vblankEnable
 		}
 	}
@@ -446,19 +446,19 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 			mar.Coords.Clk&0x01 == spec.ClksHBLANK&0x01 {
 
 			e := mar.lineram.read(mar.Coords.Clk - spec.ClksHBLANK)
-			mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
-			mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+			mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.bg]))
+			mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.bg]))
 
 			if e.set {
 				switch mar.ctrl.readMode {
 				case 0:
 					// 160A/B
 					if e.idx == 0 {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][e.idx-1]]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.palette[e.palette][e.idx-1]]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.palette[e.palette][e.idx-1]]))
 					}
 				case 1:
 					mar.ctx.Break(fmt.Errorf("%w: readmode value of 0x01 in ctrl register is undefined", ContextError))
@@ -475,30 +475,30 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					d := e.idx & 0x02
 					d |= (e.palette & 0x02) >> 1
 					if d == 0 {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.palette[p][d-1]]))
 					}
 					d = (e.idx & 0x01) << 1
 					d |= e.palette & 0x01
 					if d == 0 {
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[p][d-1]]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.palette[p][d-1]]))
 					}
 				case 3:
 					// 320A/C
 					d := e.idx & 0x02
 					if d == 0 {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.palette[e.palette][d-1]]))
 					}
 					d = (e.idx << 1) & 0x02
 					if d == 0 {
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.bg]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.spec.Palette[mar.palette[e.palette][d-1]]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.palette[e.palette][d-1]]))
 					}
 				}
 			}
@@ -671,7 +671,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 
 				// DLL sequence is reset at beginning of vblankDisable (ie. when scanline is
 				// equal to 'visible top')
-				ok, err := mar.nextDLL(mar.Coords.Scanline == mar.spec.VisibleTop)
+				ok, err := mar.nextDLL(mar.Coords.Scanline == mar.Spec.VisibleTop)
 				if err != nil {
 					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 				}
