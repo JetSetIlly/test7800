@@ -31,9 +31,14 @@ func Create(_ Context, g *gui.GUI, riot riot, limiter limiter) *TIA {
 	tia := &TIA{
 		aud: audio.NewAudio(),
 
-		// inpt initialised as though sticks are being used
+		// inpt initialised as though two-button sticks/gamepads are being used. INPT4 and INPT5
+		// represent the primary fire button and the high bit pulled high by default. the high bits
+		// of INPT0 and INPT1 meanwhile, represents the secondary button and is held low by default.
+		//
+		// INPT2 and INPT3 are not connected for joystick peripherals and the high bit is held high
+		// in this case
 		inpt: [6]uint8{
-			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x80, 0x80,
 			0x80, 0x80,
 		},
 	}
