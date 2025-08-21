@@ -1,4 +1,4 @@
-version = v0.3.0
+version = v0.4.0-preview
 
 goBinary = go
 gcflags = -c 3 -B -wb=false -l -l -l -l
