@@ -44,7 +44,7 @@ func init() {
 		// starts on raster 16 and ends on raster 258."
 		ID:             "NTSC",
 		VisibleTop:     16,
-		VisibleBottom:  259,
+		VisibleBottom:  258,
 		SafeTop:        41,
 		SafeBottom:     233,
 		AbsoluteBottom: 263,
@@ -53,11 +53,10 @@ func init() {
 
 	PAL = Spec{
 		// 	"For PAL consoles, there are a total of 313 rasters per frame. (~1/50th
-		// 	per second). The 'visible' screen starts on raster 16 and ends on raster
-		// 	308"
+		// 	per second). The 'visible' screen starts on raster 16 and ends on raster 308"
 		ID:             "PAL",
 		VisibleTop:     16,
-		VisibleBottom:  309,
+		VisibleBottom:  308,
 		SafeTop:        41,
 		SafeBottom:     283,
 		AbsoluteBottom: 313,
