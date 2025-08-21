@@ -17,6 +17,8 @@ package audio
 
 import (
 	"strings"
+
+	"github.com/jetsetilly/test7800/hardware/spec"
 )
 
 // The TIA emulation takes two samples per scanline, so by definition the sample
@@ -40,7 +42,7 @@ type Audio struct {
 	// this is the 3.58Mhz clock, which the TIA operates at, divided by
 	// 114. that's one half of a scanline so we count to 228 and update
 	// twice in that time
-	clock228 int
+	clock int
 
 	// the volume is sampled every colour clock and the volume at each clock is
 	// summed. at fixed points, the volume is averaged
@@ -97,12 +99,12 @@ func (au *Audio) Step() bool {
 	au.sampleSum[1] += int(au.Channel1.actualVolume())
 	au.sampleSumCt++
 
-	if (au.clock228 >= 8 && au.clock228 <= 10) || (au.clock228 >= 80 && au.clock228 <= 82) {
+	if (au.clock >= 8 && au.clock <= 11) || (au.clock >= 80 && au.clock <= 83) {
 		au.Channel0.phase0()
 		au.Channel1.phase0()
 	}
 
-	if (au.clock228 >= 36 && au.clock228 <= 38) || (au.clock228 >= 148 && au.clock228 <= 150) {
+	if (au.clock >= 36 && au.clock <= 39) || (au.clock >= 148 && au.clock <= 151) {
 		au.Channel0.phase1()
 		au.Channel1.phase1()
 
@@ -116,10 +118,9 @@ func (au *Audio) Step() bool {
 		changed = true
 	}
 
-	// advance 228 clock and reset sample counter
-	au.clock228 += 3
-	if au.clock228 >= 228 {
-		au.clock228 = 0
+	au.clock += 4
+	if au.clock >= spec.ClksScanline {
+		au.clock = 0
 	}
 
 	return changed

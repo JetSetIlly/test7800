@@ -238,9 +238,9 @@ func (con *Console) Step() error {
 			interruptNext = interruptNext || interrupt
 
 			con.cycleRegulator++
-			if con.cycleRegulator > 5 {
-				con.RIOT.Tick()
+			if con.cycleRegulator > 3 {
 				con.TIA.Tick()
+				con.RIOT.Tick()
 				con.cycleRegulator = 0
 			}
 		}

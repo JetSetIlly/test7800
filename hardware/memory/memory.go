@@ -164,6 +164,17 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	// different map to the above. we prefer this software guide map because it
 	// is based on modern research
 
+	// additional masking for RIOT timer addresses
+	mapRIOT := func(a uint16) uint16 {
+		if read {
+			if a&0x0284 == 0x0284 {
+				return a & 0x285
+			}
+			return a & 0x287
+		}
+		return a & 0x0297
+	}
+
 	// page 1
 	if address >= 0x0000 && address <= 0x001f {
 		// INPTCTRL or TIA
@@ -233,8 +244,8 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	}
 
 	if address >= 0x0280 && address <= 0x02ff {
-		// RIOT
-		return address - 0x0280, mem.RIOT
+		// RIOT (timer and ports)
+		return mapRIOT(address - 0x0280), mem.RIOT
 	}
 
 	// page 4
@@ -264,8 +275,8 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	}
 
 	if address >= 0x0380 && address <= 0x03ff {
-		// RIOT
-		return address - 0x0380, mem.RIOT
+		// RIOT (timer and ports)
+		return mapRIOT(address - 0x0380), mem.RIOT
 	}
 
 	// 0x0400 to 0x047f "available for mapping by external devices"

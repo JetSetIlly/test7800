@@ -135,6 +135,8 @@ func (riot *RIOT) Write(idx uint16, data uint8) error {
 		riot.setTimer(64, data)
 	case 0x07, 0x17:
 		riot.setTimer(1024, data)
+	case 0x1f:
+		riot.timint &= ^timintExpired
 	}
 	return nil
 }
