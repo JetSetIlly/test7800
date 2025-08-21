@@ -24,10 +24,6 @@ const (
 	// sprite width is"
 	dmaHoleyRead = 3
 
-	// the last header in the display list has a cost, even though it isn't
-	// fully decoded
-	dmaLastDLHeader = dmaShortDLHeader
-
 	// "The end of VBLANK is made up of a DMA startup plus a Long shutdown."
 	dmaEndofVBLANK = dmaStartLastInZone
 

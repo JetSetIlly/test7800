@@ -64,10 +64,21 @@ type Maria struct {
 	// sent
 	colourBurst bool
 
-	// whether dma is active at the current moment. it is enabled if ctrl.dma is
+	// whether DMA is active at the current moment. it is enabled if ctrl.dma is
 	// enabled when the clock counter reaches preDMA; and then disabled when the
 	// number of required DMA cycles for the DLL is reacehd
+	//
+	// we also need to take into account the dmaLatch. this is set when the CPU is at the end of a
+	// cycle. DMA will not start unless the latch is set
 	dma bool
+
+	// the clock on which the DMA actually started. the start clock can change depending on when the
+	// dmaLatch is set
+	dmaStart int
+
+	// whether the dma has been active this scanline. this can be true even if the dma field is true
+	// which can happen once DMA has ended. dmaLatched is reset at the start of a new scanline
+	dmaLatched bool
 
 	// the number of DMA cycles required to construct the scanline
 	requiredDMACycles int
@@ -379,13 +390,18 @@ func (mar *Maria) PushRender() {
 	}
 }
 
-func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
+// dmaLatch indicates that the DMA can begin if the preDMA has been reached.
+//
+// From the '7800 Software Guide'
+// "The DMA start-up may be delayed if the 6502 clock isn't at the end of a cycle when DMA begins."
+func (mar *Maria) Tick(dmaLatch bool) (hlt bool, rdy bool, nmi bool) {
 	mar.Coords.Clk++
 	if mar.Coords.Clk >= spec.ClksScanline {
 		mar.Coords.Clk = 0
 		mar.Coords.Scanline++
 		mar.wsync = false
 		mar.dma = false
+		mar.dmaLatched = false
 		mar.requiredDMACycles = 0
 
 		mar.lineram.newScanline()
@@ -508,8 +524,9 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 		}
 	}
 
-	// scanline build is done at the start of DMA
-	if mar.Coords.Clk == preDMA {
+	// scanline build is done at the start of DMA. not the careful use of dmaLatch and dmaLatched to
+	// ensure that this block is only executed once per scanline
+	if !mar.dmaLatched && dmaLatch && mar.Coords.Clk >= preDMA {
 		// DMA is only ever active when VBLANK is disabled
 		if mar.mstat == vblankDisable {
 			switch mar.ctrl.dma {
@@ -520,6 +537,8 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 			case 0x02:
 				// dma is now active
 				mar.dma = true
+				mar.dmaLatched = true
+				mar.dmaStart = mar.Coords.Clk
 
 				if mar.DLL.workingOffset == 0x00 {
 					mar.requiredDMACycles += dmaStartLastInZone
@@ -665,10 +684,6 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					}
 				}
 
-				// to get to this point we must have read the DL header which indicates the end of
-				// the display list. this contributes to the DMA requirements too
-				mar.requiredDMACycles += dmaLastDLHeader
-
 				// DLL sequence is reset at beginning of vblankDisable (ie. when scanline is
 				// equal to 'visible top')
 				ok, err := mar.nextDLL(mar.Coords.Scanline == mar.Spec.VisibleTop)
@@ -703,7 +718,7 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 	}
 
 	// disable dma when the number of required cycles has passed
-	if mar.Coords.Clk == preDMA+mar.requiredDMACycles {
+	if mar.Coords.Clk == mar.dmaStart+mar.requiredDMACycles {
 		mar.dma = false
 	}
 

@@ -232,9 +232,9 @@ func (con *Console) Step() error {
 			mariaCycles = clocks.MariaCycles_for_SlowMemory
 		}
 
-		for range mariaCycles {
+		for i := range mariaCycles {
 			var interrupt bool
-			con.hlt, con.rdy, interrupt = con.MARIA.Tick()
+			con.hlt, con.rdy, interrupt = con.MARIA.Tick(i == mariaCycles-1)
 			interruptNext = interruptNext || interrupt
 
 			con.cycleRegulator++
