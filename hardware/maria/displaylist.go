@@ -9,7 +9,7 @@ type dl struct {
 	// if the indirect bit is set then the size of the header is 5 bytes rather than 4 bytes
 	long bool
 
-	// writemode and indirect are not present in a 4 byte header
+	// writemode and indirect are not present in a 4 byte header (long == false)
 	//
 	// but writemode is only changed by a 5 byte DL header. ie. it's value
 	// persists until it is explicitly changed
@@ -54,8 +54,8 @@ func (l *dl) Status() string {
 		s.WriteString("end")
 		return s.String()
 	}
-	if l.indirect {
-		s.WriteString(fmt.Sprintf("indirect=%v writebit=%v\n", l.indirect, l.writemode))
+	if l.long {
+		s.WriteString(fmt.Sprintf("indirect=%v writemode=%v\n", l.indirect, l.writemode))
 	}
 	s.WriteString(fmt.Sprintf("high=%02x ", l.highAddress))
 	s.WriteString(fmt.Sprintf("low=%02x\n", l.lowAddress))
