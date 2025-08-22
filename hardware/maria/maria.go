@@ -72,6 +72,9 @@ type Maria struct {
 	// the number of DMA cycles required to construct the scanline
 	requiredDMACycles int
 
+	// number of cycles before DMI is triggered
+	interruptDelay int
+
 	// read-only registers
 	mstat uint8 // bit 7 is true if VBLANK is enabled
 
@@ -685,7 +688,12 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 
 					// the interrupt will be sent when dma has finished
 					if mar.dli {
-						mar.requiredDMACycles += dmaInterruptOverhead
+						// additional DMA overhead in the event of an interrupt being triggered is
+						// not mentioned in the '7800 Software Guide'. however both js7800 and mame
+						// use a value of 17.
+						const dmaInterruptOverhead = 17
+
+						mar.interruptDelay = dmaInterruptOverhead
 					}
 				}
 			case 0x03:
@@ -730,11 +738,16 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 		}
 	}
 
-	// dli signal is sent once DMA has finished
+	// dli signal is sent once DMA and delay has concluded
 	var dli bool
 	if !mar.dma {
-		dli = mar.dli
-		mar.dli = false
+		if mar.dli {
+			mar.interruptDelay--
+			if mar.interruptDelay == 0 {
+				dli = true
+				mar.dli = false
+			}
+		}
 	}
 
 	return mar.dma, !mar.wsync, dli
