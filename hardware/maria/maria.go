@@ -736,6 +736,15 @@ func (mar *Maria) Tick(dmaLatch bool) (hlt bool, rdy bool, nmi bool) {
 				}
 
 				// while DMA is active the debugging overlay is red
+				//
+				// there's a small flaw in this caused by the skew between how the screen is drawn
+				// and where the DMA starts and maximum extent of DMA. see dma.go for more
+				// discussion but basically, we draw the screen so that the HBLANK area is drawn
+				// entirely on the left hand side. for DMA however, it's more correct to think of
+				// DMA has being partly on the right and partly on the left
+				//
+				// rather than complicate the code however, we'll just live with the DMA indicator
+				// being cropped
 				mar.currentFrame.overlay.Set(x, y, color.RGBA{R: v, A: 255})
 			} else if mar.wsync {
 				// wsync overlay is blue

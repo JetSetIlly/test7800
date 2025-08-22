@@ -20,10 +20,12 @@ var ntscRaw []byte
 //go:embed "palettes/trebor/PAL_A78_CRTTV_BRT.pal"
 var palRaw []byte
 
-const ClksScanline = 454
-const ClksHBLANK = 134
-const ClksVisible = 320
-const ClksColourBurst = 16
+const (
+	ClksScanline    = 454
+	ClksHBLANK      = 134
+	ClksVisible     = 320
+	ClksColourBurst = 16
+)
 
 type Spec struct {
 	ID             string

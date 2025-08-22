@@ -8,7 +8,15 @@ import (
 const (
 	// * the '7800 Software Guide' states in appendix 3 that, "DMA does not begin until 7 CPU (1.79 MHz)
 	// cycles into each scan line"
-	preDMA = (7 * clocks.MariaCycles)
+	//
+	// the reason for the difference of 7 and 12 is, I believe, due to differences in where the
+	// scanline is considered to start. to be clear, I consider the start of the scanline to be when
+	// HBLANK starts. I think it's possible that the research that informs the `7800 Software Guide`
+	// considers the start of scanline to the end of HSYNC
+	//
+	// this impacts the dmaMaxCycles value calculated below. I'm not convinced the figures are
+	// correct but they work and may suggest an error somewhere else in the emulation
+	preDMA = (12 * clocks.MariaCycles)
 
 	// from the table "DMA Timing" in the '7800 Software Guide'
 	dmaStart           = 16
@@ -28,5 +36,18 @@ const (
 	dmaEndofVBLANK = dmaStartLastInZone
 
 	// the maximum number of cycles available in DMA before the HSYNC
-	dmaMaxCycles = spec.ClksScanline - preDMA
+	//
+	// the value of 435 has been determined to be the minimum required for Super Skateboarding to
+	// render correctly. the score line of that game has many DL entries and needs as many cycles as
+	// possible
+	//
+	// so starting with the number of maria cycles in the entire scanline we subtract the number of
+	// cycles determined to be in the 'preDMA' phase and then adjust for the skew caused by the
+	// difference in measurement
+	//
+	// what we're saying here is this: what we consider to be the end of the scanline and the point
+	// when DMA is forced to end (if it hasn't already) is approximately 5 CPU cycles
+	//
+	// also note that the skew also effects the drawing of DMA extent for the DLL zones
+	dmaMaxCycles = spec.ClksScanline - preDMA + (7 * clocks.MariaCycles) + 1
 )
