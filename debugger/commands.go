@@ -240,7 +240,7 @@ func (m *debugger) commands(cmd []string) bool {
 			break // switch
 		}
 
-		v, err := strconv.Atoi(cmd[2])
+		v, err := strconv.ParseUint(cmd[2], 0, 16)
 		if err != nil {
 			fmt.Println(m.styles.err.Render(
 				fmt.Sprintf("poke: %s", err.Error()),
