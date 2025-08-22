@@ -7,26 +7,43 @@ import (
 	"github.com/jetsetilly/test7800/resources"
 )
 
-func onWindowOpen() error {
-	s, err := resources.Read("window")
-	if err != nil {
-		return err
-	}
-
-	var x, y, w, h int
-
-	_, err = fmt.Sscanf(s, "%d %d %d %d", &x, &y, &w, &h)
-	if err != nil {
-		return err
-	}
-
-	ebiten.SetWindowPosition(x, y)
-	ebiten.SetWindowSize(w, h)
-
-	return nil
+type windowGeometry struct {
+	x, y int
+	w, h int
 }
 
-func onWindowClose(geom windowGeometry) error {
-	s := fmt.Sprintf("%d %d %d %d", geom.x, geom.y, geom.w, geom.h)
+func (g windowGeometry) valid() bool {
+	return g.x >= 0 && g.y >= 0 && g.w > 0 && g.h > 0
+}
+
+func onWindowOpen() (windowGeometry, error) {
+	s, err := resources.Read("window")
+	if err != nil {
+		return windowGeometry{}, err
+	}
+
+	var g windowGeometry
+
+	_, err = fmt.Sscanf(s, "%d %d %d %d", &g.x, &g.y, &g.w, &g.h)
+	if err != nil {
+		return windowGeometry{}, err
+	}
+
+	if !g.valid() {
+		return g, nil
+	}
+
+	ebiten.SetWindowPosition(g.x, g.y)
+	ebiten.SetWindowSize(g.w, g.h)
+
+	return g, nil
+}
+
+func onWindowClose(g windowGeometry) error {
+	if !g.valid() {
+		return nil
+	}
+
+	s := fmt.Sprintf("%d %d %d %d", g.x, g.y, g.w, g.h)
 	return resources.Write("window", s)
 }

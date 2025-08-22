@@ -52,11 +52,6 @@ func (a *audioPlayer) Read(buf []uint8) (int, error) {
 	return n, nil
 }
 
-type windowGeometry struct {
-	x, y int
-	w, h int
-}
-
 type guiEbiten struct {
 	g    *gui.GUI
 	geom windowGeometry
@@ -329,7 +324,9 @@ func Launch(endGui chan bool, g *gui.GUI) error {
 		return nil
 	}
 
-	err := onWindowOpen()
+	var err error
+
+	eg.geom, err = onWindowOpen()
 	if err != nil {
 		logger.Log(logger.Allow, "gui", err.Error())
 	}
