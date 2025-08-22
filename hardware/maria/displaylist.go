@@ -268,10 +268,10 @@ func (mar *Maria) nextDLL(reset bool) (bool, error) {
 		mar.DLL.origin = (uint16(mar.dpph) << 8) | uint16(mar.dppl)
 	} else {
 		// offset is an unsigned integer between 0 and 15 and is the "height of
-		// the zone, minus one". the DLL has expired therefore when the value is
-		// less than zero, or in unsigned terms when the value is 0xff. however,
-		// we also know that offset can never be greater than 0x0f so we actually
-		// test for the working offset being less then 0x0f
+		// the zone, minus one". the DLL has expired therefore, when the value is
+		// less than zero, or in unsigned terms when the value is 0xff. however, we also know that
+		// offset can never be greater than 0x0f, unless the unsigned value has wrapped, so we
+		// actually test for the working offset being less then 0x0f
 		mar.DLL.workingOffset--
 		if mar.DLL.workingOffset <= 0x0f {
 			return false, nil

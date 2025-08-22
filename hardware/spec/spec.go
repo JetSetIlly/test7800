@@ -5,15 +5,17 @@ import (
 	"image/color"
 )
 
-// NTSC palette downloaded from
+// NTSC palettes downloaded from
 // https://forums.atariage.com/topic/210082-colorswhat-do-you-want/#comment-2716653
 // using files in option (A)
+//
+// palettes/NTSC_A7800_CRTTV.pal
+// palettes/PAL_A7800_CRTTV.pal
+
+// preferring BRT palettes in trebor sub-directory
 
 //go:embed "palettes/trebor/NTSC_A78_CRTTV_BRT.pal"
 var ntscRaw []byte
-
-// PAL palette downloaded from
-// https://forums.atariage.com/topic/383566-emulator-test7800/#comment-5700807
 
 //go:embed "palettes/trebor/PAL_A78_CRTTV_BRT.pal"
 var palRaw []byte

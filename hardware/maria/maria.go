@@ -488,17 +488,17 @@ func (mar *Maria) Tick() (hlt bool, rdy bool, nmi bool) {
 					}
 				case 3:
 					// 320A/C
-					d := e.idx & 0x02
+					d := (e.idx >> 1) & 0x01
 					if d == 0 {
 						mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.palette[e.palette][d-1]]))
+						mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.palette[e.palette][1]]))
 					}
-					d = (e.idx << 1) & 0x02
+					d = e.idx & 0x01
 					if d == 0 {
 						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.bg]))
 					} else {
-						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.palette[e.palette][d-1]]))
+						mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.palette[e.palette][1]]))
 					}
 				}
 			}
