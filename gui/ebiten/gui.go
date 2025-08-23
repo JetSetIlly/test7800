@@ -201,16 +201,19 @@ func (eg *guiEbiten) Update() error {
 					return fmt.Errorf("ebiten: %w", err)
 				}
 
-				<-ready
-
-				eg.audio.r = s.Read
-				eg.audio.p = ctx.NewPlayer(&eg.audio)
-				if s.Mute {
-					eg.audio.p.SetVolume(0.0)
-				} else {
-					eg.audio.p.SetVolume(0.9)
+				select {
+				case <-ready:
+					eg.audio.r = s.Read
+					eg.audio.p = ctx.NewPlayer(&eg.audio)
+					if s.Mute {
+						eg.audio.p.SetVolume(0.0)
+					} else {
+						eg.audio.p.SetVolume(0.9)
+					}
+					eg.audio.p.Play()
+				case <-eg.endGui:
+					return ebiten.Termination
 				}
-				eg.audio.p.Play()
 			}
 
 		default:
