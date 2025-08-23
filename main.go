@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/jetsetilly/test7800/debugger"
 	"github.com/jetsetilly/test7800/gui"
@@ -27,15 +28,19 @@ func main() {
 
 	g := gui.NewGUI()
 
-	go func() {
+	var wg sync.WaitGroup
+
+	wg.Go(func() {
 		resultGui <- ebiten.Launch(endGui, g)
 		endDebugger <- true
-	}()
+	})
 
-	go func() {
+	wg.Go(func() {
 		resultDebugger <- debugger.Launch(endDebugger, g, os.Args[1:])
 		endGui <- true
-	}()
+	})
+
+	wg.Wait()
 
 	if err := <-resultGui; err != nil {
 		fmt.Printf("*** %s\n", err)

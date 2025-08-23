@@ -1,6 +1,6 @@
 module github.com/jetsetilly/test7800
 
-go 1.24.4
+go 1.25.0
 
 require (
 	github.com/charmbracelet/lipgloss v0.13.0
