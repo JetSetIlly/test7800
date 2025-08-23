@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -79,7 +78,7 @@ func (m *debugger) reset() {
 
 	// load file specified by loader
 	if m.loader != "" {
-		d, err := ioutil.ReadFile(m.loader)
+		d, err := os.ReadFile(m.loader)
 		if err != nil {
 			fmt.Println(m.styles.err.Render(
 				fmt.Sprintf("error loading %s: %s", m.loader, err.Error()),

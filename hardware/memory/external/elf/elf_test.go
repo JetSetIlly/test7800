@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jetsetilly/test7800/hardware/memory/external/elf"
+	"github.com/jetsetilly/test7800/hardware/spec"
 	"github.com/jetsetilly/test7800/logger"
 	"github.com/jetsetilly/test7800/test"
 )
@@ -26,8 +27,8 @@ func (c *Context) Rand8Bit() uint8 {
 func (c *Context) Break(_ error) {
 }
 
-func (c *Context) Spec() string {
-	return "NTSC"
+func (c *Context) Spec() spec.Spec {
+	return spec.NTSC
 }
 
 func (c *Context) IsAtari7800() bool {
