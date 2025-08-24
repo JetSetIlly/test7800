@@ -23,9 +23,9 @@ type CartridgeInsertor struct {
 	creator  func(Context, []uint8) (cartridge, error)
 	reset    CartridgeReset
 
-	// whether controller should have two-buttons. NOTE: placeholder
+	// whether controller should have just one-buttons. NOTE: placeholder
 	// until we add more sophisticated controller requirements (paddle, etc.)
-	TwoButtonStick bool
+	OneButtonStick bool
 }
 
 func (c CartridgeInsertor) Filename() string {
@@ -82,16 +82,16 @@ func Fingerprint(filename string) (CartridgeInsertor, error) {
 		}
 
 		// controller type
-		var twoButtonStick bool
+		var oneButtonStick bool
 		controllerP0 := d[0x37]
 		switch controllerP0 {
 		case 0x00:
 			// no controller, don't care
 		case 0x01:
-			twoButtonStick = true
+			oneButtonStick = false
 			logger.Logf(logger.Allow, "a78", "controllers: using two-button stick")
 		case 0x05:
-			twoButtonStick = false
+			oneButtonStick = true
 			logger.Logf(logger.Allow, "a78", "controllers: using one-button stick")
 		default:
 			return CartridgeInsertor{}, fmt.Errorf("a78: unsupported controller (%#02x)", controllerP0)
@@ -126,7 +126,7 @@ func Fingerprint(filename string) (CartridgeInsertor, error) {
 				creator: func(ctx Context, d []uint8) (cartridge, error) {
 					return NewFlat(ctx, d[0x80:])
 				},
-				TwoButtonStick: twoButtonStick,
+				OneButtonStick: oneButtonStick,
 			}, nil
 		}
 
@@ -144,7 +144,7 @@ func Fingerprint(filename string) (CartridgeInsertor, error) {
 						banked, exrom, exram,
 					)
 				},
-				TwoButtonStick: twoButtonStick,
+				OneButtonStick: oneButtonStick,
 			}, nil
 		}
 
@@ -164,7 +164,7 @@ func Fingerprint(filename string) (CartridgeInsertor, error) {
 				},
 
 				// default to two button stick if we don't have a header
-				TwoButtonStick: true,
+				OneButtonStick: false,
 			}, nil
 		}
 	}

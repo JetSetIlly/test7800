@@ -48,6 +48,7 @@ const (
 func Create() *RIOT {
 	riot := &RIOT{}
 	riot.Reset()
+	riot.Insert(external.CartridgeInsertor{})
 	return riot
 }
 
@@ -77,11 +78,11 @@ func (riot *RIOT) Status() string {
 
 func (riot *RIOT) Insert(c external.CartridgeInsertor) error {
 	// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
-	if c.TwoButtonStick {
+	if c.OneButtonStick {
+		riot.Write(0x02, 0x05)
+	} else {
 		// player one pulls SWCHB bit 2 low and player two pulls SWCHB bit 0 low
 		riot.Write(0x02, 0x00)
-	} else {
-		riot.Write(0x02, 0x05)
 	}
 	return nil
 }

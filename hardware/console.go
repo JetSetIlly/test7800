@@ -95,6 +95,10 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 	if err != nil {
 		return err
 	}
+	err = con.TIA.Insert(c)
+	if err != nil {
+		return err
+	}
 	return con.Mem.External.Insert(c)
 }
 
