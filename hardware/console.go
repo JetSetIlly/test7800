@@ -65,12 +65,15 @@ func Create(ctx Context, g *gui.GUI) *Console {
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
 	// notify UI of audio requirements
+	var audioSetup gui.AudioSetup
+	if ctx.UseAudio() {
+		audioSetup = gui.AudioSetup{
+			Freq: spec.HorizScan * audio.SamplesPerScanline,
+			Read: con.TIA.AudioBuffer(),
+		}
+	}
 	select {
-	case g.AudioSetup <- gui.AudioSetup{
-		Freq: spec.HorizScan * audio.SamplesPerScanline,
-		Read: con.TIA.AudioBuffer(),
-		Mute: !ctx.UseAudio(),
-	}:
+	case g.AudioSetup <- audioSetup:
 	default:
 	}
 

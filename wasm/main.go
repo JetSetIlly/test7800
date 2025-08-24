@@ -58,10 +58,6 @@ func (ctx *Context) UseAudio() bool {
 	return false
 }
 
-// there is a problem with ebiten audio in the context of wasm so we launch
-// without audio for now
-const useAudio = false
-
 func main() {
 	// logger messages will be viewable in javascript log for WASM build
 	logger.SetEcho(os.Stderr, false)

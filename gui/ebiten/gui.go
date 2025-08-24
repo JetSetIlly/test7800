@@ -52,6 +52,15 @@ func (a *audioPlayer) Read(buf []uint8) (int, error) {
 	return n, nil
 }
 
+type windowGeometry struct {
+	x, y int
+	w, h int
+}
+
+func (g windowGeometry) valid() bool {
+	return g.x >= 0 && g.y >= 0 && g.w > 0 && g.h > 0
+}
+
 type guiEbiten struct {
 	g    *gui.GUI
 	geom windowGeometry
@@ -184,7 +193,7 @@ func (eg *guiEbiten) Update() error {
 	if eg.g.AudioSetup != nil {
 		select {
 		case s := <-eg.g.AudioSetup:
-			if eg.g.AudioSetup != nil {
+			if s.Read != nil {
 				if eg.audio.p != nil {
 					err := eg.audio.p.Close()
 					if err != nil {
@@ -205,17 +214,11 @@ func (eg *guiEbiten) Update() error {
 				case <-ready:
 					eg.audio.r = s.Read
 					eg.audio.p = ctx.NewPlayer(&eg.audio)
-					if s.Mute {
-						eg.audio.p.SetVolume(0.0)
-					} else {
-						eg.audio.p.SetVolume(0.9)
-					}
 					eg.audio.p.Play()
 				case <-eg.endGui:
 					return ebiten.Termination
 				}
 			}
-
 		default:
 		}
 	}

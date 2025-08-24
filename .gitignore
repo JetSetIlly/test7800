@@ -17,3 +17,4 @@ portable.txt
 Test7800_UserData
 test7800_linux_amd64
 test7800_windows_amd64.exe
+wasm/www/test7800.wasm

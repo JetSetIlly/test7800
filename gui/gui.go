@@ -34,7 +34,6 @@ type AudioReader interface {
 type AudioSetup struct {
 	Freq float64
 	Read AudioReader
-	Mute bool
 }
 
 type GUI struct {

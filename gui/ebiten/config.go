@@ -1,3 +1,6 @@
+//go:build !wasm
+// +build !wasm
+
 package ebiten
 
 import (
@@ -6,15 +9,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jetsetilly/test7800/resources"
 )
-
-type windowGeometry struct {
-	x, y int
-	w, h int
-}
-
-func (g windowGeometry) valid() bool {
-	return g.x >= 0 && g.y >= 0 && g.w > 0 && g.h > 0
-}
 
 func onWindowOpen() (windowGeometry, error) {
 	s, err := resources.Read("window")
