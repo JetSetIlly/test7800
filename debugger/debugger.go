@@ -78,52 +78,45 @@ func (m *debugger) reset() {
 
 	// load file specified by loader
 	if m.loader != "" {
-		d, err := os.ReadFile(m.loader)
+		c, err := external.Fingerprint(m.loader)
 		if err != nil {
-			fmt.Println(m.styles.err.Render(
-				fmt.Sprintf("error loading %s: %s", m.loader, err.Error()),
-			))
-		} else {
-			c, err := external.Fingerprint(d)
-			if err != nil {
-				if errors.Is(err, external.UnrecognisedData) {
-					// file is not a cartridge dump so we'll assume it's a bootfile
-					fmt.Println(m.styles.debugger.Render(
-						fmt.Sprintf("booting from %s", filepath.Base(m.loader)),
-					))
+			if errors.Is(err, external.UnrecognisedData) {
+				// file is not a cartridge dump so we'll assume it's a bootfile
+				fmt.Println(m.styles.debugger.Render(
+					fmt.Sprintf("booting from %s", filepath.Base(m.loader)),
+				))
 
-					m.script, err = m.bootFromFile(d)
-					if err == nil {
-						// resetting with a boot file is a bit different because we
-						// don't want to do a normal reset if the boot process was
-						// succesful
-						return
-					}
-
-					// forget about loader because we now know it doesn't work
-					fmt.Println(m.styles.err.Render(
-						fmt.Sprintf("%s: %s", filepath.Base(m.loader), err.Error()),
-					))
-					m.loader = ""
-				} else {
-					// forget about loader because we now know it doesn't work
-					fmt.Println(m.styles.err.Render(
-						fmt.Sprintf("%s: %s", filepath.Base(m.loader), err.Error()),
-					))
-					m.loader = ""
+				m.script, err = m.bootFromFile(c.Data())
+				if err == nil {
+					// resetting with a boot file is a bit different because we
+					// don't want to do a normal reset if the boot process was
+					// succesful
+					return
 				}
 
+				// forget about loader because we now know it doesn't work
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("%s: %s", filepath.Base(m.loader), err.Error()),
+				))
+				m.loader = ""
 			} else {
-				err = m.console.Insert(c)
-				if err != nil {
-					fmt.Println(m.styles.err.Render(err.Error()))
-				} else {
-					fmt.Println(m.styles.debugger.Render(
-						fmt.Sprintf("%s cartridge from %s", m.console.Mem.External.Label(),
-							filepath.Base(m.loader)),
-					))
-					cartridgeReset = c.ResetProcedure()
-				}
+				// forget about loader because we now know it doesn't work
+				fmt.Println(m.styles.err.Render(
+					fmt.Sprintf("%s: %s", filepath.Base(m.loader), err.Error()),
+				))
+				m.loader = ""
+			}
+
+		} else {
+			err = m.console.Insert(c)
+			if err != nil {
+				fmt.Println(m.styles.err.Render(err.Error()))
+			} else {
+				fmt.Println(m.styles.debugger.Render(
+					fmt.Sprintf("%s cartridge from %s", m.console.Mem.External.Label(),
+						filepath.Base(m.loader)),
+				))
+				cartridgeReset = c.ResetProcedure()
 			}
 		}
 	}
@@ -482,6 +475,12 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 			if errors.Is(err, dialog.ErrCancelled) {
 				return nil
 			}
+			return err
+		}
+
+		_, err = external.Fingerprint(filename)
+		if err != nil {
+			dialog.Message("Problem with selected file\n\n%s", err.Error()).Info()
 			return err
 		}
 

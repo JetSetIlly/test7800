@@ -27,6 +27,10 @@ type CartridgeInsertor struct {
 	TwoButtonStick bool
 }
 
+func (c CartridgeInsertor) Data() []uint8 {
+	return c.data
+}
+
 func (c CartridgeInsertor) ResetProcedure() CartridgeReset {
 	return c.reset
 }
@@ -34,7 +38,12 @@ func (c CartridgeInsertor) ResetProcedure() CartridgeReset {
 // error returned when data is not recognised at all
 var UnrecognisedData = errors.New("unrecognised data")
 
-func Fingerprint(d []uint8) (CartridgeInsertor, error) {
+func Fingerprint(filename string) (CartridgeInsertor, error) {
+	d, err := os.ReadFile(filename)
+	if err != nil {
+		return CartridgeInsertor{}, err
+	}
+
 	// only allow ELF loading if an "ALLOW_ELF" file is present in the current directory
 	f, err := os.Open("ALLOW_ELF")
 	if err == nil {
@@ -133,7 +142,7 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 			}, nil
 		}
 
-		return CartridgeInsertor{}, fmt.Errorf("unsupported a78 cartridge type (%#04x)", cartType_info)
+		return CartridgeInsertor{}, fmt.Errorf("a78: unsupported cartridge type (%#04x)", cartType_info)
 	}
 
 	// check to see if data contains any non-ASCII bytes. if it does then we assume
@@ -153,5 +162,5 @@ func Fingerprint(d []uint8) (CartridgeInsertor, error) {
 		}
 	}
 
-	return CartridgeInsertor{}, UnrecognisedData
+	return CartridgeInsertor{data: d}, UnrecognisedData
 }
