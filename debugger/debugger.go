@@ -58,7 +58,7 @@ type debugger struct {
 	stepRule func() bool
 
 	// the file to load on console reset. can be a bootfile or cartridge
-	loader string
+	loader external.CartridgeInsertor
 
 	// script of commands
 	script []string
@@ -76,49 +76,15 @@ func (m *debugger) reset() {
 
 	var cartridgeReset external.CartridgeReset
 
-	// load file specified by loader
-	if m.loader != "" {
-		c, err := external.Fingerprint(m.loader)
-		if err != nil {
-			if errors.Is(err, external.UnrecognisedData) {
-				// file is not a cartridge dump so we'll assume it's a bootfile
-				fmt.Println(m.styles.debugger.Render(
-					fmt.Sprintf("booting from %s", filepath.Base(m.loader)),
-				))
-
-				m.script, err = m.bootFromFile(c.Data())
-				if err == nil {
-					// resetting with a boot file is a bit different because we
-					// don't want to do a normal reset if the boot process was
-					// succesful
-					return
-				}
-
-				// forget about loader because we now know it doesn't work
-				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("%s: %s", filepath.Base(m.loader), err.Error()),
-				))
-				m.loader = ""
-			} else {
-				// forget about loader because we now know it doesn't work
-				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("%s: %s", filepath.Base(m.loader), err.Error()),
-				))
-				m.loader = ""
-			}
-
-		} else {
-			err = m.console.Insert(c)
-			if err != nil {
-				fmt.Println(m.styles.err.Render(err.Error()))
-			} else {
-				fmt.Println(m.styles.debugger.Render(
-					fmt.Sprintf("%s cartridge from %s", m.console.Mem.External.Label(),
-						filepath.Base(m.loader)),
-				))
-				cartridgeReset = c.ResetProcedure()
-			}
-		}
+	err := m.console.Insert(m.loader)
+	if err != nil {
+		fmt.Println(m.styles.err.Render(err.Error()))
+	} else {
+		fmt.Println(m.styles.debugger.Render(
+			fmt.Sprintf("%s cartridge from %s", m.console.Mem.External.Label(),
+				filepath.Base(m.loader.Filename())),
+		))
+		cartridgeReset = m.loader.ResetProcedure()
 	}
 
 	// try and (re)attach coproc developer/disassembly to external device
@@ -133,7 +99,7 @@ func (m *debugger) reset() {
 
 	var noBIOS = m.bypassBIOS || cartridgeReset.BypassBIOS
 
-	err := m.console.Reset(true)
+	err = m.console.Reset(true)
 	if err != nil {
 		fmt.Println(m.styles.err.Render(err.Error()))
 	} else {
@@ -457,6 +423,9 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	// exit program immediately if program launched with a file dialog
 	var runQuitImmediately bool
 
+	// the selected cartridge. assigned by either a file dialog or from the command line
+	var loader external.CartridgeInsertor
+
 	// if no filename has been specified then open a file dialog
 	if len(args) == 0 {
 		lastSelectedROM, err := resources.Read("lastSelectedROM")
@@ -478,9 +447,9 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 			return err
 		}
 
-		_, err = external.Fingerprint(filename)
+		loader, err = external.Fingerprint(filename)
 		if err != nil {
-			dialog.Message("Problem with selected file\n\n%s", err.Error()).Info()
+			dialog.Message("Problem with selected file\n\n%v", err).Error()
 			return err
 		}
 
@@ -496,6 +465,11 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	} else if len(args) == 1 {
 		if args[0] != "-" {
 			filename = args[0]
+
+			loader, err = external.Fingerprint(filename)
+			if err != nil {
+				return err
+			}
 		}
 
 	} else if len(args) > 1 {
@@ -520,7 +494,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		state:        g.State,
 		sig:          make(chan os.Signal, 1),
 		input:        make(chan input, 1),
-		loader:       filename,
+		loader:       loader,
 		styles:       newStyles(),
 		breakpoints:  make(map[uint16]bool),
 		watches:      make(map[uint16]watch),

@@ -18,13 +18,18 @@ type CartridgeReset struct {
 }
 
 type CartridgeInsertor struct {
-	data    []uint8
-	creator func(Context, []uint8) (cartridge, error)
-	reset   CartridgeReset
+	filename string
+	data     []uint8
+	creator  func(Context, []uint8) (cartridge, error)
+	reset    CartridgeReset
 
 	// whether controller should have two-buttons. NOTE: placeholder
 	// until we add more sophisticated controller requirements (paddle, etc.)
 	TwoButtonStick bool
+}
+
+func (c CartridgeInsertor) Filename() string {
+	return c.filename
 }
 
 func (c CartridgeInsertor) Data() []uint8 {
@@ -132,7 +137,8 @@ func Fingerprint(filename string) (CartridgeInsertor, error) {
 
 		if banked || exrom || exram {
 			return CartridgeInsertor{
-				data: d,
+				filename: filename,
+				data:     d,
 				creator: func(ctx Context, d []uint8) (cartridge, error) {
 					return NewSupergame(ctx, d[0x80:],
 						banked, exrom, exram,
@@ -151,7 +157,8 @@ func Fingerprint(filename string) (CartridgeInsertor, error) {
 	for _, c := range d {
 		if c > unicode.MaxASCII {
 			return CartridgeInsertor{
-				data: d,
+				filename: filename,
+				data:     d,
 				creator: func(ctx Context, d []uint8) (cartridge, error) {
 					return NewFlat(ctx, d[:])
 				},
@@ -162,5 +169,8 @@ func Fingerprint(filename string) (CartridgeInsertor, error) {
 		}
 	}
 
-	return CartridgeInsertor{data: d}, UnrecognisedData
+	return CartridgeInsertor{
+		filename: filename,
+		data:     d,
+	}, UnrecognisedData
 }
