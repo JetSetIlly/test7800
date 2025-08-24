@@ -46,6 +46,9 @@ type Maria struct {
 	ctx Context
 	g   *gui.GUI
 
+	// frame limiter
+	limit limiter
+
 	bg       uint8
 	wsync    bool
 	palette  [8][3]uint8
@@ -53,16 +56,42 @@ type Maria struct {
 	dppl     uint8
 	charbase uint8
 	offset   uint8
+	mstat    uint8 // bit 7 is true if VBLANK is enabled
 	ctrl     mariaCtrl
-
-	// current DLL
-	DLL dll
-	DL  dl
 
 	// if the colour burst signal has been sent to the TV. it will not be sent if the colour kill
 	// bit was set in the ctrl register at beginning of the scanline when the colour burst is to be
 	// sent
 	colourBurst bool
+
+	// lineram is where DL/DLL information is written to before being read and
+	// rendered to the current frame
+	lineram lineram
+
+	// interface to console memory
+	mem Memory
+
+	// the current coordinates of the TV image
+	Coords coords
+
+	// the current television specificaion (NTSC, PAL, etc.)
+	Spec spec.Spec
+
+	// the image that is sent to the user interface
+	currentFrame frame
+	prevFrame    frame
+
+	// interface to CPU (for debugging purposes only)
+	cpu CPU
+
+	// current DLL
+	DLL dll
+	DL  dl
+
+	// the most recent DLLs. reset on start of DMA of a new frame. used for
+	// debugging feedback
+	RecentDLL []dll
+	RecentDL  []dl
 
 	// whether DMA is active at the current moment. it is enabled if ctrl.dma is
 	// enabled when the clock counter reaches preDMA; and then disabled when the
@@ -86,41 +115,10 @@ type Maria struct {
 	// number of cycles before DMI is triggered
 	interruptDelay int
 
-	// read-only registers
-	mstat uint8 // bit 7 is true if VBLANK is enabled
-
-	// lineram is where DL/DLL information is written to before being read and
-	// rendered to the current frame
-	lineram lineram
-
-	// interface to console memory
-	mem Memory
-
-	// the current coordinates of the TV image
-	Coords coords
-
-	// the current television specificaion (NTSC, PAL, etc.)
-	Spec spec.Spec
-
-	// the image that is sent to the user interface
-	currentFrame frame
-	prevFrame    frame
-
-	// interface to CPU (for debugging purposes only)
-	cpu CPU
-
-	// the most recent DLLs. reset on start of DMA of a new frame. used for
-	// debugging feedback
-	RecentDLL []dll
-	RecentDL  []dl
-
 	// the DLI signal is sent at the end of DMA but because we process the entirity
 	// of the scanline as soon as DMA starts we store the signal until DMA has actually
 	// finished
 	dli bool
-
-	// frame limiter
-	limit limiter
 }
 
 type Memory interface {
@@ -150,6 +148,7 @@ func Create(ctx Context, g *gui.GUI, mem Memory, cpu CPU, limit limiter) *Maria 
 
 func (mar *Maria) Reset() {
 	mar.Coords.Reset()
+
 	mar.bg = 0
 	mar.wsync = false
 	mar.dpph = 0
@@ -158,6 +157,19 @@ func (mar *Maria) Reset() {
 	mar.offset = 0
 	mar.mstat = vblankDisable
 	mar.ctrl.reset()
+
+	mar.colourBurst = false
+	mar.dma = false
+	mar.dmaStart = 0
+	mar.dmaLatched = false
+	mar.requiredDMACycles = 0
+	mar.interruptDelay = 0
+	mar.dli = false
+
+	mar.DL = dl{}
+	mar.DLL = dll{}
+	mar.RecentDL = mar.RecentDL[:0]
+	mar.RecentDLL = mar.RecentDLL[:0]
 }
 
 func (mar *Maria) Label() string {

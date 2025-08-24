@@ -85,6 +85,7 @@ func (con *Console) Reset(random bool) error {
 	con.MC.Reset(rnd)
 	con.Mem.Reset(random)
 	con.MARIA.Reset()
+	con.RIOT.Reset()
 
 	return nil
 }

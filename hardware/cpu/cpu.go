@@ -217,6 +217,7 @@ func (mc *CPU) Reset(rnd Random) error {
 	mc.Killed = false
 	mc.cycleCallback = nil
 	mc.interruptDepth = 0
+	mc.interrupt = false
 
 	if rnd == nil {
 		mc.PC.Load(0x0000)
