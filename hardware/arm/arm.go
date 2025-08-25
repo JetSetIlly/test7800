@@ -763,8 +763,8 @@ func (arm *ARM) run() (coprocessor.CoProcYield, float32) {
 	// number of iterations. only used when in immediate mode
 	var iterations int
 
-	// count of how many consecutive times the same PC address has been seen
-	var duplicateCt int
+	// loop detection counter
+	var loopDetectionCt int
 
 	// loop through instructions until we reach an exit condition
 	for arm.state.yield.Type == coprocessor.YieldRunning {
@@ -781,9 +781,11 @@ func (arm *ARM) run() (coprocessor.CoProcYield, float32) {
 		// check program memory if execution branched last instruction
 		if arm.state.branchedExecution {
 			if prev == arm.state.executingPC {
-				duplicateCt++
-				if duplicateCt > 2 {
-					arm.state.yield.Type = coprocessor.YieldSyncWithVCS
+				// basic detection of infinite loops. currently, this is only good enough to
+				// detect exceedingly tight loops of the "while (true) {}" type
+				loopDetectionCt++
+				if loopDetectionCt > 2 {
+					arm.state.yield.Type = coprocessor.YieldInfiniteLoop
 					break
 				}
 			}
