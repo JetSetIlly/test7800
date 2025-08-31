@@ -177,6 +177,13 @@ func (mar *Maria) Label() string {
 }
 
 func (mar *Maria) Status() string {
+	if mar.wsync {
+		return "WSYNC"
+	}
+	return mar.String()
+}
+
+func (mar *Maria) String() string {
 	var s strings.Builder
 	s.WriteString(fmt.Sprintf("%s: bg=%#02x wsync=%v\n%s\ndpph=%#02x dppl=%#02x charbase=%#02x offset=%#02x",
 		mar.Label(), mar.bg, mar.wsync,

@@ -217,21 +217,11 @@ func (l *dll) ID() string {
 	return fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin)
 }
 
-func (l *dll) String() string {
-	var s strings.Builder
-	s.WriteString(fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin))
-	s.WriteString(fmt.Sprintf("dli=%v ", l.dli))
-	s.WriteString(fmt.Sprintf("h16=%v ", l.h16))
-	s.WriteString(fmt.Sprintf("h8=%v\n", l.h8))
-	s.WriteString(fmt.Sprintf("offset=%02x ", l.offset))
-	s.WriteString(fmt.Sprintf("high=%02x ", l.highAddress))
-	s.WriteString(fmt.Sprintf("low=%02x ", l.lowAddress))
-	return s.String()
+func (l *dll) Status() string {
+	return l.String()
 }
 
-// Status is similar to String() but includes the current working offset along
-// with the offset value in the DLL data
-func (l *dll) Status() string {
+func (l *dll) String() string {
 	var s strings.Builder
 	s.WriteString(fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin))
 	s.WriteString(fmt.Sprintf("dli=%v ", l.dli))

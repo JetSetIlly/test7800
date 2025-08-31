@@ -72,12 +72,12 @@ func (m *debugger) commands(cmd []string) bool {
 
 	case "BIOS":
 		fmt.Println(m.styles.mem.Render(
-			m.console.Mem.BIOS.Status(),
+			m.console.Mem.BIOS.String(),
 		))
 
 	case "MARIA":
 		fmt.Println(m.styles.mem.Render(
-			m.console.MARIA.Status(),
+			m.console.MARIA.String(),
 		))
 
 	case "DL":
@@ -107,7 +107,7 @@ func (m *debugger) commands(cmd []string) bool {
 			}
 		} else {
 			fmt.Println(m.styles.mem.Render(
-				m.console.MARIA.DLL.Status(),
+				m.console.MARIA.DLL.String(),
 			))
 		}
 
@@ -118,7 +118,7 @@ func (m *debugger) commands(cmd []string) bool {
 
 	case "INPTCTRL":
 		fmt.Println(m.styles.mem.Render(
-			m.console.Mem.INPTCTRL.Status(),
+			m.console.Mem.INPTCTRL.String(),
 		))
 
 	case "RAM7800":

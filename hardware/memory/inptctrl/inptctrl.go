@@ -25,6 +25,10 @@ func (ic *INPTCTRL) Label() string {
 }
 
 func (ic *INPTCTRL) Status() string {
+	return ic.String()
+}
+
+func (ic *INPTCTRL) String() string {
 	return fmt.Sprintf("%s: lock=%v maria=%v bios=%v tia=%v", ic.Label(), ic.Lock(), ic.MARIA(), ic.BIOS(), ic.TIA())
 }
 

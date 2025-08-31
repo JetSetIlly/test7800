@@ -105,6 +105,10 @@ func (b *BIOS) Label() string {
 }
 
 func (b *BIOS) Status() string {
+	return b.String()
+}
+
+func (b *BIOS) String() string {
 	return fmt.Sprintf("%dk %s BIOS at %#04x", len(pal)/1024, b.spec, b.origin)
 }
 
