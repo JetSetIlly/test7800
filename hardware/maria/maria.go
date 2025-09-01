@@ -484,10 +484,10 @@ func (mar *Maria) Tick(dmaLatch bool) (hlt bool, rdy bool, nmi bool) {
 			mar.Coords.Clk&0x01 == spec.ClksHBLANK&0x01 {
 
 			e := mar.lineram.read(mar.Coords.Clk - spec.ClksHBLANK)
-			mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.bg]))
-			mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.bg]))
-
-			if e.set {
+			if !e.set {
+				mar.currentFrame.main.Set(x, y, colourBurst(mar.Spec.Palette[mar.bg]))
+				mar.currentFrame.main.Set(x+1, y, colourBurst(mar.Spec.Palette[mar.bg]))
+			} else {
 				switch mar.ctrl.readMode {
 				case 0:
 					// 160A/B
@@ -543,8 +543,8 @@ func (mar *Maria) Tick(dmaLatch bool) (hlt bool, rdy bool, nmi bool) {
 		}
 	}
 
-	// scanline build is done at the start of DMA. not the careful use of dmaLatch and dmaLatched to
-	// ensure that this block is only executed once per scanline
+	// scanline build is done at the start of DMA. note the careful use of mar.dmaLatched and
+	// dmaLatch to ensure that this block is only executed once per scanline
 	if !mar.dmaLatched && dmaLatch && mar.Coords.Clk >= preDMA {
 		// DMA is only ever active when VBLANK is disabled
 		if mar.mstat == vblankDisable {
@@ -724,8 +724,15 @@ func (mar *Maria) Tick(dmaLatch bool) (hlt bool, rdy bool, nmi bool) {
 					if mar.dli {
 						// additional DMA overhead in the event of an interrupt being triggered is
 						// not mentioned in the '7800 Software Guide'. however both js7800 and mame
-						// use a value of 17.
-						const dmaInterruptOverhead = 17
+						// use a value of 17
+						//
+						// however I find that a value of 24 is required for Karetka to render the
+						// bottom of the red play area correctly. the difference may be because of a
+						// timing issue elsewhere in the emulation however
+						//
+						// a value of 24 is also good for Scrapyard Dog, the other game that seems
+						// sensitive to this
+						const dmaInterruptOverhead = 24
 
 						mar.interruptDelay = dmaInterruptOverhead
 					}
