@@ -23,7 +23,6 @@ A useful option to the program is the `-overlay` argument. (eg. `test7800 -overl
 | Red  | DMA Active |
 | Blue | WSYNC Active |
 | Green | CPU in Interrupt |
-| Orange | CPU in Interrupt (stalling for DMA) |
 
 By default, the NTSC BIOS is used. To select a PAL BIOS use the `-tv` argument:
 
