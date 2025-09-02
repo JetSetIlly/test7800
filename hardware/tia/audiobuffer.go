@@ -32,7 +32,5 @@ func (b *audioBuffer) Read(buf []uint8) (int, error) {
 	// because of the sample format (2 channel, 16bit little-endian)
 	//
 	// https://github.com/ebitengine/oto/issues/261
-	//
-	// the new tick method which ensures a minimum number of bytes solves this issue
 	return n, nil
 }

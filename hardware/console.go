@@ -50,7 +50,7 @@ func Create(ctx Context, g *gui.GUI) *Console {
 	con := &Console{
 		ctx:   ctx,
 		g:     g,
-		limit: newLimiter(spec),
+		limit: newLimiter(spec, ctx.UseAudio()),
 	}
 
 	// create and attach console components
@@ -71,6 +71,13 @@ func Create(ctx Context, g *gui.GUI) *Console {
 			Freq: spec.HorizScan * audio.SamplesPerScanline,
 			Read: con.TIA.AudioBuffer(),
 		}
+	} else {
+		go func() {
+			con.limit.nudge <- true
+			con.limit.nudge <- true
+			con.limit.nudge <- true
+			con.limit.nudge <- true
+		}()
 	}
 	select {
 	case g.AudioSetup <- audioSetup:
