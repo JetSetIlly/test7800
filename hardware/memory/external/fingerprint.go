@@ -49,21 +49,17 @@ func Fingerprint(filename string) (CartridgeInsertor, error) {
 		return CartridgeInsertor{}, err
 	}
 
-	// only allow ELF loading if an "ALLOW_ELF" file is present in the current directory
-	f, err := os.Open("ALLOW_ELF")
-	if err == nil {
-		defer f.Close()
-		if bytes.Contains(d, []byte{0x7f, 'E', 'L', 'F'}) {
-			return CartridgeInsertor{
-				data: d,
-				creator: func(ctx Context, d []uint8) (cartridge, error) {
-					return elf.NewElf(ctx, d)
-				},
-				reset: CartridgeReset{
-					BypassBIOS: true,
-				},
-			}, nil
-		}
+	// try ELF first because
+	if bytes.Contains(d, []byte{0x7f, 'E', 'L', 'F'}) {
+		return CartridgeInsertor{
+			data: d,
+			creator: func(ctx Context, d []uint8) (cartridge, error) {
+				return elf.NewElf(ctx, d)
+			},
+			reset: CartridgeReset{
+				BypassBIOS: true,
+			},
+		}, nil
 	}
 
 	// a78 header
