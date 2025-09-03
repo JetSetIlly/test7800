@@ -583,7 +583,7 @@ func (mar *Maria) Tick(dmaLatch bool) (hlt bool, rdy bool, nmi bool) {
 					var inHole bool
 
 					for w := range mar.DL.width {
-						if mar.requiredDMACycles > dmaMaxCycles {
+						if mar.requiredDMACycles > maxDMA {
 							break // for loop
 						}
 
@@ -733,7 +733,6 @@ func (mar *Maria) Tick(dmaLatch bool) (hlt bool, rdy bool, nmi bool) {
 						// a value of 24 is also good for Scrapyard Dog, the other game that seems
 						// sensitive to this
 						const dmaInterruptOverhead = 24
-
 						mar.interruptDelay = dmaInterruptOverhead
 					}
 				}

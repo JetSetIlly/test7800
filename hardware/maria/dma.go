@@ -57,5 +57,5 @@ const (
 	// when DMA is forced to end (if it hasn't already) is approximately 5 CPU cycles
 	//
 	// also note that the skew also effects the drawing of DMA extent for the DLL zones
-	dmaMaxCycles = spec.ClksScanline - preDMA + (5 * clocks.MariaCycles) + 1
+	maxDMA = spec.ClksScanline - preDMA + (5 * clocks.MariaCycles) + 1
 )
