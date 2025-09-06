@@ -92,3 +92,13 @@ func (dev *Device) GetCoProcHandler() coprocessor.CartCoProcHandler {
 	}
 	return nil
 }
+
+type hlt interface {
+	HLT(bool)
+}
+
+func (dev *Device) HLT(halt bool) {
+	if d, ok := dev.inserted.(hlt); ok {
+		d.HLT(halt)
+	}
+}

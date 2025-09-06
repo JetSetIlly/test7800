@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jetsetilly/test7800/gui"
+	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/hardware/spec"
 )
 
@@ -68,7 +69,7 @@ type Maria struct {
 	// rendered to the current frame
 	lineram lineram
 
-	// interface to console memory
+	// interface to console memory and address/data bus
 	mem Memory
 
 	// the current coordinates of the TV image
@@ -124,6 +125,7 @@ type Maria struct {
 type Memory interface {
 	Read(address uint16) (uint8, error)
 	Write(address uint16, data uint8) error
+	ExternalDevice() *external.Device
 }
 
 type CPU interface {
@@ -170,6 +172,8 @@ func (mar *Maria) Reset() {
 	mar.DLL = dll{}
 	mar.RecentDL = mar.RecentDL[:0]
 	mar.RecentDLL = mar.RecentDLL[:0]
+
+	mar.mem.ExternalDevice().HLT(false)
 }
 
 func (mar *Maria) Label() string {
@@ -413,7 +417,7 @@ func (mar *Maria) PushRender() {
 //
 // From the '7800 Software Guide'
 // "The DMA start-up may be delayed if the 6502 clock isn't at the end of a cycle when DMA begins."
-func (mar *Maria) Tick(dmaLatch bool) (hlt bool, rdy bool, nmi bool) {
+func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 	mar.Coords.Clk++
 	if mar.Coords.Clk >= spec.ClksScanline {
 		mar.Coords.Clk = 0
@@ -422,6 +426,8 @@ func (mar *Maria) Tick(dmaLatch bool) (hlt bool, rdy bool, nmi bool) {
 		mar.dma = false
 		mar.dmaLatched = false
 		mar.requiredDMACycles = 0
+
+		mar.mem.ExternalDevice().HLT(false)
 
 		mar.lineram.newScanline()
 		mar.RecentDL = mar.RecentDL[:0]
@@ -558,6 +564,8 @@ func (mar *Maria) Tick(dmaLatch bool) (hlt bool, rdy bool, nmi bool) {
 				mar.dma = true
 				mar.dmaLatched = true
 				mar.dmaStart = mar.Coords.Clk
+
+				mar.mem.ExternalDevice().HLT(true)
 
 				if mar.DLL.workingOffset == 0x00 {
 					mar.requiredDMACycles += dmaStartLastInZone
@@ -745,6 +753,7 @@ func (mar *Maria) Tick(dmaLatch bool) (hlt bool, rdy bool, nmi bool) {
 	// disable dma when the number of required cycles has passed
 	if mar.Coords.Clk == mar.dmaStart+mar.requiredDMACycles {
 		mar.dma = false
+		mar.mem.ExternalDevice().HLT(false)
 	}
 
 	// plot debugging information

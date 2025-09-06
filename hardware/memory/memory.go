@@ -336,7 +336,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		//		return address - 0x1900, mem.RAM7800
 		//	}
 
-		return 0, nil
+		return address, mem.External
 	}
 
 	if address >= 0x3000 && address <= 0x7fff {
@@ -440,4 +440,8 @@ func Read(area Area, address uint16) (uint8, error) {
 func Write(area Area, address uint16, data uint8) error {
 	_, err := area.Access(true, address, data)
 	return err
+}
+
+func (mem *Memory) ExternalDevice() *external.Device {
+	return mem.External
 }

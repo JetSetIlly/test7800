@@ -20,7 +20,7 @@ type Supergame struct {
 	exram []byte
 }
 
-func NewSupergame(_ Context, d []byte, banked bool, exrom bool, exram bool) (*Supergame, error) {
+func NewSupergame(_ Context, d []byte, banked bool, exram bool, exrom bool) (*Supergame, error) {
 	ext := &Supergame{}
 
 	if exrom && exram {
