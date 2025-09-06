@@ -89,30 +89,30 @@ func Fingerprint(filename string) (CartridgeInsertor, error) {
 		case 0x05:
 			oneButtonStick = true
 			logger.Logf(logger.Allow, "a78", "controllers: using one-button stick")
-		default:
-			return CartridgeInsertor{}, fmt.Errorf("a78: unsupported controller (%#02x)", controllerP0)
+		case 0x0b:
+			oneButtonStick = false
+			logger.Log(logger.Allow, "a78", "controllers: SNES2Atari emulated as two-button stick")
 		}
 
 		// cartridge type
 		cartType := (uint16(d[0x35]) << 8) | uint16(d[0x36])
-		cartType_info := cartType
 		logger.Logf(logger.Allow, "a78", "cart type: %08b %08b", uint8(cartType>>8), uint8(cartType))
 
 		if cartType&0x0001 == 0x0001 {
 			logger.Logf(logger.Allow, "a78", "POKEY (at $4000) required but not supported")
-			cartType &= (0x01 ^ 0xff)
+			cartType &= (0x01 ^ 0xffff)
 		}
 		if cartType&0x0040 == 0x0040 {
 			logger.Logf(logger.Allow, "a78", "POKEY (at $440) required but not supported")
-			cartType &= (0x0040 ^ 0xff)
+			cartType &= (0x0040 ^ 0xffff)
 		}
 		if cartType&0x0800 == 0x0800 {
 			logger.Logf(logger.Allow, "a78", "YM2151 required but not supported")
-			cartType &= (0x0800 ^ 0xff)
+			cartType &= (0x0800 ^ 0xffff)
 		}
 		if cartType&0x8000 == 0x8000 {
 			logger.Logf(logger.Allow, "a78", "POKEY (at $800) required but not supported")
-			cartType &= (0x8000 ^ 0xff)
+			cartType &= (0x8000 ^ 0xffff)
 		}
 
 		// flat cartridge type
@@ -126,7 +126,21 @@ func Fingerprint(filename string) (CartridgeInsertor, error) {
 			}, nil
 		}
 
-		// supergame bits
+		// banksets
+		if cartType&0x2000 == 0x2000 {
+			supergame := cartType&0x02 == 0x02
+			banksetRAM := cartType&0x4000 == 0x4000
+			return CartridgeInsertor{
+				filename: filename,
+				data:     d,
+				creator: func(ctx Context, d []uint8) (cartridge, error) {
+					return NewBanksets(ctx, supergame, d[0x80:], banksetRAM)
+				},
+				OneButtonStick: oneButtonStick,
+			}, nil
+		}
+
+		// supergame
 		banked := cartType&0x02 == 0x02
 		exram := cartType&0x04 == 0x04
 		exrom := cartType&0x08 == 0x08
@@ -137,14 +151,14 @@ func Fingerprint(filename string) (CartridgeInsertor, error) {
 				data:     d,
 				creator: func(ctx Context, d []uint8) (cartridge, error) {
 					return NewSupergame(ctx, d[0x80:],
-						banked, exrom, exram,
+						banked, exram, exrom,
 					)
 				},
 				OneButtonStick: oneButtonStick,
 			}, nil
 		}
 
-		return CartridgeInsertor{}, fmt.Errorf("a78: unsupported cartridge type (%#04x)", cartType_info)
+		return CartridgeInsertor{}, fmt.Errorf("a78: unsupported cartridge type (%#04x)", cartType)
 	}
 
 	// check to see if data contains any non-ASCII bytes. if it does then we assume
