@@ -405,6 +405,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var run bool
 	var log bool
 	var audio bool
+	var mapper string
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
 	flgs.StringVar(&spec, "spec", "NTSC", "TV specification of the console: NTSC or PAL")
@@ -414,6 +415,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
 	flgs.BoolVar(&log, "log", false, "echo log to stderr")
 	flgs.BoolVar(&audio, "audio", true, "enable audio")
+	flgs.StringVar(&mapper, "mapper", "AUTO", "mapper selection. automatic selection by default")
 	err := flgs.Parse(args)
 	if err != nil {
 		return err
@@ -447,7 +449,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 			return err
 		}
 
-		loader, err = external.Fingerprint(filename)
+		loader, err = external.Fingerprint(filename, mapper)
 		if err != nil {
 			dialog.Message("Problem with selected file\n\n%v", err).Error()
 			return err
@@ -466,7 +468,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		if args[0] != "-" {
 			filename = args[0]
 
-			loader, err = external.Fingerprint(filename)
+			loader, err = external.Fingerprint(filename, mapper)
 			if err != nil {
 				return err
 			}
