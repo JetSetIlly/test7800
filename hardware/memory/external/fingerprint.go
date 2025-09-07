@@ -179,6 +179,18 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 		}
 	}
 
+	// SN2 mapper
+	if slices.Contains([]string{"SN2"}, mapper) {
+		return CartridgeInsertor{
+			filename: filename,
+			data:     d,
+			creator: func(ctx Context, d []uint8) (cartridge, error) {
+				return NewSN2(ctx, d[:])
+			},
+			OneButtonStick: false,
+		}, nil
+	}
+
 	// check to see if data contains any non-ASCII bytes. if it does then we assume
 	// it is a flat cartridge dump. data continaing only ASCII suggests that it is a
 	// script or a boot file that can be further interpreted by the debugger
@@ -190,8 +202,6 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 				creator: func(ctx Context, d []uint8) (cartridge, error) {
 					return NewFlat(ctx, d[:])
 				},
-
-				// default to two button stick if we don't have a header
 				OneButtonStick: false,
 			}, nil
 		}
