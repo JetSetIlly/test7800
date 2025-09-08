@@ -110,7 +110,7 @@ func (ext *SN2) Access(write bool, address uint16, data uint8) (uint8, error) {
 	if address < 0xe000 { // bank 5 (D)
 		if write {
 			if address == 0xd000 {
-				ext.bank[5] = int(data) % min(len(ext.data), 127)
+				ext.bank[5] = int(data) % min(len(ext.data), 128)
 			}
 			// cannot alter the read transformation for bank D
 			return 0, nil
