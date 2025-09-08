@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/jetsetilly/test7800/gui"
-	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/hardware/spec"
 )
 
@@ -94,26 +93,10 @@ type Maria struct {
 	RecentDLL []dll
 	RecentDL  []dl
 
-	// whether DMA is active at the current moment. it is enabled if ctrl.dma is
-	// enabled when the clock counter reaches preDMA; and then disabled when the
-	// number of required DMA cycles for the DLL is reacehd
-	//
-	// we also need to take into account the dmaLatch. this is set when the CPU is at the end of a
-	// cycle. DMA will not start unless the latch is set
-	dma bool
+	// state of dma including HLT line handling
+	dma dma
 
-	// the clock on which the DMA actually started. the start clock can change depending on when the
-	// dmaLatch is set
-	dmaStart int
-
-	// whether the dma has been active this scanline. this can be true even if the dma field is true
-	// which can happen once DMA has ended. dmaLatched is reset at the start of a new scanline
-	dmaLatched bool
-
-	// the number of DMA cycles required to construct the scanline
-	requiredDMACycles int
-
-	// number of cycles before DMI is triggered
+	// number of additional cycles before DMI is triggered once DMA has finished
 	interruptDelay int
 
 	// the DLI signal is sent at the end of DMA but because we process the entirity
@@ -125,7 +108,7 @@ type Maria struct {
 type Memory interface {
 	Read(address uint16) (uint8, error)
 	Write(address uint16, data uint8) error
-	ExternalDevice() *external.Device
+	hlt
 }
 
 type CPU interface {
@@ -140,6 +123,9 @@ func Create(ctx Context, g *gui.GUI, mem Memory, cpu CPU, limit limiter) *Maria 
 		cpu:   cpu,
 		Spec:  ctx.Spec(),
 		limit: limit,
+		dma: dma{
+			hlt: mem,
+		},
 	}
 
 	mar.lineram.initialise()
@@ -161,10 +147,7 @@ func (mar *Maria) Reset() {
 	mar.ctrl.reset()
 
 	mar.colourBurst = false
-	mar.dma = false
-	mar.dmaStart = 0
-	mar.dmaLatched = false
-	mar.requiredDMACycles = 0
+	mar.dma.reset()
 	mar.interruptDelay = 0
 	mar.dli = false
 
@@ -173,7 +156,6 @@ func (mar *Maria) Reset() {
 	mar.RecentDL = mar.RecentDL[:0]
 	mar.RecentDLL = mar.RecentDLL[:0]
 
-	mar.mem.ExternalDevice().HLT(false)
 }
 
 func (mar *Maria) Label() string {
@@ -423,11 +405,9 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 		mar.Coords.Clk = 0
 		mar.Coords.Scanline++
 		mar.wsync = false
-		mar.dma = false
-		mar.dmaLatched = false
-		mar.requiredDMACycles = 0
-
-		mar.mem.ExternalDevice().HLT(false)
+		mar.dma.unset()
+		mar.dma.latched = false
+		mar.dma.cycles = 0
 
 		mar.lineram.newScanline()
 		mar.RecentDL = mar.RecentDL[:0]
@@ -449,7 +429,7 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 			mar.mstat = vblankDisable
 
 			// "The end of VBLANK is made up of a DMA startup plus a Long shutdown."
-			mar.requiredDMACycles += dmaEndofVBLANK
+			mar.dma.cycles += dmaEndofVBLANK
 
 			// reset list of DLLs seen this frame
 			mar.RecentDLL = mar.RecentDLL[:0]
@@ -551,7 +531,7 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 
 	// scanline build is done at the start of DMA. note the careful use of mar.dmaLatched and
 	// dmaLatch to ensure that this block is only executed once per scanline
-	if !mar.dmaLatched && dmaLatch && mar.Coords.Clk >= preDMA {
+	if !mar.dma.latched && dmaLatch && mar.Coords.Clk >= preDMA {
 		// DMA is only ever active when VBLANK is disabled
 		if mar.mstat == vblankDisable {
 			switch mar.ctrl.dma {
@@ -561,16 +541,12 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 				mar.ctx.Break(fmt.Errorf("%w: dma value of 0x01 in ctrl register is undefined", ContextError))
 			case 0x02:
 				// dma is now active
-				mar.dma = true
-				mar.dmaLatched = true
-				mar.dmaStart = mar.Coords.Clk
-
-				mar.mem.ExternalDevice().HLT(true)
+				mar.dma.set(mar.Coords.Clk)
 
 				if mar.DLL.workingOffset == 0x00 {
-					mar.requiredDMACycles += dmaStartLastInZone
+					mar.dma.cycles += dmaStartLastInZone
 				} else {
-					mar.requiredDMACycles += dmaStart
+					mar.dma.cycles += dmaStart
 				}
 
 				err := mar.nextDL(true)
@@ -581,9 +557,9 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 				for !mar.DL.isEnd {
 					// DMA cycle accumulation for DL header
 					if mar.DL.long {
-						mar.requiredDMACycles += dmaLongDLHeader
+						mar.dma.cycles += dmaLongDLHeader
 					} else {
-						mar.requiredDMACycles += dmaShortDLHeader
+						mar.dma.cycles += dmaShortDLHeader
 					}
 
 					// keeps track of whether the DMA cycle accumulation has happened for a holey
@@ -591,7 +567,7 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 					var inHole bool
 
 					for w := range mar.DL.width {
-						if mar.requiredDMACycles > maxDMA {
+						if mar.dma.cycles > maxDMA {
 							break // for loop
 						}
 
@@ -654,7 +630,7 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 							// be in the hole also
 							if mar.DLL.inHole(a) {
 								if !inHole {
-									mar.requiredDMACycles += dmaHoleyRead
+									mar.dma.cycles += dmaHoleyRead
 									inHole = true
 								}
 								continue // for width loop
@@ -673,9 +649,9 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 								}
 								write(b, true)
 
-								mar.requiredDMACycles += dmaIndirectWideGfx
+								mar.dma.cycles += dmaIndirectWideGfx
 							} else {
-								mar.requiredDMACycles += dmaIndirectGfx
+								mar.dma.cycles += dmaIndirectGfx
 							}
 
 						} else {
@@ -688,7 +664,7 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 							// be in the hole also
 							if mar.DLL.inHole(a) {
 								if !inHole {
-									mar.requiredDMACycles += dmaHoleyRead
+									mar.dma.cycles += dmaHoleyRead
 									inHole = true
 								}
 								continue // for width loop
@@ -700,7 +676,7 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 							}
 							write(b, false)
 
-							mar.requiredDMACycles += dmaDirectGfx
+							mar.dma.cycles += dmaDirectGfx
 						}
 					}
 
@@ -751,15 +727,14 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 	}
 
 	// disable dma when the number of required cycles has passed
-	if mar.Coords.Clk == mar.dmaStart+mar.requiredDMACycles {
-		mar.dma = false
-		mar.mem.ExternalDevice().HLT(false)
+	if mar.Coords.Clk == mar.dma.clk+mar.dma.cycles {
+		mar.dma.unset()
 	}
 
 	// plot debugging information
 	if mar.currentFrame.debug {
 		if mar.Coords.Clk > mar.currentFrame.left {
-			if mar.dma {
+			if mar.dma.active {
 				// create a striped effect to the DLL overlay by using a slightly different colour
 				// value for every odd numbered DLL
 				var v uint8
@@ -796,9 +771,9 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 		}
 	}
 
-	// dli signal is sent once DMA and delay has concluded
+	// dli signal is sent once DMA and delay has concluded (and the additional delay has expired)
 	var dli bool
-	if !mar.dma {
+	if !mar.dma.active {
 		if mar.dli {
 			mar.interruptDelay--
 			if mar.interruptDelay == 0 {
@@ -808,5 +783,5 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 		}
 	}
 
-	return mar.dma, !mar.wsync, dli
+	return mar.dma.active, !mar.wsync, dli
 }

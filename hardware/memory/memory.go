@@ -442,6 +442,7 @@ func Write(area Area, address uint16, data uint8) error {
 	return err
 }
 
-func (mem *Memory) ExternalDevice() *external.Device {
-	return mem.External
+// HLT should be called whenever the HLT line is changed
+func (mem *Memory) HLT(halt bool) {
+	mem.External.HLT(halt)
 }

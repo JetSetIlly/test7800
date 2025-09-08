@@ -93,10 +93,12 @@ func (dev *Device) GetCoProcHandler() coprocessor.CartCoProcHandler {
 	return nil
 }
 
+// external devices that want to know about the HLT line will implement the hlt interface
 type hlt interface {
 	HLT(bool)
 }
 
+// HLT should be called whenever the HLT line is changed
 func (dev *Device) HLT(halt bool) {
 	if d, ok := dev.inserted.(hlt); ok {
 		d.HLT(halt)

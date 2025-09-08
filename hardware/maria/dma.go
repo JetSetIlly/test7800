@@ -59,3 +59,44 @@ const (
 	// also note that the skew also effects the drawing of DMA extent for the DLL zones
 	maxDMA = spec.ClksScanline - preDMA + (5 * clocks.MariaCycles) + 1
 )
+
+type hlt interface {
+	HLT(bool)
+}
+
+// controls whether DMA is active at the current moment
+type dma struct {
+	hlt    hlt
+	active bool
+
+	// the clock on which the DMA actually started. the precise start clock fluctuates depending on
+	// when the end of the current CPU cycle is reached
+	clk int
+
+	// whether the dma has been active this scanline. this can be true even if the dma field is true
+	// which can happen once DMA has ended. latched is reset at the start of a new scanline
+	latched bool
+
+	// the number of DMA cycles required to construct the scanline
+	cycles int
+}
+
+func (d *dma) reset() {
+	d.active = false
+	d.clk = 0
+	d.latched = false
+	d.cycles = 0
+	d.hlt.HLT(false)
+}
+
+func (d *dma) set(clk int) {
+	d.active = true
+	d.clk = clk
+	d.latched = true
+	d.hlt.HLT(true)
+}
+
+func (d *dma) unset() {
+	d.active = false
+	d.hlt.HLT(false)
+}
