@@ -10,13 +10,13 @@ Running the program from the desktop icon will open a file selection dialog. Ope
 
 Only one-button and two-button joysticks for the first player are supported for now. Also, the keyboard must be used. The cursor keys control the stick and the space bar is the fire button. The 'B' key acts as the second fire button.
 
-A command line debugger is available if the program is run from a terminal. In this case, the ROM file should be specified as part of the command line (eg. `test7800 centipede.a76`). The debugger will start in a halted state. To run the emulation from this point, type `RUN` in the terminal.
+A command line debugger is available if the program is run from a terminal. In this case, the ROM file should be specified as part of the command line (eg. `test7800 centipede.a78`). The debugger will start in a halted state. To run the emulation from this point, type `RUN` in the terminal.
 
 Pressing `Ctrl-C` when the emulation is running will cause it to halt and to resume the debugger.
 
 The debugger is currently very basic and missing a lot of features. However, some useful commands include `STEP`, `RESET`, `CPU`, `MARIA`, `DL`, `DLL`, `VIDEO`, `INPTCTRL`, `RAM7800`, `RAMRIOT`. 
 
-A useful option to the program is the `-overlay` argument. (eg. `test7800 -overlay centipede.a76)`). This adds an additional overlay to the TV screen, showing the state of the MARIA at each point in the display. The colours in the overlay are as follows
+A useful option to the program is the `-overlay` argument. (eg. `test7800 -overlay centipede.a78)`). This adds an additional overlay to the TV screen, showing the state of the MARIA at each point in the display. The colours in the overlay are as follows
 
 | Colour | Meaning |
 |--------|---------|
