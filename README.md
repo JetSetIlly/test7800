@@ -26,11 +26,11 @@ A useful option to the program is the `-overlay` argument. (eg. `test7800 -overl
 
 By default, the NTSC BIOS is used. To select a PAL BIOS use the `-tv` argument:
 
-```test7800 -tv=pal centipede.a76```
+```test7800 -tv=pal centipede.a78```
 
 If you want the emulation to ignore the BIOS startup routine use the `-bios` argument:
 
-```test7800 -bios=false centipede.a76```
+```test7800 -bios=false centipede.a78```
 
 ### Limitations and Future
 
