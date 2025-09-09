@@ -1,21 +1,26 @@
 package external
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
-type sn2transformData func(uint8) uint8
-type sn2transformAddress func(uint16) uint16
+type snTransformData func(uint8) uint8
+type snTransformAddress func(uint16) uint16
 
-type sn2Bank struct {
+type snBank struct {
 	data    *[]byte
-	mix     sn2transformData
-	address sn2transformAddress
+	mix     snTransformData
+	address snTransformAddress
 }
 
-const sn2MaxBanks = 8
+const snMaxBanks = 8
 
-type SN2 struct {
+type SN struct {
+	version string
+
 	// the current state of the rom banks
-	bank [sn2MaxBanks]*sn2Bank
+	bank [snMaxBanks]*snBank
 
 	// the backing data for the banks
 	data [][]byte
@@ -26,13 +31,19 @@ type SN2 struct {
 	ramAddressMask uint16
 }
 
-func NewSN2(_ Context, d []byte) (*SN2, error) {
-	ext := &SN2{}
+func NewSN(_ Context, d []byte, version string) (*SN, error) {
+	if !slices.Contains([]string{"SN2", "SN1"}, version) {
+		return nil, fmt.Errorf("sn: unsupported version of mapper (%s)", version)
+	}
+
+	ext := &SN{
+		version: version,
+	}
 
 	const bankSize = 0x1000
 
 	if len(d)%bankSize != 0 {
-		return nil, fmt.Errorf("sn2: size of ROM must be multiple of 4096")
+		return nil, fmt.Errorf("sn: size of ROM must be multiple of 4096")
 	}
 
 	// divide data into banks
@@ -43,8 +54,8 @@ func NewSN2(_ Context, d []byte) (*SN2, error) {
 	}
 
 	// initialise banks and transform method
-	for i := range sn2MaxBanks {
-		ext.bank[i] = &sn2Bank{
+	for i := range snMaxBanks {
+		ext.bank[i] = &snBank{
 			data:    &ext.data[i],
 			mix:     ext.transformDataNormal,
 			address: ext.transformAddressNormal,
@@ -60,11 +71,11 @@ func NewSN2(_ Context, d []byte) (*SN2, error) {
 	return ext, nil
 }
 
-func (ext *SN2) Label() string {
-	return "SN2"
+func (ext *SN) Label() string {
+	return ext.version
 }
 
-func (ext *SN2) Access(write bool, address uint16, data uint8) (uint8, error) {
+func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 	if address < 0x4000 {
 		return 0, nil
 	}
@@ -182,11 +193,11 @@ func (ext *SN2) Access(write bool, address uint16, data uint8) (uint8, error) {
 	return (*b.data)[address-0xf000], nil
 }
 
-func (ext *SN2) transformDataNormal(d uint8) uint8 {
+func (ext *SN) transformDataNormal(d uint8) uint8 {
 	return d
 }
 
-func (ext *SN2) transformData160A(d uint8) uint8 {
+func (ext *SN) transformData160A(d uint8) uint8 {
 	d0 := d & 0x01
 	d1 := (d & 0x02) >> 1
 	d2 := (d & 0x04) >> 2
@@ -198,7 +209,7 @@ func (ext *SN2) transformData160A(d uint8) uint8 {
 	return (d1 << 7) | (d0 << 6) | (d3 << 5) | (d2 << 4) | (d5 << 3) | (d4 << 2) | (d7 << 1) | d6
 }
 
-func (ext *SN2) transformData160B(d uint8) uint8 {
+func (ext *SN) transformData160B(d uint8) uint8 {
 	d0 := d & 0x01
 	d1 := (d & 0x02) >> 1
 	d2 := (d & 0x04) >> 2
@@ -210,7 +221,7 @@ func (ext *SN2) transformData160B(d uint8) uint8 {
 	return (d5 << 7) | (d4 << 6) | (d7 << 5) | (d6 << 4) | (d1 << 3) | (d0 << 2) | (d3 << 1) | d2
 }
 
-func (ext *SN2) transformData320(d uint8) uint8 {
+func (ext *SN) transformData320(d uint8) uint8 {
 	d0 := d & 0x01
 	d1 := (d & 0x02) >> 1
 	d2 := (d & 0x04) >> 2
@@ -222,16 +233,16 @@ func (ext *SN2) transformData320(d uint8) uint8 {
 	return (d0 << 7) | (d1 << 6) | (d2 << 5) | (d3 << 4) | (d4 << 3) | (d5 << 2) | (d6 << 1) | d7
 }
 
-func (ext *SN2) transformAddressNormal(a uint16) uint16 {
+func (ext *SN) transformAddressNormal(a uint16) uint16 {
 	return a
 }
 
-func (ext *SN2) transformAddressReverse(a uint16) uint16 {
+func (ext *SN) transformAddressReverse(a uint16) uint16 {
 	a = (a & 0xff00) | (a ^ 0x00ff)
 	return a
 }
 
-func (ext *SN2) selectTransform(d uint8) (sn2transformData, sn2transformAddress) {
+func (ext *SN) selectTransform(d uint8) (snTransformData, snTransformAddress) {
 	switch (d >> 6) & 0x03 {
 	case 0b01:
 		return ext.transformData160A, ext.transformAddressReverse

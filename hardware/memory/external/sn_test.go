@@ -7,7 +7,7 @@ import (
 )
 
 func TestSN2_transformDataNormal(t *testing.T) {
-	ext := SN2{}
+	ext := SN{}
 
 	for i := range uint8(0xff) {
 		v := ext.transformDataNormal(i)
@@ -16,7 +16,7 @@ func TestSN2_transformDataNormal(t *testing.T) {
 }
 
 func TestSN2_transformData320(t *testing.T) {
-	ext := SN2{}
+	ext := SN{}
 
 	var v uint8
 
@@ -54,7 +54,7 @@ func TestSN2_transformData320(t *testing.T) {
 }
 
 func TestSN2_transformAddressNormal(t *testing.T) {
-	ext := SN2{}
+	ext := SN{}
 
 	for i := range uint16(0xffff) {
 		v := ext.transformAddressNormal(i)
@@ -63,7 +63,7 @@ func TestSN2_transformAddressNormal(t *testing.T) {
 }
 
 func TestSN2_transformAddressReverse(t *testing.T) {
-	ext := SN2{}
+	ext := SN{}
 
 	var v uint16
 

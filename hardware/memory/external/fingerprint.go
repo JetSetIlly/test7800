@@ -180,12 +180,12 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 	}
 
 	// SN2 mapper
-	if slices.Contains([]string{"SN2"}, mapper) {
+	if slices.Contains([]string{"SN2", "SN1"}, mapper) {
 		return CartridgeInsertor{
 			filename: filename,
 			data:     d,
 			creator: func(ctx Context, d []uint8) (cartridge, error) {
-				return NewSN2(ctx, d[:])
+				return NewSN(ctx, d[:], mapper)
 			},
 			OneButtonStick: false,
 		}, nil
