@@ -8,7 +8,9 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"runtime/pprof"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -399,7 +401,7 @@ const programName = "test7800"
 func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var filename string
 	var spec string
-	var profile bool
+	var profile string
 	var bios bool
 	var overlay bool
 	var run bool
@@ -409,7 +411,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
 	flgs.StringVar(&spec, "spec", "NTSC", "TV specification of the console: NTSC or PAL")
-	flgs.BoolVar(&profile, "profile", false, "create CPU profile for emulator")
+	flgs.StringVar(&profile, "profile", "NONE", "create profile for emulator: CPU, MEM or BOTH")
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
@@ -422,7 +424,22 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	}
 	args = flgs.Args()
 
-	// exit program immediately if program launched with a file dialog
+	// check that string options are valid. it's good to do this as early as possible even though we
+	// may not use the values until much later
+	spec = strings.ToUpper(spec)
+	if !slices.Contains([]string{"NTSC", "PAL"}, spec) {
+		return fmt.Errorf("spec option should be one of NTSC or PAL")
+	}
+
+	profile = strings.ToUpper(profile)
+	if !slices.Contains([]string{"NONE", "CPU", "MEM", "BOTH"}, profile) {
+		return fmt.Errorf("profile option should be one of NONE, CPU, MEM or BOTH")
+	}
+
+	// TODO: validate -mapper argument
+
+	// exit program immediately if program launched with a file dialog. works in conjunction with
+	// the run variable which is set via the -run option
 	var runQuitImmediately bool
 
 	// the selected cartridge. assigned by either a file dialog or from the command line
@@ -526,23 +543,41 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 
 	m.reset()
 
-	if profile {
+	if profile == "CPU" || profile == "BOTH" {
 		f, err := os.Create("cpu.profile")
 		if err != nil {
-			return fmt.Errorf("performance: %w", err)
+			return fmt.Errorf("profile: %w", err)
 		}
 		defer func() {
 			err := f.Close()
 			if err != nil {
-				logger.Log(logger.Allow, "performance", err)
+				logger.Log(logger.Allow, "profile", err)
 			}
 		}()
-
 		err = pprof.StartCPUProfile(f)
 		if err != nil {
-			return fmt.Errorf("performance: %w", err)
+			return fmt.Errorf("profile: %w", err)
 		}
 		defer pprof.StopCPUProfile()
+	}
+	if profile == "MEM" || profile == "BOTH" {
+		f, err := os.Create("mem.profile")
+		if err != nil {
+			return fmt.Errorf("profile: %w", err)
+		}
+		defer func() {
+			err := f.Close()
+			if err != nil {
+				logger.Log(logger.Allow, "profile", err)
+			}
+		}()
+		defer func() {
+			runtime.GC()
+			err = pprof.WriteHeapProfile(f)
+			if err != nil {
+				logger.Log(logger.Allow, "profile", err)
+			}
+		}()
 	}
 
 	// start off gui in the paused state. gui won't properly begin until it receives a state change
