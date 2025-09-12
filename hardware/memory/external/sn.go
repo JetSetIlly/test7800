@@ -25,10 +25,21 @@ type SN struct {
 	// the backing data for the banks
 	data [][]byte
 
-	// catridge ram
-	ram            [2][]byte
+	// catridge ram. SN1 has 32k split into 2 16k blocks. SN2 has 64k split into 4 16k blocks.
+	// an SN1 cartridge therefore only uses the first two indices
+	ram            [4][]byte
 	ramBank        int
 	ramAddressMask uint16
+
+	// SN2 ram can be placed in 0x8000 to 0xbfff
+	ramHigh bool
+
+	// the way rom banks are mixed (or transformed) is different with SN2
+	mixSN2 bool
+}
+
+func (ext *SN) isSN2() bool {
+	return ext.version == "SN2"
 }
 
 func NewSN(_ Context, d []byte, version string) (*SN, error) {
@@ -90,48 +101,100 @@ func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 		return ext.ram[ext.ramBank][address], nil
 	}
 
-	// ROM
+	// ROM (or RAM if ramHigh is enabled)
 	if address < 0x9000 { // bank 0
-		if write {
-			return 0, nil
+		if ext.ramHigh {
+			// we need to manipulate the selected ramBank slightly rather than use it directly. we
+			// want to use either ramBank 1 or ramBank 3 even if the selected ramBank if 1 or 3. in
+			// this case the range 0x8000 to 0xbfff is the same as the range 0x4000 to 0x7fff, which
+			// is intentional
+			bank := int(ext.ramBank&0xfe) + 1
+
+			address = (address & ext.ramAddressMask) - 0x8000
+			if write {
+				ext.ram[bank][address] = data
+				return 0, nil
+			}
+			return ext.ram[bank][address], nil
+		} else {
+			b := ext.bank[0]
+			if write {
+				if address == 0x8000 {
+					var idx int
+					if !ext.isSN2() || ext.mixSN2 {
+						idx = int(data&0x3f) % min(len(ext.data), 64)
+						b.mix, b.address = ext.selectTransform(data)
+					} else {
+						idx = int(data) % min(len(ext.data), 256)
+					}
+					b.data = &ext.data[idx]
+				}
+			}
+			return (*b.data)[address-0x8000], nil
 		}
-		b := ext.bank[0]
-		return (*b.data)[address-0x8000], nil
 	}
 	if address < 0xa000 { // bank 1
-		if write {
-			return 0, nil
-		}
 		b := ext.bank[1]
+		if write {
+			if address == 0x9000 {
+				var idx int
+				if !ext.isSN2() || ext.mixSN2 {
+					idx = int(data&0x3f) % min(len(ext.data), 64)
+					b.mix, b.address = ext.selectTransform(data)
+				} else {
+					idx = int(data) % min(len(ext.data), 256)
+				}
+				b.data = &ext.data[idx]
+			}
+		}
 		return (*b.data)[address-0x9000], nil
 	}
 	if address < 0xb000 { // bank 2 (A)
 		b := ext.bank[2]
 		if write {
 			if address == 0xa000 {
-				idx := int(data&0x3f) % min(len(ext.data), 64)
+				var idx int
+				if !ext.isSN2() || ext.mixSN2 {
+					idx = int(data&0x3f) % min(len(ext.data), 64)
+					b.mix, b.address = ext.selectTransform(data)
+				} else {
+					idx = int(data) % min(len(ext.data), 256)
+				}
 				b.data = &ext.data[idx]
 			}
-			b.mix, b.address = ext.selectTransform(data)
 			return 0, nil
 		}
 		return b.mix((*b.data)[b.address(address)-0xa000]), nil
 	}
 	if address < 0xc000 { // bank 3
+		b := ext.bank[3]
 		if write {
+			if address == 0xb000 {
+				var idx int
+				if !ext.isSN2() || ext.mixSN2 {
+					return 0, nil
+				} else {
+					idx = int(data) % min(len(ext.data), 256)
+				}
+				b.data = &ext.data[idx]
+			}
 			return 0, nil
 		}
-		b := ext.bank[3]
-		return (*b.data)[address-0xb000], nil
+		return b.mix((*b.data)[address-0xb000]), nil
 	}
 	if address < 0xd000 { // bank 4 (C)
 		b := ext.bank[4]
 		if write {
 			if address == 0xc000 {
-				idx := int(data&0x3f) % min(len(ext.data), 64)
+				var idx int
+				if !ext.isSN2() || ext.mixSN2 {
+					idx = int(data&0x3f) % min(len(ext.data), 64)
+					b.mix, b.address = ext.selectTransform(data)
+				} else {
+					idx = int(data) % min(len(ext.data), 256)
+				}
 				b.data = &ext.data[idx]
 			}
-			b.mix, b.address = ext.selectTransform(data)
 			return 0, nil
 		}
 		return b.mix((*b.data)[b.address(address)-0xc000]), nil
@@ -140,22 +203,36 @@ func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 		b := ext.bank[5]
 		if write {
 			if address == 0xd000 {
-				idx := int(data&0x7f) % min(len(ext.data), 128)
+				var idx int
+				if !ext.isSN2() || ext.mixSN2 {
+					idx = int(data&0x7f) % min(len(ext.data), 128)
+					if ext.isSN2() && ext.mixSN2 {
+						// cannot alter the read transformation for bank D in SN1 but we can for SN2
+						// if mixSN2 is enabled
+						b.mix, b.address = ext.selectTransform(data)
+					}
+				} else {
+					idx = int(data) % min(len(ext.data), 256)
+				}
 				b.data = &ext.data[idx]
 			}
-			// cannot alter the read transformation for bank D
 			return 0, nil
 		}
-		return (*b.data)[address-0xd000], nil
+		return b.mix((*b.data)[address-0xd000]), nil
 	}
 	if address < 0xf000 { // bank 6 (E)
 		b := ext.bank[6]
 		if write {
 			if address == 0xe000 {
-				idx := int(data&0x3f) % min(len(ext.data), 64)
+				var idx int
+				if !ext.isSN2() || ext.mixSN2 {
+					idx = int(data&0x3f) % min(len(ext.data), 64)
+					b.mix, b.address = ext.selectTransform(data)
+				} else {
+					idx = int(data) % min(len(ext.data), 256)
+				}
 				b.data = &ext.data[idx]
 			}
-			b.mix, b.address = ext.selectTransform(data)
 			return 0, nil
 		}
 		return b.mix((*b.data)[b.address(address)-0xe000]), nil
@@ -173,17 +250,14 @@ func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 			// D2 and D3 change address mask for RAM access
 			ext.ramAddressMask = (uint16(data&0x06) << 7) ^ 0xffff
 
-			// explicit handling of D2 and D3 (clearer alternative to above)
-			// switch data & 0x06 {
-			// case 0x0:
-			// 	ext.ramAddressMask = 0xffff
-			// case 0x1:
-			// 	ext.ramAddressMask = 0xfeff
-			// case 0x2:
-			// 	ext.ramAddressMask = 0xfdff
-			// case 0x3:
-			// 	ext.ramAddressMask = 0xfcff
-			// }
+			// additional bits are used in SN2
+			if ext.isSN2() {
+				if data&0x20 == 0x20 {
+					ext.ramBank += 2
+				}
+				ext.mixSN2 = data&0x40 == 0x40
+				ext.ramHigh = data&0x80 == 0x80
+			}
 		}
 		return 0, nil
 	}
@@ -198,6 +272,9 @@ func (ext *SN) transformDataNormal(d uint8) uint8 {
 }
 
 func (ext *SN) transformData160A(d uint8) uint8 {
+	if ext.isSN2() && !ext.mixSN2 {
+		return d
+	}
 	d0 := d & 0x01
 	d1 := (d & 0x02) >> 1
 	d2 := (d & 0x04) >> 2
@@ -210,6 +287,9 @@ func (ext *SN) transformData160A(d uint8) uint8 {
 }
 
 func (ext *SN) transformData160B(d uint8) uint8 {
+	if ext.isSN2() && !ext.mixSN2 {
+		return d
+	}
 	d0 := d & 0x01
 	d1 := (d & 0x02) >> 1
 	d2 := (d & 0x04) >> 2
@@ -222,6 +302,9 @@ func (ext *SN) transformData160B(d uint8) uint8 {
 }
 
 func (ext *SN) transformData320(d uint8) uint8 {
+	if ext.isSN2() && !ext.mixSN2 {
+		return d
+	}
 	d0 := d & 0x01
 	d1 := (d & 0x02) >> 1
 	d2 := (d & 0x04) >> 2
