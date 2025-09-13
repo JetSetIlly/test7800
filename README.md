@@ -60,6 +60,16 @@ References to "7800 Software Guide" in comments are referring to [this wiki page
 
 [Two Button Controllers](https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159)
 
+#### POKEY
+
+[POKEY C012294 Documentation](https://7800.8bitdev.org/index.php/POKEY_C012294_Documentation)
+
+[Altirra Hardware Reference Manual, Chapter 5](https://www.virtualdub.org/downloads/Altirra%20Hardware%20Reference%20Manual.pdf)
+
+[POKEY implementation in the Altirra emulator](https://www.virtualdub.org/altirra.html)
+
+[Original Atari document for POKEY](http://visual6502.org/images/C012294_Pokey/pokey.pdf)
+
 ### Acknowledgements
 
 Zachary Scolaro helped with the MARIA emulation, particular to get it off the ground when I wasn't sure about it at all. And Rob Tuccitto has provided much advice and links to information about the 7800 internals. Thanks to both.

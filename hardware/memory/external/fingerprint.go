@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/jetsetilly/test7800/hardware/memory/external/elf"
+	"github.com/jetsetilly/test7800/hardware/pokey"
 	"github.com/jetsetilly/test7800/logger"
 )
 
@@ -21,12 +22,19 @@ type CartridgeReset struct {
 type CartridgeInsertor struct {
 	filename string
 	data     []uint8
-	creator  func(Context, []uint8) (cartridge, error)
-	reset    CartridgeReset
+
+	// returns a new instance of the cartridge. this will be the
+	creator func(Context, []uint8) (Bus, error)
+
+	// returns the actions to take on cartridge reset
+	reset CartridgeReset
 
 	// whether controller should have just one-buttons. NOTE: placeholder
 	// until we add more sophisticated controller requirements (paddle, etc.)
 	OneButtonStick bool
+
+	// list of additional chips (eg. POKEYs) that are present in the cartridge
+	chips []func(Context) (Bus, error)
 }
 
 func (c CartridgeInsertor) Filename() string {
@@ -58,7 +66,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 		if bytes.Contains(d, []byte{0x7f, 'E', 'L', 'F'}) {
 			return CartridgeInsertor{
 				data: d,
-				creator: func(ctx Context, d []uint8) (cartridge, error) {
+				creator: func(ctx Context, d []uint8) (Bus, error) {
 					return elf.NewElf(ctx, d)
 				},
 				reset: CartridgeReset{
@@ -110,31 +118,43 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 			cartType := (uint16(d[0x35]) << 8) | uint16(d[0x36])
 			logger.Logf(logger.Allow, "a78", "cart type: %08b %08b", uint8(cartType>>8), uint8(cartType))
 
-			if cartType&0x0001 == 0x0001 {
-				logger.Logf(logger.Allow, "a78", "POKEY (at $4000) required but not supported")
-				cartType &= (0x01 ^ 0xffff)
-			}
-			if cartType&0x0040 == 0x0040 {
-				logger.Logf(logger.Allow, "a78", "POKEY (at $440) required but not supported")
-				cartType &= (0x0040 ^ 0xffff)
-			}
 			if cartType&0x0800 == 0x0800 {
 				logger.Logf(logger.Allow, "a78", "YM2151 required but not supported")
 				cartType &= (0x0800 ^ 0xffff)
 			}
+
+			var chips []func(Context) (Bus, error)
+
+			if cartType&0x0001 == 0x0001 {
+				pk := func(ctx Context) (Bus, error) {
+					return pokey.NewAudio(ctx, 0x4000)
+				}
+				chips = append(chips, pk)
+				cartType &= (0x0001 ^ 0xffff)
+			}
+			if cartType&0x0040 == 0x0040 {
+				pk := func(ctx Context) (Bus, error) {
+					return pokey.NewAudio(ctx, 0x0450)
+				}
+				chips = append(chips, pk)
+				cartType &= (0x0040 ^ 0xffff)
+			}
 			if cartType&0x8000 == 0x8000 {
-				logger.Logf(logger.Allow, "a78", "POKEY (at $800) required but not supported")
+				pk := func(ctx Context) (Bus, error) {
+					return pokey.NewAudio(ctx, 0x0800)
+				}
+				chips = append(chips, pk)
 				cartType &= (0x8000 ^ 0xffff)
 			}
 
-			// flat cartridge type
-			if cartType == 0x00 {
+			if cartType == 0x0000 {
 				return CartridgeInsertor{
 					data: d,
-					creator: func(ctx Context, d []uint8) (cartridge, error) {
+					creator: func(ctx Context, d []uint8) (Bus, error) {
 						return NewFlat(ctx, d[0x80:])
 					},
 					OneButtonStick: oneButtonStick,
+					chips:          chips,
 				}, nil
 			}
 
@@ -145,10 +165,11 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 				return CartridgeInsertor{
 					filename: filename,
 					data:     d,
-					creator: func(ctx Context, d []uint8) (cartridge, error) {
+					creator: func(ctx Context, d []uint8) (Bus, error) {
 						return NewBanksets(ctx, supergame, d[0x80:], banksetRAM)
 					},
 					OneButtonStick: oneButtonStick,
+					chips:          chips,
 				}, nil
 			}
 
@@ -161,12 +182,13 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 				return CartridgeInsertor{
 					filename: filename,
 					data:     d,
-					creator: func(ctx Context, d []uint8) (cartridge, error) {
+					creator: func(ctx Context, d []uint8) (Bus, error) {
 						return NewSupergame(ctx, d[0x80:],
 							banked, exram, exrom,
 						)
 					},
 					OneButtonStick: oneButtonStick,
+					chips:          chips,
 				}, nil
 			}
 
@@ -184,7 +206,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 		return CartridgeInsertor{
 			filename: filename,
 			data:     d,
-			creator: func(ctx Context, d []uint8) (cartridge, error) {
+			creator: func(ctx Context, d []uint8) (Bus, error) {
 				return NewSN(ctx, d[:], mapper)
 			},
 			OneButtonStick: false,
@@ -199,7 +221,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 			return CartridgeInsertor{
 				filename: filename,
 				data:     d,
-				creator: func(ctx Context, d []uint8) (cartridge, error) {
+				creator: func(ctx Context, d []uint8) (Bus, error) {
 					return NewFlat(ctx, d[:])
 				},
 				OneButtonStick: false,

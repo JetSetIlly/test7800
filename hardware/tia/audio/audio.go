@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/jetsetilly/test7800/hardware/spec"
+	"github.com/jetsetilly/test7800/hardware/tia/audio/mix"
 )
 
 // The TIA emulation takes two samples per scanline, so by definition the sample
@@ -57,8 +58,11 @@ type Audio struct {
 	Channel1 channel
 
 	// the volume output for each channel
-	Vol0 uint8
-	Vol1 uint8
+	vol0 uint8
+	vol1 uint8
+
+	// any chips in the external device that provide sound
+	externalChips []ExternalSoundChip
 }
 
 // NewAudio is the preferred method of initialisation for the Audio sub-system.
@@ -102,15 +106,13 @@ func (au *Audio) Step() bool {
 	if (au.clock >= 8 && au.clock <= 11) || (au.clock >= 80 && au.clock <= 83) {
 		au.Channel0.phase0()
 		au.Channel1.phase0()
-	}
-
-	if (au.clock >= 36 && au.clock <= 39) || (au.clock >= 148 && au.clock <= 151) {
+	} else if (au.clock >= 36 && au.clock <= 39) || (au.clock >= 148 && au.clock <= 151) {
 		au.Channel0.phase1()
 		au.Channel1.phase1()
 
 		// take average of sum of volume bits
-		au.Vol0 = uint8(au.sampleSum[0]/au.sampleSumCt) & 0x0f
-		au.Vol1 = uint8(au.sampleSum[1]/au.sampleSumCt) & 0x0f
+		au.vol0 = uint8(au.sampleSum[0]/au.sampleSumCt) & 0x0f
+		au.vol1 = uint8(au.sampleSum[1]/au.sampleSumCt) & 0x0f
 		au.sampleSum[0] = 0
 		au.sampleSum[1] = 0
 		au.sampleSumCt = 0
@@ -118,10 +120,31 @@ func (au *Audio) Step() bool {
 		changed = true
 	}
 
+	for _, xc := range au.externalChips {
+		xc.Step()
+	}
+
 	au.clock += 4
 	if au.clock >= spec.ClksScanline {
-		au.clock = 0
+		au.clock -= spec.ClksScanline
 	}
 
 	return changed
+}
+
+// Mono returns the mixed volume from all audio sources
+func (au *Audio) Mono() int16 {
+	if len(au.externalChips) == 0 {
+		return mix.Mono(au.vol0, au.vol1)
+	}
+
+	sum := int16(au.vol0)<<9 + int16(au.vol1)<<9
+
+	for _, xc := range au.externalChips {
+		xc.Volume(func(v uint8) {
+			sum += int16(v) << 8
+		})
+	}
+
+	return sum
 }

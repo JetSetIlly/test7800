@@ -101,15 +101,19 @@ func (con *Console) Reset(random bool) error {
 }
 
 func (con *Console) Insert(c external.CartridgeInsertor) error {
-	err := con.RIOT.Insert(c)
+	err := con.Mem.External.Insert(c)
 	if err != nil {
 		return err
 	}
-	err = con.TIA.Insert(c)
+	err = con.RIOT.Insert(c)
 	if err != nil {
 		return err
 	}
-	return con.Mem.External.Insert(c)
+	err = con.TIA.Insert(c, con.Mem.External.Chips)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (con *Console) Step() error {

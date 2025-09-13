@@ -4,7 +4,6 @@ import (
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/hardware/tia/audio"
-	"github.com/jetsetilly/test7800/hardware/tia/audio/mix"
 )
 
 type TIA struct {
@@ -38,11 +37,11 @@ func Create(_ Context, g *gui.GUI, riot riot, limiter limiter) *TIA {
 			limit: limiter,
 		}
 	}
-	tia.Insert(external.CartridgeInsertor{})
+	tia.Insert(external.CartridgeInsertor{}, nil)
 	return tia
 }
 
-func (tia *TIA) Insert(c external.CartridgeInsertor) error {
+func (tia *TIA) Insert(c external.CartridgeInsertor, externalChips audio.SoundChipIterator) error {
 	// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
 	if c.OneButtonStick {
 		tia.inpt = [6]uint8{
@@ -61,6 +60,10 @@ func (tia *TIA) Insert(c external.CartridgeInsertor) error {
 			0x80, 0x80,
 		}
 	}
+
+	// piggyback any external soundchips to the TIA audio
+	tia.aud.PiggybackExternalSound(externalChips)
+
 	return nil
 }
 
@@ -78,12 +81,12 @@ func (tia *TIA) Status() string {
 
 func (tia *TIA) Access(write bool, idx uint16, data uint8) (uint8, error) {
 	if write {
-		return data, tia.Write(idx, data)
+		return data, tia.write(idx, data)
 	}
-	return tia.Read(idx)
+	return tia.read(idx)
 }
 
-func (tia *TIA) Read(idx uint16) (uint8, error) {
+func (tia *TIA) read(idx uint16) (uint8, error) {
 	switch idx {
 	case 0x08:
 		return tia.inpt[0], nil
@@ -101,7 +104,7 @@ func (tia *TIA) Read(idx uint16) (uint8, error) {
 	return 0, nil
 }
 
-func (tia *TIA) Write(idx uint16, data uint8) error {
+func (tia *TIA) write(idx uint16, data uint8) error {
 	if tia.buf != nil {
 		tia.buf.crit.Lock()
 		defer tia.buf.crit.Unlock()
@@ -150,7 +153,7 @@ func (tia *TIA) Tick() {
 		tia.buf.crit.Lock()
 		defer tia.buf.crit.Unlock()
 
-		m := mix.Mono(tia.aud.Vol0, tia.aud.Vol1)
+		m := tia.aud.Mono()
 		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
 		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
 	}

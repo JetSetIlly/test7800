@@ -5,16 +5,18 @@ import (
 
 	"github.com/jetsetilly/test7800/coprocessor"
 	"github.com/jetsetilly/test7800/hardware/memory/external/elf"
+	"github.com/jetsetilly/test7800/logger"
 )
 
-type cartridge interface {
+type Bus interface {
 	Label() string
 	Access(write bool, address uint16, data uint8) (uint8, error)
 }
 
 type Device struct {
 	ctx      Context
-	inserted cartridge
+	inserted Bus
+	chips    []Bus
 }
 
 type Context interface {
@@ -42,11 +44,22 @@ func (dev *Device) Insert(c CartridgeInsertor) error {
 		return err
 	}
 
+	for i := range c.chips {
+		s, err := c.chips[i](dev.ctx)
+		if err != nil {
+			dev.Eject()
+			return err
+		}
+		dev.chips = append(dev.chips, s)
+		logger.Log(logger.Allow, "chips", s.Label())
+	}
+
 	return nil
 }
 
 func (dev *Device) Eject() {
 	dev.inserted = nil
+	dev.chips = dev.chips[:0]
 }
 
 func (dev *Device) IsEjected() bool {
@@ -65,7 +78,17 @@ func (dev *Device) Access(write bool, address uint16, data uint8) (uint8, error)
 		return dev.ctx.Rand8Bit(), nil
 	}
 
-	v, err := dev.inserted.Access(write, address, data)
+	var v uint8
+	var err error
+
+	for i := range dev.chips {
+		v, err = dev.chips[i].Access(write, address, data)
+		if err != nil {
+			return 0, fmt.Errorf("external: %s", err)
+		}
+	}
+
+	v, err = dev.inserted.Access(write, address, data)
 	if err != nil {
 		return 0, fmt.Errorf("external: %s", err)
 	}
@@ -102,5 +125,12 @@ type hlt interface {
 func (dev *Device) HLT(halt bool) {
 	if d, ok := dev.inserted.(hlt); ok {
 		d.HLT(halt)
+	}
+}
+
+// Chips iterates through the additional (none ROM/RAM) chips in the external device
+func (dev *Device) Chips(yield func(Bus)) {
+	for _, c := range dev.chips {
+		yield(c)
 	}
 }

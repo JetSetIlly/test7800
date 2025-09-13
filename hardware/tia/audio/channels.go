@@ -26,24 +26,13 @@ type channel struct {
 	divCounter   uint8
 	pulseCounter uint8
 	noiseCounter uint8
-
-	volumeChanged bool
 }
 
 func (ch *channel) String() string {
 	return ch.Registers.String()
 }
 
-// tick should be called at a frequency of 30Khz. when the 10Khz clock is
-// required, the frequency clock is increased by a factor of three.
-func (ch *channel) tick() {
-	ch.phase0()
-	ch.phase1()
-}
-
 func (ch *channel) phase0() {
-	// phase 0
-
 	if ch.clockEnable {
 		ch.noiseCounterBit4 = ch.noiseCounter&0x01 != 0x00
 
@@ -82,8 +71,6 @@ func (ch *channel) phase0() {
 }
 
 func (ch *channel) phase1() {
-	// phase 1
-
 	if ch.clockEnable {
 		pulseFeedback := false
 
