@@ -62,22 +62,32 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 			pk.channel[2].clkMhz = data&0x20 == 0x20
 
 			if data&0x10 == 0x10 {
-				pk.channel[1].link = &pk.channel[0]
-				pk.channel[0].linked = true
+				pk.channel[1].lnk16High = &pk.channel[0]
+				pk.channel[0].lnk16Low = true
 			} else {
-				pk.channel[1].link = nil
-				pk.channel[0].linked = false
+				pk.channel[1].lnk16High = nil
+				pk.channel[0].lnk16Low = false
 			}
 			if data&0x08 == 0x08 {
-				pk.channel[3].link = &pk.channel[2]
-				pk.channel[2].linked = true
+				pk.channel[3].lnk16High = &pk.channel[2]
+				pk.channel[2].lnk16Low = true
 			} else {
-				pk.channel[3].link = nil
-				pk.channel[2].linked = false
+				pk.channel[3].lnk16High = nil
+				pk.channel[2].lnk16Low = false
 			}
 
-			_ = data&0x04 == 0x04
-			_ = data&0x02 == 0x02
+			if data&0x04 == 0x04 {
+				// pk.channel[2].filter = &pk.channel[0]
+			} else {
+				// pk.channel[2].filter = nil
+				// pk.channel[0].flip = 0xff
+			}
+			if data&0x02 == 0x02 {
+				// pk.channel[3].filter = &pk.channel[1]
+			} else {
+				// pk.channel[3].filter = nil
+				// pk.channel[1].flip = 0xff
+			}
 
 			pk.prefer15Khz = data&0x01 == 0x01
 		case 0x09 + pk.origin:

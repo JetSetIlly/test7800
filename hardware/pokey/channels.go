@@ -30,10 +30,18 @@ type channel struct {
 
 	pulse uint8
 
-	// control of the channel by the main AUDCTL register in the POKEY
+	// clock preference for the channel
 	clkMhz bool
-	linked bool
-	link   *channel
+
+	// two channels can be linked to create a 16bit timer. if lnk16Low is true then the channel is
+	// the low-byte of the timer. if lnk16High is not nil then the channel is the high-byte of the
+	// timer (the channel being pointed to is the low-byte). both fields should not be 'true' at the
+	// same time
+	lnk16Low  bool
+	lnk16High *channel
+
+	// another channel can affect the final value of the pulse field by flipping the xor field. this
+	// creates a high-pass filter on the filtered channel
 
 	// reload the divCounter with the current frequency value. this normally happens whenever
 	// divCounter reaches 255 (wrap around from zero) but it's slightly different for linked
@@ -46,7 +54,7 @@ func (ch *channel) String() string {
 }
 
 func (ch *channel) step(clk15Khz, clk64Khz bool) {
-	if ch.linked {
+	if ch.lnk16Low {
 		// this early return for a linked channel may cause problems for volume only sample
 		// playback. from 'Altirra Reference', page 104
 		//
@@ -56,8 +64,7 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 		// volume-only effects or even enabled for special effects without affecting the high
 		// channel"
 		//
-		// but we do it because we want to control the channel from the other channel (the one being
-		// linked)
+		// but we do it because we want to control the channel from the other channel
 		return
 	}
 
@@ -69,23 +76,23 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 
 			// From 'Altirra Reference', page 104
 			// "When the high timer underflows, both the low and high timer counters are reloaded together"
-			if ch.link != nil {
-				ch.link.reload = 7
+			if ch.lnk16High != nil {
+				ch.lnk16High.reload = 7
 			}
 		}
 	}
 
-	// when a channel is linked it is driven by the linked channel. therefore, the hiFreq flag is
-	// not relevent to 'this' channel, only to the linked channel
-	if ch.link != nil {
-		if ch.link.reload > 0 {
-			ch.link.reload--
-			if ch.link.reload == 0 {
-				ch.link.divCounter = ch.link.Registers.Freq
+	// when a channel is linked it is driven by the channel specified in the link field. therefore,
+	// the hiFreq flag is not relevent to the current channel, only to the other channel
+	if ch.lnk16High != nil {
+		if ch.lnk16High.reload > 0 {
+			ch.lnk16High.reload--
+			if ch.lnk16High.reload == 0 {
+				ch.lnk16High.divCounter = ch.lnk16High.Registers.Freq
 			}
 		}
 
-		if !ch.link.clkMhz {
+		if !ch.lnk16High.clkMhz {
 			if !(clk15Khz || clk64Khz) {
 				return
 			}
@@ -98,8 +105,8 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 		// automatic refers to the comparison with the linked registers frequency register. we
 		// therefore return unless divCounter is zero, which indicates that an underflow has
 		// occurred naturally
-		ch.link.divCounter--
-		if ch.link.divCounter != 255 {
+		ch.lnk16High.divCounter--
+		if ch.lnk16High.divCounter != 255 {
 			return
 		}
 	} else if !ch.clkMhz {
