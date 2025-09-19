@@ -23,12 +23,12 @@ type ExternalSoundChip interface {
 	Volume(yield func(uint8))
 }
 
-type SoundChipIterator func(func(external.Bus))
+type SoundChipIterator func(func(external.OptionalBus))
 
 func (au *Audio) PiggybackExternalSound(externalChips SoundChipIterator) {
 	au.externalChips = au.externalChips[:0]
 	if externalChips != nil {
-		externalChips(func(bus external.Bus) {
+		externalChips(func(bus external.OptionalBus) {
 			if sc, ok := bus.(ExternalSoundChip); ok {
 				au.externalChips = append(au.externalChips, sc)
 			}

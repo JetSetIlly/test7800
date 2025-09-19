@@ -34,7 +34,7 @@ type CartridgeInsertor struct {
 	OneButtonStick bool
 
 	// list of additional chips (eg. POKEYs) that are present in the cartridge
-	chips []func(Context) (Bus, error)
+	chips []func(Context) (OptionalBus, error)
 }
 
 func (c CartridgeInsertor) Filename() string {
@@ -123,24 +123,24 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 				cartType &= (0x0800 ^ 0xffff)
 			}
 
-			var chips []func(Context) (Bus, error)
+			var chips []func(Context) (OptionalBus, error)
 
 			if cartType&0x0001 == 0x0001 {
-				pk := func(ctx Context) (Bus, error) {
+				pk := func(ctx Context) (OptionalBus, error) {
 					return pokey.NewAudio(ctx, 0x4000)
 				}
 				chips = append(chips, pk)
 				cartType &= (0x0001 ^ 0xffff)
 			}
 			if cartType&0x0040 == 0x0040 {
-				pk := func(ctx Context) (Bus, error) {
+				pk := func(ctx Context) (OptionalBus, error) {
 					return pokey.NewAudio(ctx, 0x0450)
 				}
 				chips = append(chips, pk)
 				cartType &= (0x0040 ^ 0xffff)
 			}
 			if cartType&0x8000 == 0x8000 {
-				pk := func(ctx Context) (Bus, error) {
+				pk := func(ctx Context) (OptionalBus, error) {
 					return pokey.NewAudio(ctx, 0x0800)
 				}
 				chips = append(chips, pk)

@@ -93,8 +93,6 @@ func (au *Audio) String() string {
 func (au *Audio) UpdateTracker() {
 }
 
-// Step the audio on one TIA clock. The step will be filtered to produce a
-// 30Khz clock.
 func (au *Audio) Step() bool {
 	var changed bool
 
@@ -120,13 +118,14 @@ func (au *Audio) Step() bool {
 		changed = true
 	}
 
-	for _, xc := range au.externalChips {
-		xc.Step()
-	}
-
 	au.clock += 4
 	if au.clock >= spec.ClksScanline {
 		au.clock -= spec.ClksScanline
+	}
+
+	// step external soundchips at the base rate of the machine
+	for _, ch := range au.externalChips {
+		ch.Step()
 	}
 
 	return changed
@@ -138,8 +137,10 @@ func (au *Audio) Mono() int16 {
 		return mix.Mono(au.vol0, au.vol1)
 	}
 
-	sum := int16(au.vol0)<<9 + int16(au.vol1)<<9
+	// simpler TIA mixing if there are external soundchips to include in the mix
+	sum := int16(au.vol0)<<8 + int16(au.vol1)<<8
 
+	// add external chips to the mix
 	for _, xc := range au.externalChips {
 		xc.Volume(func(v uint8) {
 			sum += int16(v) << 8

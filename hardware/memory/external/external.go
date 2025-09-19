@@ -13,10 +13,19 @@ type Bus interface {
 	Access(write bool, address uint16, data uint8) (uint8, error)
 }
 
+// the OptionalBus interface differs to the Bus interface because the Access() function returns an
+// additional boolean result to indicate whether the address was recognised and handled. The
+// intention is for the External device to call Access() on the OptionalBus first and to only call
+// Access() on the main Bus device if the first Access() returned false
+type OptionalBus interface {
+	Label() string
+	Access(write bool, address uint16, data uint8) (uint8, bool, error)
+}
+
 type Device struct {
 	ctx      Context
 	inserted Bus
-	chips    []Bus
+	chips    []OptionalBus
 }
 
 type Context interface {
@@ -78,17 +87,17 @@ func (dev *Device) Access(write bool, address uint16, data uint8) (uint8, error)
 		return dev.ctx.Rand8Bit(), nil
 	}
 
-	var v uint8
-	var err error
-
 	for i := range dev.chips {
-		v, err = dev.chips[i].Access(write, address, data)
+		v, ok, err := dev.chips[i].Access(write, address, data)
 		if err != nil {
 			return 0, fmt.Errorf("external: %s", err)
 		}
+		if ok {
+			return v, nil
+		}
 	}
 
-	v, err = dev.inserted.Access(write, address, data)
+	v, err := dev.inserted.Access(write, address, data)
 	if err != nil {
 		return 0, fmt.Errorf("external: %s", err)
 	}
@@ -129,7 +138,7 @@ func (dev *Device) HLT(halt bool) {
 }
 
 // Chips iterates through the additional (none ROM/RAM) chips in the external device
-func (dev *Device) Chips(yield func(Bus)) {
+func (dev *Device) Chips(yield func(OptionalBus)) {
 	for _, c := range dev.chips {
 		yield(c)
 	}

@@ -33,7 +33,7 @@ func (reg Registers) String() string {
 	return fmt.Sprintf("%04b @ %05b ^ %04b", reg.Noise, reg.Freq, reg.Volume)
 }
 
-func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, error) {
+func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error) {
 	if write {
 		switch idx {
 		case 0x00 + pk.origin: // PAUDFO
@@ -80,15 +80,17 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, error) {
 			_ = data&0x02 == 0x02
 
 			pk.prefer15Khz = data&0x01 == 0x01
+		default:
+			return 0, false, nil
 		}
 
-		return 0, nil
+		return 0, true, nil
 	}
 
 	switch idx {
 	case 0x0a + pk.origin:
-		return pk.noise.rnd, nil
+		return pk.noise.rnd, true, nil
 	}
 
-	return 0, nil
+	return 0, false, nil
 }
