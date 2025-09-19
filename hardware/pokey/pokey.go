@@ -45,6 +45,7 @@ type Pokey struct {
 	// the volume output for each channel
 	vol [4]uint8
 
+	// noise generating polynomials
 	noise polynomials
 
 	// the counter that keeps count of the 15Khz and 64Khz clock
@@ -54,6 +55,9 @@ type Pokey struct {
 	// use the 15Khz clock instead of the 64Khz clock. this is approximately a division of 4
 	// 63.9210 / 15.6999 = 4.0714. set via the AUDCTL register
 	prefer15Khz bool
+
+	// the pokey is in the initState until SKCTL is written to
+	initState bool
 }
 
 // NewAudio is the preferred method of initialisation for the Audio sub-system.
@@ -63,8 +67,9 @@ func NewAudio(ctx Context, origin uint16) (*Pokey, error) {
 	}
 
 	pk := &Pokey{
-		ctx:    ctx,
-		origin: origin,
+		ctx:       ctx,
+		origin:    origin,
+		initState: true,
 	}
 	pk.noise.initialise()
 

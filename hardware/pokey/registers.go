@@ -80,6 +80,15 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 			_ = data&0x02 == 0x02
 
 			pk.prefer15Khz = data&0x01 == 0x01
+		case 0x09 + pk.origin:
+		case 0x0a + pk.origin:
+		case 0x0b + pk.origin:
+		case 0x0c + pk.origin:
+		case 0x0d + pk.origin:
+		case 0x0e + pk.origin:
+		case 0x0f + pk.origin: // SKCTL
+			// we're only interested in the reset bits of SKCTL
+			pk.initState = data&0x03 == 0x00
 		default:
 			return 0, false, nil
 		}
@@ -88,8 +97,39 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 	}
 
 	switch idx {
-	case 0x0a + pk.origin:
+	case 0x01 + pk.origin:
+		return 0, true, nil
+	case 0x02 + pk.origin:
+		return 0, true, nil
+	case 0x03 + pk.origin:
+		return 0, true, nil
+	case 0x04 + pk.origin:
+		return 0, true, nil
+	case 0x05 + pk.origin:
+		return 0, true, nil
+	case 0x06 + pk.origin:
+		return 0, true, nil
+	case 0x07 + pk.origin:
+		return 0, true, nil
+	case 0x08 + pk.origin:
+		return 0, true, nil
+	case 0x09 + pk.origin:
+		return 0, true, nil
+	case 0x0a + pk.origin: // RANDOM
+		if pk.initState {
+			return 0xff, true, nil
+		}
 		return pk.noise.rnd, true, nil
+	case 0x0b + pk.origin:
+		return 0, true, nil
+	case 0x0c + pk.origin:
+		return 0, true, nil
+	case 0x0d + pk.origin:
+		return 0, true, nil
+	case 0x0e + pk.origin:
+		return 0, true, nil
+	case 0x0f + pk.origin:
+		return 0, true, nil
 	}
 
 	return 0, false, nil
