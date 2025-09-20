@@ -134,7 +134,7 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 		if pk.initState {
 			return 0xff, true, nil
 		}
-		return pk.noise.rnd, true, nil
+		return pk.noise.rnd(), true, nil
 	case 0x0b + pk.origin:
 		return 0, true, nil
 	case 0x0c + pk.origin:

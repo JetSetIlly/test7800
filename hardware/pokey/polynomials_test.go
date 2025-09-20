@@ -16,6 +16,7 @@
 package pokey
 
 import (
+	"math"
 	"slices"
 	"testing"
 
@@ -58,49 +59,82 @@ func TestPoynomialsBiasCheck(t *testing.T) {
 	test.ExpectSuccess(t, biasCheck(t, poly17bit[:]))
 }
 
+func TestRandomDistribution(t *testing.T) {
+	var p polynomials
+	p.initialise()
+
+	var counts [256]int
+
+	for range 100000 {
+		p.step()
+		counts[p.rnd()]++
+	}
+
+	var mean int
+	for _, v := range counts {
+		mean += v
+	}
+	mean /= len(counts)
+
+	var variance int
+	for _, v := range counts {
+		diff := v - mean
+		variance += diff * diff
+	}
+	variance /= len(counts)
+
+	// using relative standard distributino to check
+	stdDev := math.Sqrt(float64(variance))
+	relStdDev := stdDev / float64(mean)
+
+	test.ExpectSuccess(t, relStdDev < 1.0)
+}
+
 func TestRandomInitialisation(t *testing.T) {
+	var p polynomials
+	p.initialise()
+
 	// from 'Altirra Reference", page 111:
 	//
 	// "When exiting initialization mode, the polynomial counters begin counting immediately. For instance, if 9-bit mode
 	// is selected, executing STA SKCTL + LDA RANDOM back-to-back will give A=$1F, which is four bits after the all
 	// ones state."
 
-	var p polynomials
-	p.initialise()
 	p.prefer9bit = true
 
-	// check that initial state is correct
-	test.ExpectEquality(t, p.rnd, 0xff)
+	test.ExpectEquality(t, p.rnd(), 0xff)
 
 	p.step()
 	p.step()
 	p.step()
 
-	// this is only three steps when it should really be four according to 'Altirra Reference'
-	test.ExpectEquality(t, p.rnd, 0x1f)
+	test.ExpectEquality(t, p.rnd(), 0x1f)
 }
 
 // the random number tests are not working yet so just ignore it for now
-const skipRandomTests = true
+const skipTestRandomSequence = true
 
 func TestRandomSequence(t *testing.T) {
-	if skipRandomTests {
+	if skipTestRandomSequence {
 		return
 	}
+
+	var p polynomials
+	p.initialise()
 
 	// from 'Altirra Reference", page 111:
 	//
 	// "If the main LFSR is in 9-bit mode and samples are taken from RANDOM ($D20A) every scan line by STA
 	// WSYNC + LDA RANDOM, part of the sequence is as follows: 00 DF EE 16 B9."
 
-	var p polynomials
-	p.initialise()
 	p.prefer9bit = true
 
+	// accumulated random number sequence
+	var seq []uint8
+
 	// step polynomials for 100 frames. take random number sample once per scanline
-	seq := []uint8{p.rnd}
 	for range spec.NTSC.AbsoluteBottom * 100 {
-		seq = append(seq, p.rnd)
+		seq = append(seq, p.rnd())
 		for range spec.ClksScanline {
 			p.step()
 		}

@@ -19,6 +19,8 @@ var poly4bit []uint8
 var poly5bit []uint8
 var poly9bit []uint8
 var poly17bit []uint8
+var rnd9 []uint8
+var rnd17 []uint8
 
 type polynomials struct {
 	ct4bit  int
@@ -29,16 +31,6 @@ type polynomials struct {
 	// whether to use the 9bit polynomial instead of the 17bit. a pointer to this field is given to
 	// each channel. set via the AUDCTL register
 	prefer9bit bool
-
-	// from 'Altirra Reference', page 111:
-	//
-	// "Eight bits of the shift register are visible to the CPU via RANDOM; this is most commonly
-	// used for random numbers, but it can also be used to test cycle counting hypotheses. RANDOM
-	// shifts right at the rate of one bit per machine cycle. Note that RANDOM reads bits inverted
-	// from the shift register itself and the bits seen by the audio circuits"
-	//
-	// the rnd is updated whenever the 9bit or 17bit polynomial is read
-	rnd uint8
 
 	// use the 15Khz clock instead of the 64Khz clock. this is approximately a division of 4
 	// 63.9210 / 15.6999 = 4.0714. set via the AUDCTL register
@@ -51,7 +43,6 @@ func (p *polynomials) initialise() {
 	p.ct9bit = 0
 	p.ct17bit = 0
 	p.prefer9bit = false
-	p.rnd = 0xff
 	p.prefer15Khz = false
 }
 
@@ -75,14 +66,24 @@ func (p *polynomials) step() {
 	if p.ct17bit >= len(poly17bit) {
 		p.ct17bit = 0
 	}
+}
+
+func (p *polynomials) rnd() uint8 {
+	// from 'Altirra Reference', page 111:
+	//
+	// "Eight bits of the shift register are visible to the CPU via RANDOM; this is most commonly
+	// used for random numbers, but it can also be used to test cycle counting hypotheses. RANDOM
+	// shifts right at the rate of one bit per machine cycle. Note that RANDOM reads bits inverted
+	// from the shift register itself and the bits seen by the audio circuits"
+	//
+	// the rnd is updated whenever the 9bit or 17bit polynomial is read
+
+	// the 8 bit window is created during the polynomials init() function, including the bit inversion
 
 	if p.prefer9bit {
-		p.rnd >>= 1
-		p.rnd |= poly9bit[p.ct9bit] << 7
-	} else {
-		p.rnd >>= 1
-		p.rnd |= poly17bit[p.ct17bit] << 7
+		return rnd9[p.ct9bit]
 	}
+	return rnd17[p.ct17bit]
 }
 
 func init() {
@@ -105,15 +106,19 @@ func init() {
 
 	b = 0
 	poly9bit = make([]uint8, (1<<9)-1)
+	rnd9 = make([]uint8, len(poly9bit))
 	for i := range poly9bit {
 		b = (b >> 1) + (^((b << 8) ^ (b << 3)) & 0x100)
 		poly9bit[i] |= uint8((b & 1))
+		rnd9[i] = ^uint8(b)
 	}
 
 	b = 0
 	poly17bit = make([]uint8, (1<<17)-1)
+	rnd17 = make([]uint8, len(poly17bit))
 	for i := range poly17bit {
 		b = (b >> 1) + (^((b << 16) ^ (b << 11)) & 0x10000)
 		poly17bit[i] |= uint8((b >> 8) & 0x01)
+		rnd17[i] = ^uint8(b)
 	}
 }
