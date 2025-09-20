@@ -13,10 +13,14 @@ type TIA struct {
 
 	// interface to the riot
 	riot riot
+
+	// use stereo mixing for audio
+	stereo bool
 }
 
 type Context interface {
 	IsAtari7800() bool
+	UseStereo() bool
 }
 
 type riot interface {
@@ -27,9 +31,10 @@ type limiter interface {
 	Nudge()
 }
 
-func Create(_ Context, g *gui.GUI, riot riot, limiter limiter) *TIA {
+func Create(ctx Context, g *gui.GUI, riot riot, limiter limiter) *TIA {
 	tia := &TIA{
-		aud: audio.NewAudio(),
+		aud:    audio.NewAudio(),
+		stereo: ctx.UseStereo(),
 	}
 	if g.AudioSetup != nil {
 		tia.buf = &audioBuffer{
@@ -153,8 +158,14 @@ func (tia *TIA) Tick() {
 		tia.buf.crit.Lock()
 		defer tia.buf.crit.Unlock()
 
-		m := tia.aud.Mono()
-		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
-		tia.buf.data = append(tia.buf.data, uint8(m), uint8(m>>8))
+		if tia.stereo {
+			v0, v1 := tia.aud.Stereo()
+			tia.buf.data = append(tia.buf.data, uint8(v0), uint8(v0>>8))
+			tia.buf.data = append(tia.buf.data, uint8(v1), uint8(v1>>8))
+		} else {
+			v := tia.aud.Mono()
+			tia.buf.data = append(tia.buf.data, uint8(v), uint8(v>>8))
+			tia.buf.data = append(tia.buf.data, uint8(v), uint8(v>>8))
+		}
 	}
 }

@@ -406,7 +406,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var overlay bool
 	var run bool
 	var log bool
-	var audio bool
+	var audio string
 	var mapper string
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
@@ -416,7 +416,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
 	flgs.BoolVar(&log, "log", false, "echo log to stderr")
-	flgs.BoolVar(&audio, "audio", true, "enable audio")
+	flgs.StringVar(&audio, "audio", "MONO", "enable audio: MONO, STEREO, NONE")
 	flgs.StringVar(&mapper, "mapper", "AUTO", "mapper selection. automatic selection by default")
 	err := flgs.Parse(args)
 	if err != nil {
@@ -503,7 +503,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		console:    "7800",
 		spec:       strings.ToUpper(spec),
 		useOverlay: overlay,
-		useAudio:   audio,
+		audio:      strings.ToUpper(audio),
 	}
 	ctx.Reset()
 

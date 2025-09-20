@@ -133,14 +133,8 @@ func (au *Audio) Step() bool {
 
 // Mono returns the mixed volume from all audio sources
 func (au *Audio) Mono() int16 {
-	if len(au.externalChips) == 0 {
-		return mix.Mono(au.vol0, au.vol1)
-	}
+	sum := mix.Mono(au.vol0, au.vol1)
 
-	// simpler TIA mixing if there are external soundchips to include in the mix
-	sum := int16(au.vol0)<<8 + int16(au.vol1)<<8
-
-	// add external chips to the mix
 	for _, xc := range au.externalChips {
 		xc.Volume(func(v uint8) {
 			sum += int16(v) << 8
@@ -148,4 +142,32 @@ func (au *Audio) Mono() int16 {
 	}
 
 	return sum
+}
+
+func (au *Audio) Stereo() (int16, int16) {
+	ch1 := int16(au.vol0) << 8
+	ch2 := int16(au.vol1) << 8
+
+	switch len(au.externalChips) {
+	case 0:
+	case 1:
+		for _, xc := range au.externalChips {
+			xc.Volume(func(v uint8) {
+				ch1 += int16(v) << 8
+				ch2 += int16(v) << 8
+			})
+		}
+	default:
+		for i, xc := range au.externalChips {
+			xc.Volume(func(v uint8) {
+				if i&0x01 == 0x01 {
+					ch1 += int16(v) << 8
+				} else {
+					ch2 += int16(v) << 8
+				}
+			})
+		}
+	}
+
+	return ch1, ch2
 }
