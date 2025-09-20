@@ -169,6 +169,12 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 	}
 	ch.reload = 1
 
+	if ch.modePoly5 {
+		if poly5bit[ch.noise.ct5bit] != 0x01 {
+			return
+		}
+	}
+
 	if ch.modePure {
 		ch.pulse = ch.pulse ^ 0x01
 	} else if ch.modePoly4 {
@@ -178,12 +184,6 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 			ch.pulse = poly9bit[ch.noise.ct9bit]
 		} else {
 			ch.pulse = poly17bit[ch.noise.ct17bit]
-		}
-	}
-
-	if ch.modePoly5 {
-		if poly5bit[ch.noise.ct5bit] != 0x01 {
-			return
 		}
 	}
 }
