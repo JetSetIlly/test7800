@@ -33,12 +33,29 @@ type channel struct {
 	// clock preference for the channel
 	clkMhz bool
 
-	// two channels can be linked to create a 16bit timer. if lnk16Low is true then the channel is
-	// the low-byte of the timer. if lnk16High is not nil then the channel is the high-byte of the
-	// timer (the channel being pointed to is the low-byte). both fields should not be 'true' at the
-	// same time
+	// two channels can be linked to create a 16bit timer
+	//
+	// if lnk16Low is true then the channel is the low-byte of the timer. if lnk16High is not nil
+	// then the channel is the high-byte of the timer (the channel being pointed to is the
+	// low-byte). both fields should not be 'true' at the same time
+	//
+	// channels 0 and 2 can only ever be the low-byte. and channels 1 and 3 can only ever be the
+	// high-byte
 	lnk16Low  bool
 	lnk16High *channel
+
+	// two channels can be linked to create a high-pass filter
+	//
+	// the resting value of filter should be 0x01 for channels 0 and 1 if they are not being linked
+	// to (ie. being filtered) by another channel. for channels 2 and 3 the filter value should
+	// always be 0x00. the lnkFilter field should always be nil for channels 0 and 1
+	//
+	// From 'Altirra Reference', page 107:
+	//
+	// "When the high-pass filter is disabled, the high-pass flip-flop is forced to a 1, but the XOR
+	// still takes place. This causes the digital output from channels 1 and 2 to be inverted"
+	lnkFilter *channel
+	filter    uint8
 
 	// another channel can affect the final value of the pulse field by flipping the xor field. this
 	// creates a high-pass filter on the filtered channel
@@ -78,6 +95,10 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 			// "When the high timer underflows, both the low and high timer counters are reloaded together"
 			if ch.lnk16High != nil {
 				ch.lnk16High.reload = 7
+			}
+
+			if ch.lnkFilter != nil {
+				ch.lnkFilter.filter = ch.lnkFilter.filter ^ 0x01
 			}
 		}
 	}
@@ -159,5 +180,5 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 // the lower bit of the pulsecounter. this is then used in combination with the
 // volume of the other channel to get the actual output volume
 func (ch *channel) actualVolume() uint8 {
-	return (ch.pulse & 0x01) * ch.Registers.Volume
+	return ((ch.pulse ^ ch.filter) & 0x01) * ch.Registers.Volume
 }

@@ -77,6 +77,8 @@ func NewAudio(ctx Context, origin uint16) (*Pokey, error) {
 		pk.channel[i].noise = &pk.noise
 		pk.channel[i].num = i
 	}
+	pk.channel[0].filter = 0x01
+	pk.channel[1].filter = 0x01
 
 	return pk, nil
 }

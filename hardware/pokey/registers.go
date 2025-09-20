@@ -77,16 +77,16 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 			}
 
 			if data&0x04 == 0x04 {
-				// pk.channel[2].filter = &pk.channel[0]
+				pk.channel[2].lnkFilter = &pk.channel[0]
 			} else {
-				// pk.channel[2].filter = nil
-				// pk.channel[0].flip = 0xff
+				pk.channel[2].lnkFilter = nil
+				pk.channel[0].filter = 0x01
 			}
 			if data&0x02 == 0x02 {
-				// pk.channel[3].filter = &pk.channel[1]
+				pk.channel[3].lnkFilter = &pk.channel[1]
 			} else {
-				// pk.channel[3].filter = nil
-				// pk.channel[1].flip = 0xff
+				pk.channel[3].lnkFilter = nil
+				pk.channel[1].filter = 0x01
 			}
 
 			pk.prefer15Khz = data&0x01 == 0x01
