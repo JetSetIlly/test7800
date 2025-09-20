@@ -52,7 +52,7 @@ type channel struct {
 	// to (ie. being filtered) by another channel. for channels 2 and 3 the filter value should
 	// always be 0x00. the lnkFilter field should always be nil for channels 0 and 1
 	//
-	// From 'Altirra Reference', page 107:
+	// from 'Altirra Reference', page 107:
 	//
 	// "When the high-pass filter is disabled, the high-pass flip-flop is forced to a 1, but the XOR
 	// still takes place. This causes the digital output from channels 1 and 2 to be inverted"
@@ -66,24 +66,40 @@ type channel struct {
 	// divCounter reaches 255 (wrap around from zero) but it's slightly different for linked
 	// channels
 	reload int
+
+	// predetermined flags based on the current noise value. the pure, poly4 and poly5 flags are
+	// mutually exclusive. if all of those flags are false then the channel is in poly17 mode, or
+	// poly9 mode if the prefer9bit flags is enabled in the polynomials field
+	modePure  bool
+	modePoly4 bool
+	modePoly5 bool
+
+	// volume-only mode, predetermined from the current noise value. this directly affects the
+	// volume returned by the actualVolume() function, it is quite distinct to the other predecoded
+	// values
+	modeVolumeOnly bool
 }
 
 func (ch *channel) String() string {
 	return fmt.Sprintf("Ch%d: %s", ch.num, ch.Registers.String())
 }
 
+func (ch *channel) predetermineAUDC() {
+	ch.modePure = ch.Registers.Noise&0x07 == 0x02
+	ch.modePoly4 = ch.Registers.Noise&0x07 == 0x04
+	ch.modePoly5 = ch.Registers.Noise&0x08 != 0x08
+	ch.modeVolumeOnly = ch.Registers.Noise&0x01 == 0x01
+}
+
 func (ch *channel) step(clk15Khz, clk64Khz bool) {
 	if ch.lnk16Low {
-		// this early return for a linked channel may cause problems for volume only sample
-		// playback. from 'Altirra Reference', page 104
+		// from 'Altirra Reference', page 104
 		//
 		// "Linking occurs prior to the audio circuitry and thus the waveform settings for the low
 		// channel have no effect on the clocking of the high channel. Normally, the low audio
 		// channel is muted and only the high channel is used. However, it can also be reused for
 		// volume-only effects or even enabled for special effects without affecting the high
 		// channel"
-		//
-		// but we do it because we want to control the channel from the other channel
 		return
 	}
 
@@ -93,7 +109,7 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 		if ch.reload == 0 {
 			ch.divCounter = ch.Registers.Freq
 
-			// From 'Altirra Reference', page 104
+			// from 'Altirra Reference', page 104
 			// "When the high timer underflows, both the low and high timer counters are reloaded together"
 			if ch.lnk16High != nil {
 				ch.lnk16High.reload = 7
@@ -121,7 +137,7 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 			}
 		}
 
-		// From 'Altirra Reference', page 104
+		// from 'Altirra Reference', page 104
 		//
 		// "The automatic reload on underflow is suppressed on the low timer"
 		//
@@ -138,7 +154,7 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 		}
 	}
 
-	// From 'Altirra Reference', page 103
+	// from 'Altirra Reference', page 103
 	//
 	// "Each channel has an 8-bit countdown timer associated with it to produce clocking pulses. The period for each
 	// timer is set by the AUDFx register, specifying a divisor from 1 ($00) to 256 ($FF). The countdown timer produces
@@ -153,36 +169,35 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 	}
 	ch.reload = 1
 
-	switch ch.Registers.Noise & 0x07 {
-	case 0x00:
+	if ch.modePure {
+		ch.pulse = ch.pulse ^ 0x01
+	} else if ch.modePoly4 {
+		ch.pulse = poly4bit[ch.noise.ct4bit]
+	} else {
 		if ch.noise.prefer9bit {
 			ch.pulse = poly9bit[ch.noise.ct9bit]
 		} else {
 			ch.pulse = poly17bit[ch.noise.ct17bit]
 		}
-	case 0x02:
-		ch.pulse = ch.pulse ^ 0x01
-	case 0x04:
-		ch.pulse = poly4bit[ch.noise.ct4bit]
 	}
 
-	if ch.Registers.Noise&0x08 == 0x00 {
+	if ch.modePoly5 {
 		if poly5bit[ch.noise.ct5bit] != 0x01 {
 			return
 		}
 	}
 }
 
-// the actual volume of the channel is the volume in the register multiplied by
-// the lower bit of the pulsecounter. this is then used in combination with the
-// volume of the other channel to get the actual output volume
+// the actual volume of the channel is the volume in the register multiplied by the lower bit of the
+// pulsecounter. this is then used in combination with the volume of the other channel to get the
+// actual output volume
 func (ch *channel) actualVolume() uint8 {
-	// From "Altirra Reference", page 105
+	// from "Altirra Reference", page 105
 	//
 	// "Bit 4 enables volume-only mode. When set, the waveform output is overridden and hardwired on at the output.
 	// None of the other distortion bits affect the audio output in this mode, though they still do affect hidden state in the
 	// audio circuitry, as the clocking and noise circuits still run but just don’t have an effect on the audio output."
-	if ch.Registers.Noise&0x01 == 0x01 {
+	if ch.modeVolumeOnly {
 		return ch.Registers.Volume
 	}
 	return ((ch.pulse ^ ch.filter) & 0x01) * ch.Registers.Volume

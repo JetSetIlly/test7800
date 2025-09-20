@@ -41,21 +41,26 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 		case 0x01 + pk.origin: // PAUDCO
 			pk.channel[0].Registers.Noise = (data & 0xf0) >> 4
 			pk.channel[0].Registers.Volume = (data & 0x0f)
+			pk.channel[0].predetermineAUDC()
 		case 0x02 + pk.origin: // PAUDF1
 			pk.channel[1].Registers.Freq = data
 		case 0x03 + pk.origin: // PAUDC1
 			pk.channel[1].Registers.Noise = (data & 0xf0) >> 4
 			pk.channel[1].Registers.Volume = (data & 0x0f)
+			pk.channel[1].predetermineAUDC()
 		case 0x04 + pk.origin: // PAUDF2
 			pk.channel[2].Registers.Freq = data
 		case 0x05 + pk.origin: // PAUDC2
 			pk.channel[2].Registers.Noise = (data & 0xf0) >> 4
 			pk.channel[2].Registers.Volume = (data & 0x0f)
+			pk.channel[2].predetermineAUDC()
 		case 0x06 + pk.origin: // PAUDF3
 			pk.channel[3].Registers.Freq = data
 		case 0x07 + pk.origin: // PAUDC3
 			pk.channel[3].Registers.Noise = (data & 0xf0) >> 4
 			pk.channel[3].Registers.Volume = (data & 0x0f)
+			pk.channel[3].predetermineAUDC()
+
 		case 0x08 + pk.origin: // PAUDCTRL
 			pk.noise.prefer9bit = data&0x80 == 0x80
 			pk.channel[0].clkMhz = data&0x40 == 0x40
