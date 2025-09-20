@@ -28,6 +28,8 @@ type channel struct {
 	// AUDF(X), plus 1."
 	divCounter uint8
 
+	// pulse controls the output of the actualVolume() function. it has no effect if the channel is
+	// in volume-only mode
 	pulse uint8
 
 	// clock preference for the channel
@@ -151,27 +153,22 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 	}
 	ch.reload = 1
 
-	if ch.Registers.Noise&0x01 == 0x01 {
-		// "Force Output Volume only"
-		ch.pulse = 0x01
-	} else {
-		switch ch.Registers.Noise & 0x07 {
-		case 0x00:
-			if ch.noise.prefer9bit {
-				ch.pulse = poly9bit[ch.noise.ct9bit]
-			} else {
-				ch.pulse = poly17bit[ch.noise.ct17bit]
-			}
-		case 0x02:
-			ch.pulse = ch.pulse ^ 0x01
-		case 0x04:
-			ch.pulse = poly4bit[ch.noise.ct4bit]
+	switch ch.Registers.Noise & 0x07 {
+	case 0x00:
+		if ch.noise.prefer9bit {
+			ch.pulse = poly9bit[ch.noise.ct9bit]
+		} else {
+			ch.pulse = poly17bit[ch.noise.ct17bit]
 		}
+	case 0x02:
+		ch.pulse = ch.pulse ^ 0x01
+	case 0x04:
+		ch.pulse = poly4bit[ch.noise.ct4bit]
+	}
 
-		if ch.Registers.Noise&0x08 == 0x00 {
-			if poly5bit[ch.noise.ct5bit] != 0x01 {
-				return
-			}
+	if ch.Registers.Noise&0x08 == 0x00 {
+		if poly5bit[ch.noise.ct5bit] != 0x01 {
+			return
 		}
 	}
 }
@@ -180,5 +177,13 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 // the lower bit of the pulsecounter. this is then used in combination with the
 // volume of the other channel to get the actual output volume
 func (ch *channel) actualVolume() uint8 {
+	// From "Altirra Reference", page 105
+	//
+	// "Bit 4 enables volume-only mode. When set, the waveform output is overridden and hardwired on at the output.
+	// None of the other distortion bits affect the audio output in this mode, though they still do affect hidden state in the
+	// audio circuitry, as the clocking and noise circuits still run but just don’t have an effect on the audio output."
+	if ch.Registers.Noise&0x01 == 0x01 {
+		return ch.Registers.Volume
+	}
 	return ((ch.pulse ^ ch.filter) & 0x01) * ch.Registers.Volume
 }
