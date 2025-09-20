@@ -86,15 +86,24 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 	// https://forums.atariage.com/topic/333208-old-world-a78-format-10-31-primer/
 	if slices.Contains([]string{"A78", "AUTO"}, mapper) {
 		if bytes.Equal(d[0x01:0x0a], []byte("ATARI7800")) {
+			version := d[0x00]
+
 			// log a78 version and game title
-			logger.Logf(logger.Allow, "a78", "version: %#02x", d[0x00])
+			logger.Logf(logger.Allow, "a78", "version: %#02x", version)
 			logger.Logf(logger.Allow, "a78", "title: %s", strings.TrimSpace(string(d[0x11:0x31])))
+
+			const endOfHeader = "ACTUAL CART DATA STARTS HERE"
+			dataStart := bytes.Index(d, []uint8(endOfHeader))
+			if dataStart == -1 {
+				return CartridgeInsertor{}, fmt.Errorf("malfored A78 header. no end of header indicator")
+			}
+			dataStart += len(endOfHeader)
 
 			// cartridge size
 			size := (uint32(d[0x31]) << 24) | (uint32(d[0x32]) << 16) | (uint32(d[0x33]) << 8) | uint32(d[0x34])
-			if len(d)-0x80 != int(size) {
+			if len(d)-dataStart != int(size) {
 				logger.Logf(logger.Allow, "a78", "cropping payload data to %d", size)
-				d = d[:0x80+size]
+				d = d[:dataStart+int(size)]
 			}
 
 			// controller type
@@ -123,6 +132,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 				cartType &= (0x0800 ^ 0xffff)
 			}
 
+			// list of creator functions for additional chips
 			var chips []func(Context) (OptionalBus, error)
 
 			if cartType&0x0001 == 0x0001 {
@@ -139,6 +149,13 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 				chips = append(chips, pk)
 				cartType &= (0x0040 ^ 0xffff)
 			}
+			if cartType&0x0400 == 0x0400 {
+				pk := func(ctx Context) (OptionalBus, error) {
+					return pokey.NewAudio(ctx, 0x0440)
+				}
+				chips = append(chips, pk)
+				cartType &= (0x0400 ^ 0xffff)
+			}
 			if cartType&0x8000 == 0x8000 {
 				pk := func(ctx Context) (OptionalBus, error) {
 					return pokey.NewAudio(ctx, 0x0800)
@@ -151,7 +168,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 				return CartridgeInsertor{
 					data: d,
 					creator: func(ctx Context, d []uint8) (Bus, error) {
-						return NewFlat(ctx, d[0x80:])
+						return NewFlat(ctx, d[dataStart:])
 					},
 					OneButtonStick: oneButtonStick,
 					chips:          chips,
@@ -166,7 +183,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 					filename: filename,
 					data:     d,
 					creator: func(ctx Context, d []uint8) (Bus, error) {
-						return NewBanksets(ctx, supergame, d[0x80:], banksetRAM)
+						return NewBanksets(ctx, supergame, d[dataStart:], banksetRAM)
 					},
 					OneButtonStick: oneButtonStick,
 					chips:          chips,
@@ -183,7 +200,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 					filename: filename,
 					data:     d,
 					creator: func(ctx Context, d []uint8) (Bus, error) {
-						return NewSupergame(ctx, d[0x80:],
+						return NewSupergame(ctx, d[dataStart:],
 							banked, exram, exrom,
 						)
 					},
