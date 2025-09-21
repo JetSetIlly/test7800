@@ -58,6 +58,10 @@ func (ctx *Context) UseAudio() bool {
 	return false
 }
 
+func (ctx *Context) UseStereo() bool {
+	return false
+}
+
 func main() {
 	// logger messages will be viewable in javascript log for WASM build
 	logger.SetEcho(os.Stderr, false)
