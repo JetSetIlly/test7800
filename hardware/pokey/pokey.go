@@ -42,9 +42,6 @@ type Pokey struct {
 	// (polynomial counter) content and volume. "
 	channel [4]channel
 
-	// the volume output for each channel
-	vol [4]uint8
-
 	// noise generating polynomials
 	noise polynomials
 
@@ -141,7 +138,7 @@ func (pk *Pokey) Step() {
 }
 
 // Volume iterates the current volume levels for each channel
-func (pk *Pokey) Volume(yield func(uint8)) {
+func (pk *Pokey) Volume(yield func(int16)) {
 	if pk.sampleSumCt == 0 {
 		for range 4 {
 			yield(0)
@@ -149,9 +146,9 @@ func (pk *Pokey) Volume(yield func(uint8)) {
 		return
 	}
 	for i := range pk.sampleSum {
-		pk.vol[i] = uint8(pk.sampleSum[i] / pk.sampleSumCt)
+		v := int16(pk.sampleSum[i] / pk.sampleSumCt)
 		pk.sampleSum[i] = 0
-		yield(pk.vol[i])
+		yield(v << 8)
 	}
 	pk.sampleSumCt = 0
 }

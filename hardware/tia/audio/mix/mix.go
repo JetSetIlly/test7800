@@ -35,6 +35,11 @@
 //	 Stella (published under the GNU GPL v2.0 licence)
 //			https://github.com/stella-emu/stella/blob/e6af23d6c12893dd17711002971087f28f87c31f/src/emucore/tia/Audio.cxx
 //			https://github.com/stella-emu/stella/blob/e6af23d6c12893dd17711002971087f28f87c31f/src/emucore/tia/AudioChannel.cxx
+//
+// # Test7800 Differences
+//
+// This package has diverged slightly from the version in Gopher2600. The package now includes a
+// Clip() function, which ensures that a 32bit value is converted to a safe 16bit value.
 package mix
 
 import "github.com/jetsetilly/test7800/logger"

@@ -36,4 +36,11 @@
 // For reference, Ron Fries' audio method is represented here:
 //
 // https://raw.githubusercontent.com/alekmaul/stella/master/emucore/TIASound.c
+//
+// # Test7800 Differences
+//
+// This package has diverged slightly from the version in Gopher2600. The
+// differences are support for additional external sound chips. The Mono() and
+// Stereo functions will return the mixed volume for all sound sources. The
+// mixed volume will also be clipped into a safe 16bit range (see mix package).
 package audio

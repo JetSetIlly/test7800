@@ -131,43 +131,47 @@ func (au *Audio) Step() bool {
 	return changed
 }
 
+// additional amplification for external sound chips
+const externalChipAmplification = 1
+
 // Mono returns the mixed volume from all audio sources
 func (au *Audio) Mono() int16 {
-	sum := mix.Mono(au.vol0, au.vol1)
+	sum := int32(mix.Mono(au.vol0, au.vol1))
 
 	for _, xc := range au.externalChips {
-		xc.Volume(func(v uint8) {
-			sum += int16(v) << 8
+		xc.Volume(func(v int16) {
+			sum += int32(v) << externalChipAmplification
 		})
 	}
 
-	return sum
+	return mix.Clip(sum)
 }
 
 func (au *Audio) Stereo() (int16, int16) {
-	ch1 := int16(au.vol0) << 8
-	ch2 := int16(au.vol1) << 8
+	s1, s2 := mix.Stereo(au.vol0, au.vol1)
+	ch1 := int32(s1)
+	ch2 := int32(s2)
 
 	switch len(au.externalChips) {
 	case 0:
 	case 1:
 		for _, xc := range au.externalChips {
-			xc.Volume(func(v uint8) {
-				ch1 += int16(v) << 8
-				ch2 += int16(v) << 8
+			xc.Volume(func(v int16) {
+				ch1 += int32(v) << externalChipAmplification
+				ch2 += int32(v) << externalChipAmplification
 			})
 		}
 	default:
 		for i, xc := range au.externalChips {
-			xc.Volume(func(v uint8) {
+			xc.Volume(func(v int16) {
 				if i&0x01 == 0x01 {
-					ch1 += int16(v) << 8
+					ch1 += int32(v) << externalChipAmplification
 				} else {
-					ch2 += int16(v) << 8
+					ch2 += int32(v) << externalChipAmplification
 				}
 			})
 		}
 	}
 
-	return ch1, ch2
+	return mix.Clip(ch1), mix.Clip(ch2)
 }

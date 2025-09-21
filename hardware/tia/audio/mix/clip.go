@@ -13,28 +13,30 @@
 // You should have received a copy of the GNU General Public License
 // along with Gopher2600.  If not, see <https://www.gnu.org/licenses/>.
 
-package audio
+package mix
 
-import "github.com/jetsetilly/test7800/hardware/memory/external"
+var softClip [65536]int16
 
-type ExternalSoundChip interface {
-	Label() string
-	Step()
+// generate the soft clip curve
+func init() {
+	for i := -32768; i <= 32767; i++ {
+		x := int32(i)
 
-	// the volume value passed in the yield function should be shifted into a volume range suitable
-	// for further mixing. this will depend on the chip
-	Volume(yield func(int16))
+		// saturator y = x / (1 + |x|/32768)
+		abs := x
+		if abs < 0 {
+			abs = -abs
+		}
+		scale := 32768 + (abs >> 15)
+		y := (x * 32767) / scale
+
+		y = max(min(y, 32767), -32768)
+		softClip[uint16(i)] = int16(y)
+	}
 }
 
-type SoundChipIterator func(func(external.OptionalBus))
-
-func (au *Audio) PiggybackExternalSound(externalChips SoundChipIterator) {
-	au.externalChips = au.externalChips[:0]
-	if externalChips != nil {
-		externalChips(func(bus external.OptionalBus) {
-			if sc, ok := bus.(ExternalSoundChip); ok {
-				au.externalChips = append(au.externalChips, sc)
-			}
-		})
-	}
+// Clip 32bit value so that it doesn't exceed 16bit range
+func Clip(x int32) int16 {
+	x = max(min(x, 32767), -32768)
+	return softClip[uint16(x)]
 }
