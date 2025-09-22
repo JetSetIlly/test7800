@@ -411,6 +411,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
 	flgs.StringVar(&spec, "spec", "NTSC", "TV specification of the console: NTSC or PAL")
+	flgs.StringVar(&spec, "tv", "NTSC", "alternative name for 'spec' argument")
 	flgs.StringVar(&profile, "profile", "NONE", "create profile for emulator: CPU, MEM or BOTH")
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
