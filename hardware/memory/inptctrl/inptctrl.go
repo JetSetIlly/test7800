@@ -4,7 +4,13 @@ import (
 	"fmt"
 )
 
+type Context interface {
+	Break(error)
+}
+
 type INPTCTRL struct {
+	ctx Context
+
 	value uint8
 
 	// "In addition to the functions controlled by the register bits, INPTCTRL
@@ -13,6 +19,10 @@ type INPTCTRL struct {
 	// control register (the data written doesn’t make a difference), the HALT
 	// input will be enabled."
 	enableHalt int
+}
+
+func Create(ctx Context) *INPTCTRL {
+	return &INPTCTRL{ctx: ctx}
 }
 
 func (ic *INPTCTRL) Reset() {

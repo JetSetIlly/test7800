@@ -39,6 +39,7 @@ type Memory struct {
 type Context interface {
 	ram.Context
 	external.Context
+	inptctrl.Context
 	Spec() spec.Spec
 }
 
@@ -97,7 +98,7 @@ func Create(ctx Context) (*Memory, AddChips) {
 
 	mem := &Memory{
 		BIOS:     &b,
-		INPTCTRL: &inptctrl.INPTCTRL{},
+		INPTCTRL: inptctrl.Create(ctx),
 		RAM7800:  ram.Create(ctx, "ram7800", 0x1000),
 		RAMRIOT:  ram.Create(ctx, "ramRIOT", 0x0080),
 		External: external.Create(ctx),

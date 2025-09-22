@@ -68,9 +68,8 @@ type debugger struct {
 	// printing styles
 	styles styles
 
-	// some cartridge types will bypass the BIOS. it's possible to force the
-	// BIOS to be skipped with this flag in all cases
-	bypassBIOS bool
+	// biosHelper handling
+	biosHelper biosHelper
 }
 
 func (m *debugger) reset() {
@@ -99,7 +98,7 @@ func (m *debugger) reset() {
 		coproc.SetYieldHook(m)
 	}
 
-	var noBIOS = m.bypassBIOS || cartridgeReset.BypassBIOS
+	var noBIOS = m.biosHelper.bypass || cartridgeReset.BypassBIOS
 
 	err = m.console.Reset(true)
 	if err != nil {
@@ -135,6 +134,8 @@ func (m *debugger) reset() {
 	fmt.Println(m.styles.cpu.Render(
 		m.console.MC.String(),
 	))
+
+	m.biosHelper.reset(m.console.Mem.BIOS.MD5())
 }
 
 func (m *debugger) contextBreaks() error {
@@ -273,6 +274,11 @@ func (m *debugger) run() bool {
 		// affected by the most recent instruction
 		_ = m.console.LastAreaStatus()
 
+		err = m.biosHelper.checksumFailCheck(m.console.MC)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	}
 
@@ -403,6 +409,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var spec string
 	var profile string
 	var bios bool
+	var ignoreChecksum bool
 	var overlay bool
 	var run bool
 	var log bool
@@ -414,6 +421,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.StringVar(&spec, "tv", "NTSC", "alternative name for 'spec' argument")
 	flgs.StringVar(&profile, "profile", "NONE", "create profile for emulator: CPU, MEM or BOTH")
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
+	flgs.BoolVar(&ignoreChecksum, "ignore", true, "ignore cartridge checksum failure")
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
 	flgs.BoolVar(&log, "log", false, "echo log to stderr")
@@ -520,7 +528,10 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		watches:      make(map[uint16]watch),
 		coprocDisasm: &coprocDisasm{},
 		coprocDev:    newCoprocDev(),
-		bypassBIOS:   !bios,
+		biosHelper: biosHelper{
+			bypass:         !bios,
+			ignoreChecksum: ignoreChecksum,
+		},
 	}
 	m.console = hardware.Create(&m.ctx, g)
 	m.console.Reset(true)

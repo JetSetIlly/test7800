@@ -100,6 +100,11 @@ func NewNTSC() BIOS {
 	return b
 }
 
+// return MD5 sum of BIOS
+func (b *BIOS) MD5() string {
+	return fmt.Sprintf("%#16x", md5.Sum(b.data))
+}
+
 func (b *BIOS) Label() string {
 	return "BIOS"
 }
