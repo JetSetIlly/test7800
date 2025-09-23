@@ -56,6 +56,9 @@ type channel struct {
 	//
 	// "When the high-pass filter is disabled, the high-pass flip-flop is forced to a 1, but the XOR
 	// still takes place. This causes the digital output from channels 1 and 2 to be inverted"
+	//
+	// (the channel in which lnkFilter is not nil is the channel doing the filtering. the channel
+	// being pointed to by lnkFilter is being filtered)
 	lnkFilter *channel
 	filter    uint8
 

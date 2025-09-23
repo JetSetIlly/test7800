@@ -95,7 +95,17 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 			}
 
 			pk.prefer15Khz = data&0x01 == 0x01
-		case 0x09 + pk.origin:
+		case 0x09 + pk.origin: // STIMER
+			// From 'Altirra Reference', page 107
+			//
+			// "Writing to the STIMER register causes all of the timers to reload and sets the output
+			// flip-flops to 1. When high- pass filters are disabled, this turns off the output of
+			// channels 1 and 2 and turns on the output of channels 3 and 4. This is useful to
+			// synchronize the sound channels"
+			pk.channel[0].divCounter = pk.channel[0].Registers.Freq
+			pk.channel[1].divCounter = pk.channel[1].Registers.Freq
+			pk.channel[2].divCounter = pk.channel[2].Registers.Freq
+			pk.channel[3].divCounter = pk.channel[3].Registers.Freq
 		case 0x0a + pk.origin:
 		case 0x0b + pk.origin:
 		case 0x0c + pk.origin:
