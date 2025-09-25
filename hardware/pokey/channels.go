@@ -119,7 +119,7 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 			}
 
 			if ch.lnkFilter != nil {
-				ch.lnkFilter.filter = ch.lnkFilter.filter ^ 0x01
+				ch.lnkFilter.filter = ^ch.lnkFilter.pulse
 			}
 		}
 	}
