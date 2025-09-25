@@ -43,8 +43,9 @@ type channel struct {
 	//
 	// channels 0 and 2 can only ever be the low-byte. and channels 1 and 3 can only ever be the
 	// high-byte
-	lnk16Low  bool
-	lnk16High *channel
+	lnk16Low     *channel
+	lnk16High    *channel
+	lnk16HighClk bool
 
 	// two channels can be linked to create a high-pass filter
 	//
@@ -61,6 +62,8 @@ type channel struct {
 	// being pointed to by lnkFilter is being filtered)
 	lnkFilter *channel
 	filter    uint8
+
+	lnk2Tone *channel
 
 	// another channel can affect the final value of the pulse field by flipping the xor field. this
 	// creates a high-pass filter on the filtered channel
@@ -87,22 +90,43 @@ func (ch *channel) String() string {
 	return fmt.Sprintf("Ch%d: %s", ch.num, ch.Registers.String())
 }
 
-func (ch *channel) predetermineAUDC() {
+func (ch *channel) loadAUDF(data uint8) {
+	// current divCounter continues as normal even though we've changed the frequency
+	// in the register
+	ch.Registers.Freq = data
+}
+
+func (ch *channel) loadAUDC(data uint8) {
+	ch.Registers.Noise = (data & 0xf0) >> 4
+	ch.Registers.Volume = (data & 0x0f)
 	ch.modePure = ch.Registers.Noise&0x07 == 0x02
 	ch.modePoly4 = ch.Registers.Noise&0x07 == 0x04
 	ch.modePoly5 = ch.Registers.Noise&0x08 != 0x08
 	ch.modeVolumeOnly = ch.Registers.Noise&0x01 == 0x01
 }
 
-func (ch *channel) step(clk15Khz, clk64Khz bool) {
-	if ch.lnk16Low {
-		// from 'Altirra Reference', page 104
-		//
-		// "Linking occurs prior to the audio circuitry and thus the waveform settings for the low
-		// channel have no effect on the clocking of the high channel. Normally, the low audio
-		// channel is muted and only the high channel is used. However, it can also be reused for
-		// volume-only effects or even enabled for special effects without affecting the high
-		// channel"
+func (ch *channel) isLnk16High() bool {
+	return ch.lnk16Low != nil
+}
+
+func (ch *channel) isLnk16Low() bool {
+	return ch.lnk16High != nil
+}
+
+func (ch *channel) step(clk bool) {
+	if ch.isLnk16High() {
+		if !ch.lnk16HighClk {
+			// from 'Altirra Reference', page 104
+			//
+			// "Linking occurs prior to the audio circuitry and thus the waveform settings for the low
+			// channel have no effect on the clocking of the high channel. Normally, the low audio
+			// channel is muted and only the high channel is used. However, it can also be reused for
+			// volume-only effects or even enabled for special effects without affecting the high
+			// channel"
+			return
+		}
+		ch.lnk16HighClk = false
+	} else if !ch.clkMhz && !clk {
 		return
 	}
 
@@ -112,48 +136,18 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 		if ch.reload == 0 {
 			ch.divCounter = ch.Registers.Freq
 
-			// from 'Altirra Reference', page 104
-			// "When the high timer underflows, both the low and high timer counters are reloaded together"
-			if ch.lnk16High != nil {
-				ch.lnk16High.reload = 7
-			}
-
+			// the filter on the linked channel is flipped when this channel expires/reloads. the output
+			// of this channel (ie. the phase) has no effect. from 'Altirra Reference', page 107
+			//
+			// "None of the AUDC3/4 bits on the high channel affect high-pass operation"
 			if ch.lnkFilter != nil {
 				ch.lnkFilter.filter = ^ch.lnkFilter.pulse
 			}
-		}
-	}
 
-	// when a channel is linked it is driven by the channel specified in the link field. therefore,
-	// the hiFreq flag is not relevent to the current channel, only to the other channel
-	if ch.lnk16High != nil {
-		if ch.lnk16High.reload > 0 {
-			ch.lnk16High.reload--
-			if ch.lnk16High.reload == 0 {
-				ch.lnk16High.divCounter = ch.lnk16High.Registers.Freq
-			}
-		}
-
-		if !ch.lnk16High.clkMhz {
-			if !(clk15Khz || clk64Khz) {
+			if ch.lnk2Tone != nil {
+				ch.lnk2Tone.reload = 1
 				return
 			}
-		}
-
-		// from 'Altirra Reference', page 104
-		//
-		// "The automatic reload on underflow is suppressed on the low timer"
-		//
-		// automatic refers to the comparison with the linked registers frequency register. we
-		// therefore return unless divCounter is zero, which indicates that an underflow has
-		// occurred naturally
-		ch.lnk16High.divCounter--
-		if ch.lnk16High.divCounter != 255 {
-			return
-		}
-	} else if !ch.clkMhz {
-		if !(clk15Khz || clk64Khz) {
-			return
 		}
 	}
 
@@ -170,7 +164,17 @@ func (ch *channel) step(clk15Khz, clk64Khz bool) {
 	if ch.divCounter != 255 {
 		return
 	}
-	ch.reload = 1
+
+	// how we reload the divCounter depends on if the channel is part of a 16bit timer; and if it is,
+	// which half the timer the channel it is representing
+	if ch.isLnk16Low() {
+		ch.lnk16High.lnk16HighClk = true
+	} else {
+		ch.reload = 1
+		if ch.isLnk16High() {
+			ch.lnk16Low.reload = 7
+		}
+	}
 
 	if ch.modePoly5 {
 		if poly5bit[ch.noise.ct5bit] != 0x01 {

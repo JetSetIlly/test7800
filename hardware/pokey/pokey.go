@@ -123,11 +123,12 @@ func (pk *Pokey) Step() {
 
 	clk15Khz := pk.ct15Khz == 0 && pk.prefer15Khz
 	clk64Khz := pk.ct64Khz == 0 && !pk.prefer15Khz
+	clk := clk15Khz || clk64Khz
 
-	pk.channel[0].step(clk15Khz, clk64Khz)
-	pk.channel[1].step(clk15Khz, clk64Khz)
-	pk.channel[2].step(clk15Khz, clk64Khz)
-	pk.channel[3].step(clk15Khz, clk64Khz)
+	pk.channel[0].step(clk)
+	pk.channel[1].step(clk)
+	pk.channel[2].step(clk)
+	pk.channel[3].step(clk)
 
 	pk.sampleSum[0] += int(pk.channel[0].actualVolume())
 	pk.sampleSum[1] += int(pk.channel[1].actualVolume())

@@ -37,48 +37,39 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 	if write {
 		switch idx {
 		case 0x00 + pk.origin: // PAUDFO
-			pk.channel[0].Registers.Freq = data
+			pk.channel[0].loadAUDF(data)
 		case 0x01 + pk.origin: // PAUDCO
-			pk.channel[0].Registers.Noise = (data & 0xf0) >> 4
-			pk.channel[0].Registers.Volume = (data & 0x0f)
-			pk.channel[0].predetermineAUDC()
+			pk.channel[0].loadAUDC(data)
 		case 0x02 + pk.origin: // PAUDF1
-			pk.channel[1].Registers.Freq = data
+			pk.channel[1].loadAUDF(data)
 		case 0x03 + pk.origin: // PAUDC1
-			pk.channel[1].Registers.Noise = (data & 0xf0) >> 4
-			pk.channel[1].Registers.Volume = (data & 0x0f)
-			pk.channel[1].predetermineAUDC()
+			pk.channel[1].loadAUDC(data)
 		case 0x04 + pk.origin: // PAUDF2
-			pk.channel[2].Registers.Freq = data
+			pk.channel[2].loadAUDF(data)
 		case 0x05 + pk.origin: // PAUDC2
-			pk.channel[2].Registers.Noise = (data & 0xf0) >> 4
-			pk.channel[2].Registers.Volume = (data & 0x0f)
-			pk.channel[2].predetermineAUDC()
+			pk.channel[2].loadAUDC(data)
 		case 0x06 + pk.origin: // PAUDF3
-			pk.channel[3].Registers.Freq = data
+			pk.channel[3].loadAUDF(data)
 		case 0x07 + pk.origin: // PAUDC3
-			pk.channel[3].Registers.Noise = (data & 0xf0) >> 4
-			pk.channel[3].Registers.Volume = (data & 0x0f)
-			pk.channel[3].predetermineAUDC()
-
+			pk.channel[3].loadAUDC(data)
 		case 0x08 + pk.origin: // PAUDCTRL
 			pk.noise.prefer9bit = data&0x80 == 0x80
 			pk.channel[0].clkMhz = data&0x40 == 0x40
 			pk.channel[2].clkMhz = data&0x20 == 0x20
 
 			if data&0x10 == 0x10 {
-				pk.channel[1].lnk16High = &pk.channel[0]
-				pk.channel[0].lnk16Low = true
+				pk.channel[0].lnk16High = &pk.channel[1]
+				pk.channel[1].lnk16Low = &pk.channel[0]
 			} else {
-				pk.channel[1].lnk16High = nil
-				pk.channel[0].lnk16Low = false
+				pk.channel[0].lnk16High = nil
+				pk.channel[1].lnk16Low = nil
 			}
 			if data&0x08 == 0x08 {
-				pk.channel[3].lnk16High = &pk.channel[2]
-				pk.channel[2].lnk16Low = true
+				pk.channel[2].lnk16High = &pk.channel[3]
+				pk.channel[3].lnk16Low = &pk.channel[2]
 			} else {
-				pk.channel[3].lnk16High = nil
-				pk.channel[2].lnk16Low = false
+				pk.channel[2].lnk16High = nil
+				pk.channel[3].lnk16Low = nil
 			}
 
 			if data&0x04 == 0x04 {
@@ -112,8 +103,12 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 		case 0x0d + pk.origin:
 		case 0x0e + pk.origin:
 		case 0x0f + pk.origin: // SKCTL
-			// we're only interested in the reset bits of SKCTL
 			pk.initState = data&0x03 == 0x00
+			if data&0x08 == 0x08 {
+				pk.channel[1].lnk2Tone = &pk.channel[0]
+			} else {
+				pk.channel[1].lnk2Tone = nil
+			}
 		default:
 			return 0, false, nil
 		}
