@@ -18,8 +18,9 @@ package pokey
 import "fmt"
 
 type channel struct {
-	Registers Registers
-	noise     *polynomials
+	Registers    Registers
+	noise        *polynomials
+	serialOutput *int
 
 	// the channel number
 	num int
@@ -63,7 +64,10 @@ type channel struct {
 	lnkFilter *channel
 	filter    uint8
 
-	lnk2Tone *channel
+	// channel is part of the two-tone mode. this channel acts as an additional reload trigger to
+	// the channel being pointed to
+	lnk2Tone         *channel
+	lnk2ToneDominant bool
 
 	// another channel can affect the final value of the pulse field by flipping the xor field. this
 	// creates a high-pass filter on the filtered channel
@@ -143,11 +147,6 @@ func (ch *channel) step(clk bool) {
 			if ch.lnkFilter != nil {
 				ch.lnkFilter.filter = ^ch.lnkFilter.pulse
 			}
-
-			if ch.lnk2Tone != nil {
-				ch.lnk2Tone.reload = 1
-				return
-			}
 		}
 	}
 
@@ -170,9 +169,51 @@ func (ch *channel) step(clk bool) {
 	if ch.isLnk16Low() {
 		ch.lnk16High.lnk16HighClk = true
 	} else {
-		ch.reload = 1
+		// from 'Altirra Reference', page 104
+		//
+		// "For timers running at 1.8MHz with AUDFx = N, the period of the timer is N+4 cycles.
+		// +1 of this is because the counter is reloaded on underflow and thus must count below
+		// $00. The other +3 is because of three cycles of delay from the counter being split
+		// into multiple stages and for the underflow logic.
+		//
+		// For timers using the 15KHz or 64KHz clock, the period is (N+1)*114 cycles for the 15KHz
+		// clock and (N+1)*28 cycles for the 64KHz clock. The three cycles of delay do not matter
+		// in this case because they are absorbed by the delay until the next audio clock pulse..."
+		//
+		// the additional 3 cycles for the Mhz clock can be heard in the game music of EXO
+		if ch.clkMhz {
+			ch.reload = 4
+		} else {
+			ch.reload = 1
+		}
+
 		if ch.isLnk16High() {
-			ch.lnk16Low.reload = 7
+			if ch.lnk16Low.clkMhz {
+				ch.lnk16Low.reload = 7
+			} else {
+				ch.lnk16Low.reload = 4
+			}
+		}
+	}
+
+	// from 'Altirra Reference', page 121
+	//
+	// "Two-tone mode does still have some effect on audio output because it frequently resets timers
+	// 1 and 2 for continuous phase in the FSK output. Specifically, whenever the serial output
+	// toggles due to one of the timers, both timers are reset."
+	//
+	// we've already set the reload value above. all we need to do in the case of two-tone mode is
+	// to decide whether to allow the noise bits to advance
+	if ch.lnk2Tone != nil {
+		// the link2ToneDominant field is given by the extract on page 121 of 'Altirra Reference'
+		//
+		// "There is an asymmetry in the data bit switching logic which imposes a frequency
+		// requirement on the timers. Timer 1 pulses are only used by the serial output for a 1 bit,
+		// but timer 2 pulses are always used, causing a resync and toggling the output regardless
+		// of the current data bit"
+		if ch.lnk2ToneDominant || *ch.serialOutput != ch.num {
+			*ch.serialOutput = ch.num
+			return
 		}
 	}
 

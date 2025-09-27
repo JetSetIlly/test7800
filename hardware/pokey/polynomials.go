@@ -35,6 +35,8 @@ type polynomials struct {
 	// use the 15Khz clock instead of the 64Khz clock. this is approximately a division of 4
 	// 63.9210 / 15.6999 = 4.0714. set via the AUDCTL register
 	prefer15Khz bool
+
+	serialOutput int
 }
 
 func (p *polynomials) initialise() {

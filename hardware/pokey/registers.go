@@ -106,8 +106,12 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 			pk.initState = data&0x03 == 0x00
 			if data&0x08 == 0x08 {
 				pk.channel[1].lnk2Tone = &pk.channel[0]
+				pk.channel[0].lnk2Tone = &pk.channel[1]
+				pk.channel[1].lnk2ToneDominant = true
+				pk.channel[0].lnk2ToneDominant = false
 			} else {
 				pk.channel[1].lnk2Tone = nil
+				pk.channel[0].lnk2Tone = nil
 			}
 		default:
 			return 0, false, nil

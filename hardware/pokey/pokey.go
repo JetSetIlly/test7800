@@ -55,6 +55,9 @@ type Pokey struct {
 
 	// the pokey is in the initState until SKCTL is written to
 	initState bool
+
+	// keeps track of which channel last toggled the serial output. only used during two-tone mode
+	serialOutput int
 }
 
 // NewAudio is the preferred method of initialisation for the Audio sub-system.
@@ -73,6 +76,7 @@ func NewAudio(ctx Context, origin uint16) (*Pokey, error) {
 	for i := range pk.channel {
 		pk.channel[i].noise = &pk.noise
 		pk.channel[i].num = i
+		pk.channel[i].serialOutput = &pk.serialOutput
 	}
 	pk.channel[0].filter = 0x01
 	pk.channel[1].filter = 0x01
