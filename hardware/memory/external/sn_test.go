@@ -53,7 +53,7 @@ func TestSN2_transformData320(t *testing.T) {
 	test.DemandEquality(t, v, 0xc4)
 }
 
-func TestSN2_transformAddressNormal(t *testing.T) {
+func TestSN_transformAddressNormal(t *testing.T) {
 	ext := SN{}
 
 	for i := range uint16(0xffff) {
@@ -62,7 +62,7 @@ func TestSN2_transformAddressNormal(t *testing.T) {
 	}
 }
 
-func TestSN2_transformAddressReverse(t *testing.T) {
+func TestSN_transformAddressReverse(t *testing.T) {
 	ext := SN{}
 
 	var v uint16

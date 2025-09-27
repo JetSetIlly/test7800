@@ -16,6 +16,7 @@ type snBank struct {
 
 const snMaxBanks = 8
 
+// SN is used for both SN and Eagle
 type SN struct {
 	version string
 
@@ -25,25 +26,25 @@ type SN struct {
 	// the backing data for the banks
 	data [][]byte
 
-	// catridge ram. SN1 has 32k split into 2 16k blocks. SN2 has 64k split into 4 16k blocks.
-	// an SN1 cartridge therefore only uses the first two indices
+	// catridge ram. SN has 32k split into 2 16k blocks. Eagle has 64k split into 4 16k blocks.
+	// an SN cartridge therefore only uses the first two indices
 	ram            [4][]byte
 	ramBank        int
 	ramAddressMask uint16
 
-	// SN2 ram can be placed in 0x8000 to 0xbfff
+	// Eagle ram can be placed in 0x8000 to 0xbfff
 	ramHigh bool
 
-	// the way rom banks are mixed (or transformed) is different with SN2
-	mixSN2 bool
+	// the way rom banks are mixed (or transformed) is different with Eagle
+	mixEagle bool
 }
 
-func (ext *SN) isSN2() bool {
-	return ext.version == "SN2"
+func (ext *SN) isEagle() bool {
+	return ext.version == "EAGLE"
 }
 
 func NewSN(_ Context, d []byte, version string) (*SN, error) {
-	if !slices.Contains([]string{"SN2", "SN1"}, version) {
+	if !slices.Contains([]string{"Eagle", "SN"}, version) {
 		return nil, fmt.Errorf("sn: unsupported version of mapper (%s)", version)
 	}
 
@@ -121,7 +122,7 @@ func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 			if write {
 				if address == 0x8000 {
 					var idx int
-					if !ext.isSN2() || ext.mixSN2 {
+					if !ext.isEagle() || ext.mixEagle {
 						idx = int(data&0x3f) % min(len(ext.data), 64)
 						b.mix, b.address = ext.selectTransform(data)
 					} else {
@@ -138,7 +139,7 @@ func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 		if write {
 			if address == 0x9000 {
 				var idx int
-				if !ext.isSN2() || ext.mixSN2 {
+				if !ext.isEagle() || ext.mixEagle {
 					idx = int(data&0x3f) % min(len(ext.data), 64)
 					b.mix, b.address = ext.selectTransform(data)
 				} else {
@@ -154,7 +155,7 @@ func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 		if write {
 			if address == 0xa000 {
 				var idx int
-				if !ext.isSN2() || ext.mixSN2 {
+				if !ext.isEagle() || ext.mixEagle {
 					idx = int(data&0x3f) % min(len(ext.data), 64)
 					b.mix, b.address = ext.selectTransform(data)
 				} else {
@@ -171,7 +172,7 @@ func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 		if write {
 			if address == 0xb000 {
 				var idx int
-				if !ext.isSN2() || ext.mixSN2 {
+				if !ext.isEagle() || ext.mixEagle {
 					return 0, nil
 				} else {
 					idx = int(data) % min(len(ext.data), 256)
@@ -187,7 +188,7 @@ func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 		if write {
 			if address == 0xc000 {
 				var idx int
-				if !ext.isSN2() || ext.mixSN2 {
+				if !ext.isEagle() || ext.mixEagle {
 					idx = int(data&0x3f) % min(len(ext.data), 64)
 					b.mix, b.address = ext.selectTransform(data)
 				} else {
@@ -204,11 +205,11 @@ func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 		if write {
 			if address == 0xd000 {
 				var idx int
-				if !ext.isSN2() || ext.mixSN2 {
+				if !ext.isEagle() || ext.mixEagle {
 					idx = int(data&0x7f) % min(len(ext.data), 128)
-					if ext.isSN2() && ext.mixSN2 {
-						// cannot alter the read transformation for bank D in SN1 but we can for SN2
-						// if mixSN2 is enabled
+					if ext.isEagle() && ext.mixEagle {
+						// cannot alter the read transformation for bank D in SN but we can for
+						// Eagle if mixEagle is enabled
 						b.mix, b.address = ext.selectTransform(data)
 					}
 				} else {
@@ -225,7 +226,7 @@ func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 		if write {
 			if address == 0xe000 {
 				var idx int
-				if !ext.isSN2() || ext.mixSN2 {
+				if !ext.isEagle() || ext.mixEagle {
 					idx = int(data&0x3f) % min(len(ext.data), 64)
 					b.mix, b.address = ext.selectTransform(data)
 				} else {
@@ -250,12 +251,12 @@ func (ext *SN) Access(write bool, address uint16, data uint8) (uint8, error) {
 			// D2 and D3 change address mask for RAM access
 			ext.ramAddressMask = (uint16(data&0x06) << 7) ^ 0xffff
 
-			// additional bits are used in SN2
-			if ext.isSN2() {
+			// additional bits are used in Eagle
+			if ext.isEagle() {
 				if data&0x20 == 0x20 {
 					ext.ramBank += 2
 				}
-				ext.mixSN2 = data&0x40 == 0x40
+				ext.mixEagle = data&0x40 == 0x40
 				ext.ramHigh = data&0x80 == 0x80
 			}
 		}
@@ -272,7 +273,7 @@ func (ext *SN) transformDataNormal(d uint8) uint8 {
 }
 
 func (ext *SN) transformData160A(d uint8) uint8 {
-	if ext.isSN2() && !ext.mixSN2 {
+	if ext.isEagle() && !ext.mixEagle {
 		return d
 	}
 	d0 := d & 0x01
@@ -287,7 +288,7 @@ func (ext *SN) transformData160A(d uint8) uint8 {
 }
 
 func (ext *SN) transformData160B(d uint8) uint8 {
-	if ext.isSN2() && !ext.mixSN2 {
+	if ext.isEagle() && !ext.mixEagle {
 		return d
 	}
 	d0 := d & 0x01
@@ -302,7 +303,7 @@ func (ext *SN) transformData160B(d uint8) uint8 {
 }
 
 func (ext *SN) transformData320(d uint8) uint8 {
-	if ext.isSN2() && !ext.mixSN2 {
+	if ext.isEagle() && !ext.mixEagle {
 		return d
 	}
 	d0 := d & 0x01

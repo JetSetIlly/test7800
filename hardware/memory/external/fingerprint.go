@@ -218,8 +218,8 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 		}
 	}
 
-	// SN2 mapper
-	if slices.Contains([]string{"SN2", "SN1"}, mapper) {
+	// SN/EAGLE mapper
+	if slices.Contains([]string{"SN", "EAGLE"}, mapper) {
 		return CartridgeInsertor{
 			filename: filename,
 			data:     d,
