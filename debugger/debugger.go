@@ -445,6 +445,14 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		return fmt.Errorf("profile option should be one of NONE, CPU, MEM or BOTH")
 	}
 
+	audio = strings.ToUpper(audio)
+	if audio == "FALSE" {
+		audio = "NONE"
+	}
+	if !slices.Contains([]string{"MONO", "STEREO", "NONE"}, profile) {
+		return fmt.Errorf("audio option should be one of MONO, STEREO or NONE")
+	}
+
 	// TODO: validate -mapper argument
 
 	// exit program immediately if program launched with a file dialog. works in conjunction with
@@ -510,9 +518,9 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 
 	ctx := context{
 		console:    "7800",
-		spec:       strings.ToUpper(spec),
+		spec:       spec,
 		useOverlay: overlay,
-		audio:      strings.ToUpper(audio),
+		audio:      audio,
 	}
 	ctx.Reset()
 
