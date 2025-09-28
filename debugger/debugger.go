@@ -449,7 +449,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	if audio == "FALSE" {
 		audio = "NONE"
 	}
-	if !slices.Contains([]string{"MONO", "STEREO", "NONE"}, profile) {
+	if !slices.Contains([]string{"MONO", "STEREO", "NONE"}, audio) {
 		return fmt.Errorf("audio option should be one of MONO, STEREO or NONE")
 	}
 
