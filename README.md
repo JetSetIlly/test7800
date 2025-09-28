@@ -24,11 +24,11 @@ A useful option to the program is the `-overlay` argument. (eg. `test7800 -overl
 | Blue | WSYNC Active |
 | Green | CPU in Interrupt |
 
-By default, the NTSC BIOS is used. To select a PAL BIOS use the `-tv` argument:
+By default, the NTSC BIOS is used. To select a PAL BIOS use the `-tv` argument (or `-spec` argument):
 
 ```test7800 -tv=pal centipede.a78```
 
-If you want the emulation to ignore the BIOS startup routine use the `-bios` argument:
+If you want the emulation to ignore the BIOS startup routine use the `-bios` option:
 
 ```test7800 -bios=false centipede.a78```
 
