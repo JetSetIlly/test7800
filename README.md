@@ -38,6 +38,10 @@ This emulation was developed in order to gain an understanding of the Atari 7800
 
 The ultimate plan is to combine this 7800 emulation with [Gopher2600](https://github.com/JetSetIlly/Gopher2600). However, it is proving to be a convenient stand-alone emulator and so is being released for general consumption. The integration with Gopher2600 will happen but probably not any time soon.
 
+#### Performace
+
+Because the emulator is currently only a test for future ideas it has not been written with performance in mind. No optimisation or perfomance analysis has been performed, with the exception of the automated use of profile guided optimisation. None-the-less, the emulator should run well on reasonably modern hardware. For comparison purposes, the development machine has an `i3-3225` CPU running at 3.30GHz.
+
 ### Resources Used
 
 References to "7800 Software Guide" in comments are referring to [this wiki page](https://7800.8bitdev.org/index.php/7800_Software_Guide). This wiki is part of a larger set of 7800 related articles: [Atari 7800 Development Wiki Home](https://7800.8bitdev.org/index.php/Main_Page)
@@ -59,8 +63,6 @@ References to "7800 Software Guide" in comments are referring to [this wiki page
 [Bank Switching Specifics](https://7800.8bitdev.org/index.php/ATARI_7800_BANKSWITCHING_GUIDE)
 
 [Two Button Controllers](https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159)
-
-#### POKEY
 
 [POKEY C012294 Documentation](https://7800.8bitdev.org/index.php/POKEY_C012294_Documentation)
 
