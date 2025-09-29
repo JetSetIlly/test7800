@@ -44,7 +44,7 @@ func (ext *SN) isEagle() bool {
 }
 
 func NewSN(_ Context, d []byte, version string) (*SN, error) {
-	if !slices.Contains([]string{"Eagle", "SN"}, version) {
+	if !slices.Contains([]string{"EAGLE", "SN"}, version) {
 		return nil, fmt.Errorf("sn: unsupported version of mapper (%s)", version)
 	}
 
