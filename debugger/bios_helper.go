@@ -12,30 +12,29 @@ type biosHelper struct {
 	bypass bool
 
 	// checksum has passed. there is no need to continue checking for a fail condition
-	checksumPassed bool
+	cartridgeAccepted bool
 
-	// if CPU reaches the checksum failure code, then ignore the failure and set the PC
-	// as though it the checksum was a success
-	ignoreChecksum bool
+	// set to false to ignore checksum failure in supported BIOS'
+	checksum bool
 }
 
 func (hlp *biosHelper) reset(md5sum string) {
 	const supportedBIOS = "0x0763f1ffb006ddbe32e52d497ee848ae"
-	hlp.checksumPassed = hlp.bypass && md5sum == supportedBIOS
+	hlp.cartridgeAccepted = hlp.bypass && md5sum == supportedBIOS
 }
 
-func (hlp *biosHelper) checksumFailCheck(mc *cpu.CPU) error {
-	if hlp.checksumPassed {
+func (hlp *biosHelper) cartridgeAcceptedCheck(mc *cpu.CPU) error {
+	if hlp.cartridgeAccepted {
 		return nil
 	}
 	if mc.PC.Address() == 0x26c2 {
-		if !hlp.ignoreChecksum {
+		if hlp.checksum {
 			return fmt.Errorf("checksum fail. ROM not signed for BIOS")
 		}
 		mc.PC.Load(0x23f9)
 	}
 	if mc.PC.Address() == 0x23f9 {
-		hlp.checksumPassed = true
+		hlp.cartridgeAccepted = true
 	}
 	return nil
 }

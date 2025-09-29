@@ -274,7 +274,7 @@ func (m *debugger) run() bool {
 		// affected by the most recent instruction
 		_ = m.console.LastAreaStatus()
 
-		err = m.biosHelper.checksumFailCheck(m.console.MC)
+		err = m.biosHelper.cartridgeAcceptedCheck(m.console.MC)
 		if err != nil {
 			return err
 		}
@@ -409,7 +409,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var spec string
 	var profile string
 	var bios bool
-	var ignoreChecksum bool
+	var checksum bool
 	var overlay bool
 	var run bool
 	var log bool
@@ -421,7 +421,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.StringVar(&spec, "tv", "NTSC", "alternative name for 'spec' argument")
 	flgs.StringVar(&profile, "profile", "NONE", "create profile for emulator: CPU, MEM or BOTH")
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
-	flgs.BoolVar(&ignoreChecksum, "ignore", true, "ignore cartridge checksum failure")
+	flgs.BoolVar(&checksum, "checksum", true, "allow BIOS checksum checks")
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
 	flgs.BoolVar(&log, "log", false, "echo log to stderr")
@@ -537,8 +537,8 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		coprocDisasm: &coprocDisasm{},
 		coprocDev:    newCoprocDev(),
 		biosHelper: biosHelper{
-			bypass:         !bios,
-			ignoreChecksum: ignoreChecksum,
+			bypass:   !bios,
+			checksum: checksum,
 		},
 	}
 	m.console = hardware.Create(&m.ctx, g)
