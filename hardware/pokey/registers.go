@@ -98,10 +98,17 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 			// or as part of a normal reload process. ie. if we set divCounter to zero, rather than
 			// the frequency value, the reset will happen a short while in the future in line with
 			// the selected clock
-			pk.channel[0].divCounter = pk.channel[0].Registers.Freq
-			pk.channel[1].divCounter = pk.channel[1].Registers.Freq
-			pk.channel[2].divCounter = pk.channel[2].Registers.Freq
-			pk.channel[3].divCounter = pk.channel[3].Registers.Freq
+			for i := range pk.channel {
+				if pk.channel[i].clkMhz {
+					pk.channel[i].reload = 4
+				} else {
+					pk.channel[i].reload = 1
+				}
+				pk.channel[i].pulse = 0x00
+				pk.channel[i].filter = 0x00
+			}
+			pk.channel[0].filter = 0x01
+			pk.channel[1].filter = 0x01
 		case 0x0a + pk.origin:
 		case 0x0b + pk.origin:
 		case 0x0c + pk.origin:
