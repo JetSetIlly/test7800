@@ -77,7 +77,6 @@ type channel struct {
 	// reset on both channels
 	lnk2Tone         *channel
 	lnk2ToneDominant bool
-	lnk2ToneClk      bool
 
 	// another channel can affect the final value of the pulse field by flipping the xor field. this
 	// creates a high-pass filter on the filtered channel
@@ -157,29 +156,6 @@ func (ch *channel) step(clk bool) {
 			if ch.lnkFilter != nil {
 				ch.lnkFilter.filter = ^ch.lnkFilter.pulse
 			}
-
-			// lnk2Tone should be non-nil if lnk2ToneClk is true. if it is nil then something has
-			// gone wrong elsewhere
-			if ch.lnk2ToneClk {
-				ch.lnk2ToneClk = false
-
-				// from 'Altirra Reference', page 121
-				//
-				// "The timer 1+2 reset in two-tone mode occurs two cycles after the timer that
-				// triggered the resync reloads. This doesn't matter in normal cassette write
-				// operation with the 64KHz clock, but it becomes important with timer 1 clocked at
-				// 1.79MHz. The first effect of the delay is that if timer 1 at 1.79MHz drives the
-				// resync, it will have a period of two cycles longer than usual, due to being
-				// re-reloaded two cycles after the normal reload"
-				//
-				// in other words, the other channel is reset 2 cycles after the reset of this
-				// channel; and if the other channel is non-dominant and the Mhz clock is being used
-				// then the reset is delayed by a further two cycles
-				ch.lnk2Tone.reload = 2
-				if ch.lnk2ToneDominant && (ch.clkMhz || ch.lnk2Tone.clkMhz) {
-					ch.lnk2Tone.reload += 2
-				}
-			}
 		}
 	}
 
@@ -246,16 +222,39 @@ func (ch *channel) step(clk bool) {
 		if ch.noise.forceBreak {
 			// the forceBreak mode is most likely be used for audio purposes. the effect of this
 			// mode is that we don't need to worry about the serial output at all and only look for
-			// changes in the dominant channel
+			// changes in the dominant channel. From page 122 of 'Altirra Reference'
+			//
+			// "This mode is sometimes useful when using two-tone mode for audio purposes instead of
+			// serial output, since it forces use of timer 2 regardless of the state of the serial
+			// output shift register"
 			if ch.lnk2ToneDominant {
 				*ch.serialOutput = ch.num
-				ch.lnk2ToneClk = true
+
+				// from 'Altirra Reference', page 121
+				//
+				// "The timer 1+2 reset in two-tone mode occurs two cycles after the timer that
+				// triggered the resync reloads. This doesn't matter in normal cassette write
+				// operation with the 64KHz clock, but it becomes important with timer 1 clocked at
+				// 1.79MHz. The first effect of the delay is that if timer 1 at 1.79MHz drives the
+				// resync, it will have a period of two cycles longer than usual, due to being
+				// re-reloaded two cycles after the normal reload"
+				//
+				// in other words, the other channel is reset 2 cycles after the reset of this
+				// channel; and if the other channel is non-dominant and the Mhz clock is being used
+				// then the reset is delayed by a further two cycles
+				ch.lnk2Tone.reload = 2
+				if ch.lnk2Tone.clkMhz {
+					ch.lnk2Tone.reload += 2
+				}
 				return
 			}
 		} else {
 			if (ch.lnk2ToneDominant || ch.pulse == 0x01) && *ch.serialOutput != ch.num {
 				*ch.serialOutput = ch.num
-				ch.lnk2ToneClk = true
+				ch.lnk2Tone.reload = 2
+				if ch.lnk2Tone.clkMhz {
+					ch.lnk2Tone.reload += 2
+				}
 				return
 			}
 		}

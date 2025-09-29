@@ -124,8 +124,6 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 			} else {
 				pk.channel[1].lnk2Tone = nil
 				pk.channel[0].lnk2Tone = nil
-				pk.channel[1].lnk2ToneClk = false
-				pk.channel[0].lnk2ToneClk = false
 			}
 			pk.noise.forceBreak = data&0x80 == 0x80
 		default:
