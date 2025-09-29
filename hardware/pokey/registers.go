@@ -93,6 +93,11 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 			// flip-flops to 1. When high- pass filters are disabled, this turns off the output of
 			// channels 1 and 2 and turns on the output of channels 3 and 4. This is useful to
 			// synchronize the sound channels"
+			//
+			// it's not clear to me from this description, whether the reloading happens instantly
+			// or as part of a normal reload process. ie. if we set divCounter to zero, rather than
+			// the frequency value, the reset will happen a short while in the future in line with
+			// the selected clock
 			pk.channel[0].divCounter = pk.channel[0].Registers.Freq
 			pk.channel[1].divCounter = pk.channel[1].Registers.Freq
 			pk.channel[2].divCounter = pk.channel[2].Registers.Freq
@@ -112,7 +117,10 @@ func (pk *Pokey) Access(write bool, idx uint16, data uint8) (uint8, bool, error)
 			} else {
 				pk.channel[1].lnk2Tone = nil
 				pk.channel[0].lnk2Tone = nil
+				pk.channel[1].lnk2ToneClk = false
+				pk.channel[0].lnk2ToneClk = false
 			}
+			pk.noise.forceBreak = data&0x80 == 0x80
 		default:
 			return 0, false, nil
 		}

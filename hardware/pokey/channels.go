@@ -18,8 +18,13 @@ package pokey
 import "fmt"
 
 type channel struct {
-	Registers    Registers
-	noise        *polynomials
+	Registers Registers
+	noise     *polynomials
+
+	// for two-tone mode, we need to emulate the serial output only at a very basic level. serial
+	// output is made up of value coming from either channel 1 or channel 2. the timers for those
+	// channels are reset whenever the serial output changes. we therefore only need to track which
+	// channel most recently caused the timer reset
 	serialOutput *int
 
 	// the channel number
@@ -64,10 +69,15 @@ type channel struct {
 	lnkFilter *channel
 	filter    uint8
 
-	// channel is part of the two-tone mode. this channel acts as an additional reload trigger to
-	// the channel being pointed to
+	// channel is part of the two-tone mode. the 'domninant' field controls the conditions under
+	// which the serial output changes and thus, when the timer is reset due to two-tone mode. in
+	// practice the dominant field is only ever true for channel 1 (counting from zero)
+	//
+	// the clk field indicates that the next reload of this channel will then trigger a two-tone
+	// reset on both channels
 	lnk2Tone         *channel
 	lnk2ToneDominant bool
+	lnk2ToneClk      bool
 
 	// another channel can affect the final value of the pulse field by flipping the xor field. this
 	// creates a high-pass filter on the filtered channel
@@ -147,6 +157,29 @@ func (ch *channel) step(clk bool) {
 			if ch.lnkFilter != nil {
 				ch.lnkFilter.filter = ^ch.lnkFilter.pulse
 			}
+
+			// lnk2Tone should be non-nil if lnk2ToneClk is true. if it is nil then something has
+			// gone wrong elsewhere
+			if ch.lnk2ToneClk {
+				ch.lnk2ToneClk = false
+
+				// from 'Altirra Reference', page 121
+				//
+				// "The timer 1+2 reset in two-tone mode occurs two cycles after the timer that
+				// triggered the resync reloads. This doesn't matter in normal cassette write
+				// operation with the 64KHz clock, but it becomes important with timer 1 clocked at
+				// 1.79MHz. The first effect of the delay is that if timer 1 at 1.79MHz drives the
+				// resync, it will have a period of two cycles longer than usual, due to being
+				// re-reloaded two cycles after the normal reload"
+				//
+				// in other words, the other channel is reset 2 cycles after the reset of this
+				// channel; and if the other channel is non-dominant and the Mhz clock is being used
+				// then the reset is delayed by a further two cycles
+				ch.lnk2Tone.reload = 2
+				if ch.lnk2ToneDominant && (ch.clkMhz || ch.lnk2Tone.clkMhz) {
+					ch.lnk2Tone.reload += 2
+				}
+			}
 		}
 	}
 
@@ -202,8 +235,7 @@ func (ch *channel) step(clk bool) {
 	// 1 and 2 for continuous phase in the FSK output. Specifically, whenever the serial output
 	// toggles due to one of the timers, both timers are reset."
 	//
-	// we've already set the reload value above. all we need to do in the case of two-tone mode is
-	// to decide whether to allow the noise bits to advance
+	// a great example of two-tone mode being used musically is the game music for A.R.T.I
 	if ch.lnk2Tone != nil {
 		// the link2ToneDominant field is given by the extract on page 121 of 'Altirra Reference'
 		//
@@ -211,9 +243,21 @@ func (ch *channel) step(clk bool) {
 		// requirement on the timers. Timer 1 pulses are only used by the serial output for a 1 bit,
 		// but timer 2 pulses are always used, causing a resync and toggling the output regardless
 		// of the current data bit"
-		if ch.lnk2ToneDominant || *ch.serialOutput != ch.num {
-			*ch.serialOutput = ch.num
-			return
+		if ch.noise.forceBreak {
+			// the forceBreak mode is most likely be used for audio purposes. the effect of this
+			// mode is that we don't need to worry about the serial output at all and only look for
+			// changes in the dominant channel
+			if ch.lnk2ToneDominant {
+				*ch.serialOutput = ch.num
+				ch.lnk2ToneClk = true
+				return
+			}
+		} else {
+			if (ch.lnk2ToneDominant || ch.pulse == 0x01) && *ch.serialOutput != ch.num {
+				*ch.serialOutput = ch.num
+				ch.lnk2ToneClk = true
+				return
+			}
 		}
 	}
 

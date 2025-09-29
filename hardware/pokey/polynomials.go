@@ -36,7 +36,8 @@ type polynomials struct {
 	// 63.9210 / 15.6999 = 4.0714. set via the AUDCTL register
 	prefer15Khz bool
 
-	serialOutput int
+	// force the use of the dominant timer in two-tone mode
+	forceBreak bool
 }
 
 func (p *polynomials) initialise() {
