@@ -72,6 +72,8 @@ References to "7800 Software Guide" in comments are referring to [this wiki page
 
 [Original Atari document for POKEY](http://visual6502.org/images/C012294_Pokey/pokey.pdf)
 
+[POKEY schematics](https://atarimuseum.ctrl-alt-rees.com/whatsnew/2016-NOV-2.html)
+
 ### Acknowledgements
 
 Zachary Scolaro helped with the MARIA emulation, particular to get it off the ground when I wasn't sure about it at all. And Rob Tuccitto has provided much advice and links to information about the 7800 internals. Thanks to both.
