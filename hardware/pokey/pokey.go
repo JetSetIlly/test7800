@@ -144,7 +144,7 @@ func (pk *Pokey) Step() {
 
 // Volume iterates the current volume levels for each channel
 func (pk *Pokey) Volume(yield func(int16)) {
-	if pk.sampleSumCt == 0 {
+	if pk.sampleSumCt == 0 || pk.initState {
 		for range 4 {
 			yield(0)
 		}
