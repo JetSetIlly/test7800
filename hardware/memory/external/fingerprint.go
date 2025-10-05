@@ -175,6 +175,23 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 				}, nil
 			}
 
+			if cartType == 0x0100 {
+				// if cartridge name contians the '(OM)' string then the cartridge has been dumped
+				// with "original ordering". alternative ordering can be indicated with '(AM)' but
+				// we don't look for that and we assume that type of ordering by default
+				originalOrder := strings.Contains(filename, "(OM)")
+
+				return CartridgeInsertor{
+					filename: filename,
+					data:     d,
+					creator: func(ctx Context, d []uint8) (Bus, error) {
+						return NewActivision(ctx, d[dataStart:], originalOrder)
+					},
+					OneButtonStick: oneButtonStick,
+					chips:          chips,
+				}, nil
+			}
+
 			// banksets
 			if cartType&0x2000 == 0x2000 {
 				supergame := cartType&0x02 == 0x02
