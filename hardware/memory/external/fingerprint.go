@@ -175,6 +175,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 				}, nil
 			}
 
+			// activision
 			if cartType == 0x0100 {
 				// if cartridge name contians the '(OM)' string then the cartridge has been dumped
 				// with "original ordering". alternative ordering can be indicated with '(AM)' but
@@ -186,6 +187,19 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 					data:     d,
 					creator: func(ctx Context, d []uint8) (Bus, error) {
 						return NewActivision(ctx, d[dataStart:], originalOrder)
+					},
+					OneButtonStick: oneButtonStick,
+					chips:          chips,
+				}, nil
+			}
+
+			// absolute
+			if cartType == 0x0200 {
+				return CartridgeInsertor{
+					filename: filename,
+					data:     d,
+					creator: func(ctx Context, d []uint8) (Bus, error) {
+						return NewAbsolute(ctx, d[dataStart:])
 					},
 					OneButtonStick: oneButtonStick,
 					chips:          chips,
