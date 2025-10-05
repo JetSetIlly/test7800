@@ -13,6 +13,7 @@ type context struct {
 	Breaks     []error
 	useOverlay bool
 	audio      string
+	sampleRate int
 }
 
 func (ctx *context) Spec() spec.Spec {
@@ -56,4 +57,9 @@ func (ctx *context) UseAudio() bool {
 
 func (ctx *context) UseStereo() bool {
 	return ctx.audio == "STEREO"
+}
+
+// returns false is the sample rate hasn't be specified
+func (ctx *context) SampleRate() (int, bool) {
+	return ctx.sampleRate, ctx.sampleRate > 0
 }

@@ -202,7 +202,7 @@ func (eg *guiEbiten) Update() error {
 				}
 
 				ctx, ready, err := oto.NewContext(&oto.NewContextOptions{
-					SampleRate:   int(s.Freq),
+					SampleRate:   s.Freq,
 					ChannelCount: 2,
 					Format:       oto.FormatSignedInt16LE,
 				})

@@ -414,6 +414,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var run bool
 	var log bool
 	var audio string
+	var samplerate int
 	var mapper string
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
@@ -426,6 +427,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
 	flgs.BoolVar(&log, "log", false, "echo log to stderr")
 	flgs.StringVar(&audio, "audio", "MONO", "enable audio: MONO, STEREO, NONE")
+	flgs.IntVar(&samplerate, "samplerate", 48000, "sample rate of audio")
 	flgs.StringVar(&mapper, "mapper", "AUTO", "mapper selection. automatic selection by default")
 	err := flgs.Parse(args)
 	if err != nil {
@@ -451,6 +453,10 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	}
 	if !slices.Contains([]string{"MONO", "STEREO", "NONE"}, audio) {
 		return fmt.Errorf("audio option should be one of MONO, STEREO or NONE")
+	}
+
+	if samplerate != 0 && (samplerate < 10000 || samplerate > 100000) {
+		return fmt.Errorf("sample rate should be between 10000 and 100000 (ie. 10Khz or 100Khz)")
 	}
 
 	// TODO: validate -mapper argument
@@ -521,6 +527,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		spec:       spec,
 		useOverlay: overlay,
 		audio:      audio,
+		sampleRate: samplerate,
 	}
 	ctx.Reset()
 

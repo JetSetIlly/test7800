@@ -11,7 +11,6 @@ import (
 	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
-	"github.com/jetsetilly/test7800/hardware/tia/audio"
 )
 
 type Console struct {
@@ -63,26 +62,6 @@ func Create(ctx Context, g *gui.GUI) *Console {
 	con.MARIA = maria.Create(ctx, g, con.Mem, con.MC, con.limit)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
-
-	// notify UI of audio requirements
-	var audioSetup gui.AudioSetup
-	if ctx.UseAudio() {
-		audioSetup = gui.AudioSetup{
-			Freq: spec.HorizScan * audio.SamplesPerScanline,
-			Read: con.TIA.AudioBuffer(),
-		}
-	} else {
-		go func() {
-			con.limit.nudge <- true
-			con.limit.nudge <- true
-			con.limit.nudge <- true
-			con.limit.nudge <- true
-		}()
-	}
-	select {
-	case g.AudioSetup <- audioSetup:
-	default:
-	}
 
 	return con
 }

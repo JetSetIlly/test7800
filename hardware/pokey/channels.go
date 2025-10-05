@@ -242,7 +242,7 @@ func (ch *channel) step(clk bool) {
 				// in other words, the other channel is reset 2 cycles after the reset of this
 				// channel; and if the other channel is non-dominant and the Mhz clock is being used
 				// then the reset is delayed by a further two cycles
-				ch.lnk2Tone.reload = 2
+				ch.lnk2Tone.reload = ch.reload + 2
 				if ch.lnk2Tone.clkMhz {
 					ch.lnk2Tone.reload += 2
 				}

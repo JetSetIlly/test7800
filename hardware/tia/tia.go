@@ -3,13 +3,20 @@ package tia
 import (
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
+	"github.com/jetsetilly/test7800/hardware/spec"
 	"github.com/jetsetilly/test7800/hardware/tia/audio"
+	"github.com/jetsetilly/test7800/logger"
 )
 
 type TIA struct {
 	inpt [6]uint8
 	aud  *audio.Audio
 	buf  *audioBuffer
+
+	// count number of clocks before retreiving sample
+	sampleCount      int
+	sampleCountLimit int
+	sampleCountStep  int
 
 	// interface to the riot
 	riot riot
@@ -19,8 +26,10 @@ type TIA struct {
 }
 
 type Context interface {
-	IsAtari7800() bool
+	Spec() spec.Spec
+	UseAudio() bool
 	UseStereo() bool
+	SampleRate() (int, bool)
 }
 
 type riot interface {
@@ -36,12 +45,46 @@ func Create(ctx Context, g *gui.GUI, riot riot, limiter limiter) *TIA {
 		aud:    audio.NewAudio(),
 		stereo: ctx.UseStereo(),
 	}
+
 	if g.AudioSetup != nil {
 		tia.buf = &audioBuffer{
 			data:  make([]uint8, 0, 4096),
 			limit: limiter,
 		}
+
+		// decide on sampling rate
+		var freq int
+		freq = int(ctx.Spec().HorizScan * audio.SamplesPerScanline)
+		if f, ok := ctx.SampleRate(); ok {
+			freq = f
+			r := float64(f) / (ctx.Spec().HorizScan * audio.SamplesPerScanline)
+			r = 56.0 / r
+			tia.sampleCountLimit = int(r * 10)
+			tia.sampleCountStep = 10
+		}
+
+		logger.Logf(logger.Allow, "TIA", "using sampling rate of %d", freq)
+
+		// notify UI of audio requirements
+		var audioSetup gui.AudioSetup
+		if ctx.UseAudio() {
+			audioSetup = gui.AudioSetup{
+				Read: tia.AudioBuffer(),
+				Freq: freq,
+			}
+		} else {
+			go func() {
+				for range 4 {
+					limiter.Nudge()
+				}
+			}()
+		}
+		select {
+		case g.AudioSetup <- audioSetup:
+		default:
+		}
 	}
+
 	tia.Insert(external.CartridgeInsertor{}, nil)
 	return tia
 }
@@ -154,7 +197,20 @@ func (tia *TIA) Tick() {
 		return
 	}
 
-	if tia.aud.Step() {
+	sample := tia.aud.Step()
+
+	// if sampling rate has been specified then we do our own count
+	if tia.sampleCountLimit > 0 {
+		tia.sampleCount += tia.sampleCountStep
+		if tia.sampleCount > tia.sampleCountLimit {
+			sample = true
+			tia.sampleCount = 0
+		} else {
+			sample = false
+		}
+	}
+
+	if sample {
 		tia.buf.crit.Lock()
 		defer tia.buf.crit.Unlock()
 

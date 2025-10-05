@@ -32,7 +32,7 @@ type AudioReader interface {
 }
 
 type AudioSetup struct {
-	Freq float64
+	Freq int
 	Read AudioReader
 }
 
