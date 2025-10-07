@@ -1,6 +1,6 @@
 Test7800 is an experimental emulator for the Atari 7800. It's not complete and is missing some important features but it plays many of the 7800 ROM files that are available. 
 
-It supports a78 files and will emulate regular "flat" ROM files and also "supergame" ROM files. It does not yet emulate the POKEY chip and similar hardware.
+It supports a78 files, including non-bankswitching regular "flat" ROM files and several different bankswitching "supergame" ROM files. While it does not emulate all conglomerate cartridge hardware configurations, the POKEY chip and many of its layouts are supported.
 
 The 6502, TIA and RIOT emulation is taken from [Gopher2600](https://github.com/JetSetIlly/Gopher2600) and is therefore well tested. The implemenation of the MARIA is new to this project.
 
