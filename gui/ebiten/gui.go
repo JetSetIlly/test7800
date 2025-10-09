@@ -93,7 +93,7 @@ type guiEbiten struct {
 	proDifficulty [2]bool
 }
 
-func (eg *guiEbiten) input() {
+func (eg *guiEbiten) input() error {
 	var pressed []ebiten.Key
 	var released []ebiten.Key
 	pressed = inpututil.AppendJustPressedKeys(pressed)
@@ -103,6 +103,8 @@ func (eg *guiEbiten) input() {
 
 	for _, p := range released {
 		switch p {
+		case ebiten.KeyEscape:
+			return ebiten.Termination
 		case ebiten.KeyArrowLeft, ebiten.KeyNumpad4:
 			inp = gui.Input{Action: gui.StickLeft}
 		case ebiten.KeyArrowRight, ebiten.KeyNumpad6:
@@ -130,7 +132,7 @@ func (eg *guiEbiten) input() {
 		select {
 		case eg.g.UserInput <- inp:
 		default:
-			return
+			return nil
 		}
 	}
 
@@ -163,9 +165,11 @@ func (eg *guiEbiten) input() {
 		select {
 		case eg.g.UserInput <- inp:
 		default:
-			return
+			return nil
 		}
 	}
+
+	return nil
 }
 
 func (eg *guiEbiten) Update() error {
@@ -180,7 +184,10 @@ func (eg *guiEbiten) Update() error {
 	}
 
 	// handle user input
-	eg.input()
+	err := eg.input()
+	if err != nil {
+		return ebiten.Termination
+	}
 
 	// change state if necessary
 	select {
