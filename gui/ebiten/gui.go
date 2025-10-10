@@ -8,7 +8,6 @@ import (
 
 	"github.com/ebitengine/oto/v3"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/logger"
 	"github.com/jetsetilly/test7800/version"
@@ -91,85 +90,9 @@ type guiEbiten struct {
 	// they are switches) that we can't effectively store any other way besides
 	// keeping track of the physical state.
 	proDifficulty [2]bool
-}
 
-func (eg *guiEbiten) input() error {
-	var pressed []ebiten.Key
-	var released []ebiten.Key
-	pressed = inpututil.AppendJustPressedKeys(pressed)
-	released = inpututil.AppendJustReleasedKeys(released)
-
-	var inp gui.Input
-
-	for _, p := range released {
-		switch p {
-		case ebiten.KeyEscape:
-			return ebiten.Termination
-		case ebiten.KeyArrowLeft, ebiten.KeyNumpad4:
-			inp = gui.Input{Action: gui.StickLeft}
-		case ebiten.KeyArrowRight, ebiten.KeyNumpad6:
-			inp = gui.Input{Action: gui.StickRight}
-		case ebiten.KeyArrowUp, ebiten.KeyNumpad8:
-			inp = gui.Input{Action: gui.StickUp}
-		case ebiten.KeyArrowDown, ebiten.KeyNumpad2:
-			inp = gui.Input{Action: gui.StickDown}
-		case ebiten.KeySpace, ebiten.KeyZ:
-			inp = gui.Input{Action: gui.StickButtonA}
-		case ebiten.KeyB, ebiten.KeyX:
-			inp = gui.Input{Action: gui.StickButtonB}
-		case ebiten.KeyF1:
-			inp = gui.Input{Action: gui.Select}
-		case ebiten.KeyF2:
-			inp = gui.Input{Action: gui.Start}
-		case ebiten.KeyF3:
-			inp = gui.Input{Action: gui.Pause}
-		case ebiten.KeyF4:
-			inp = gui.Input{Action: gui.P0Pro, Set: eg.proDifficulty[0]}
-		case ebiten.KeyF5:
-			inp = gui.Input{Action: gui.P1Pro, Set: eg.proDifficulty[1]}
-		}
-
-		select {
-		case eg.g.UserInput <- inp:
-		default:
-			return nil
-		}
-	}
-
-	for _, r := range pressed {
-		switch r {
-		case ebiten.KeyArrowLeft, ebiten.KeyNumpad4:
-			inp = gui.Input{Action: gui.StickLeft, Set: true}
-		case ebiten.KeyArrowRight, ebiten.KeyNumpad6:
-			inp = gui.Input{Action: gui.StickRight, Set: true}
-		case ebiten.KeyArrowUp, ebiten.KeyNumpad8:
-			inp = gui.Input{Action: gui.StickUp, Set: true}
-		case ebiten.KeyArrowDown, ebiten.KeyNumpad2:
-			inp = gui.Input{Action: gui.StickDown, Set: true}
-		case ebiten.KeySpace, ebiten.KeyZ:
-			inp = gui.Input{Action: gui.StickButtonA, Set: true}
-		case ebiten.KeyB, ebiten.KeyX:
-			inp = gui.Input{Action: gui.StickButtonB, Set: true}
-		case ebiten.KeyF1:
-			inp = gui.Input{Action: gui.Select, Set: true}
-		case ebiten.KeyF2:
-			inp = gui.Input{Action: gui.Start, Set: true}
-		case ebiten.KeyF3:
-			inp = gui.Input{Action: gui.Pause, Set: true}
-		case ebiten.KeyF4:
-			eg.proDifficulty[0] = !eg.proDifficulty[0]
-		case ebiten.KeyF5:
-			eg.proDifficulty[1] = !eg.proDifficulty[1]
-		}
-
-		select {
-		case eg.g.UserInput <- inp:
-		default:
-			return nil
-		}
-	}
-
-	return nil
+	// state of the left analogue stick of the first gamepad
+	gamepadAnalogue [2]float64
 }
 
 func (eg *guiEbiten) Update() error {
@@ -184,7 +107,15 @@ func (eg *guiEbiten) Update() error {
 	}
 
 	// handle user input
-	err := eg.input()
+	err := eg.inputKeyboard()
+	if err != nil {
+		return ebiten.Termination
+	}
+	err = eg.inputGamepad()
+	if err != nil {
+		return ebiten.Termination
+	}
+	err = eg.inputGamepadAxis()
 	if err != nil {
 		return ebiten.Termination
 	}
