@@ -34,6 +34,9 @@ type CartridgeInsertor struct {
 	// until we add more sophisticated controller requirements (paddle, etc.)
 	OneButtonStick bool
 
+	// tv specifiction. if the string is empty then the spec of the console is not changed
+	spec string
+
 	// list of additional chips (eg. POKEYs) that are present in the cartridge
 	chips []func(Context) (OptionalBus, error)
 }
@@ -44,6 +47,10 @@ func (c CartridgeInsertor) Filename() string {
 
 func (c CartridgeInsertor) Data() []uint8 {
 	return c.data
+}
+
+func (c CartridgeInsertor) Spec() string {
+	return c.spec
 }
 
 func (c CartridgeInsertor) ResetProcedure() CartridgeReset {
@@ -124,6 +131,14 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 				logger.Log(logger.Allow, "a78", "controllers: SNES2Atari emulated as two-button stick")
 			}
 
+			// tv spec
+			var spec string
+			if d[0x39]&0x01 == 0x01 {
+				spec = "PAL"
+			} else {
+				spec = "NTSC"
+			}
+
 			// cartridge type
 			cartType := (uint16(d[0x35]) << 8) | uint16(d[0x36])
 			logger.Logf(logger.Allow, "a78", "cart type: %08b %08b", uint8(cartType>>8), uint8(cartType))
@@ -172,6 +187,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 						return NewFlat(ctx, d[dataStart:])
 					},
 					OneButtonStick: oneButtonStick,
+					spec:           spec,
 					chips:          chips,
 				}, nil
 			}
@@ -190,6 +206,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 						return NewActivision(ctx, d[dataStart:], originalOrder)
 					},
 					OneButtonStick: oneButtonStick,
+					spec:           spec,
 					chips:          chips,
 				}, nil
 			}
@@ -203,6 +220,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 						return NewAbsolute(ctx, d[dataStart:])
 					},
 					OneButtonStick: oneButtonStick,
+					spec:           spec,
 					chips:          chips,
 				}, nil
 			}
@@ -218,6 +236,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 						return NewBanksets(ctx, supergame, d[dataStart:], banksetRAM)
 					},
 					OneButtonStick: oneButtonStick,
+					spec:           spec,
 					chips:          chips,
 				}, nil
 			}
@@ -237,6 +256,7 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 						)
 					},
 					OneButtonStick: oneButtonStick,
+					spec:           spec,
 					chips:          chips,
 				}, nil
 			}

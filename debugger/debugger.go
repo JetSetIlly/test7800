@@ -89,6 +89,7 @@ func (m *debugger) reset() {
 		))
 		resetProcedure = m.loader.ResetProcedure()
 	}
+	m.ctx.loaderSpec = m.loader.Spec()
 
 	// try and (re)attach coproc developer/disassembly to external device
 	coproc := m.console.Mem.External.GetCoProcHandler()
@@ -423,6 +424,8 @@ func (m *debugger) loop() {
 		var cmd []string
 
 		select {
+		case cmd = <-m.cmds:
+			fmt.Print("\r")
 		case input := <-m.input:
 			if input.err != nil {
 				fmt.Println(m.styles.err.Render(input.err.Error()))
@@ -462,8 +465,8 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var mapper string
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
-	flgs.StringVar(&spec, "spec", "NTSC", "TV specification of the console: NTSC or PAL")
-	flgs.StringVar(&spec, "tv", "NTSC", "alternative name for 'spec' argument")
+	flgs.StringVar(&spec, "spec", "AUTO", "TV specification of the console: AUTO, NTSC or PAL")
+	flgs.StringVar(&spec, "tv", "AUTO", "alternative name for 'spec' argument")
 	flgs.StringVar(&profile, "profile", "NONE", "create profile for emulator: CPU, MEM or BOTH")
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
 	flgs.BoolVar(&checksum, "checksum", true, "allow BIOS checksum checks")
@@ -482,8 +485,8 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	// check that string options are valid. it's good to do this as early as possible even though we
 	// may not use the values until much later
 	spec = strings.ToUpper(spec)
-	if !slices.Contains([]string{"NTSC", "PAL"}, spec) {
-		return fmt.Errorf("spec option should be one of NTSC or PAL")
+	if !slices.Contains([]string{"AUTO", "NTSC", "PAL"}, spec) {
+		return fmt.Errorf("spec option should be one of AUTO, NTSC or PAL")
 	}
 
 	profile = strings.ToUpper(profile)
@@ -567,11 +570,11 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	}
 
 	ctx := context{
-		console:    "7800",
-		spec:       spec,
-		useOverlay: overlay,
-		audio:      audio,
-		sampleRate: samplerate,
+		console:       "7800",
+		requestedSpec: spec,
+		useOverlay:    overlay,
+		audio:         audio,
+		sampleRate:    samplerate,
 	}
 	ctx.Reset()
 

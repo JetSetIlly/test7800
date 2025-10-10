@@ -121,21 +121,19 @@ func Create(ctx Context, g *gui.GUI, mem Memory, cpu CPU, limit limiter) *Maria 
 		g:     g,
 		mem:   mem,
 		cpu:   cpu,
-		Spec:  ctx.Spec(),
 		limit: limit,
 		dma: dma{
 			hlt: mem,
 		},
 	}
-
-	mar.lineram.initialise()
-	mar.newFrame()
+	mar.Reset()
 
 	return mar
 }
 
 func (mar *Maria) Reset() {
 	mar.Coords.Reset()
+	mar.Spec = mar.ctx.Spec()
 
 	mar.bg = 0
 	mar.wsync = false
@@ -156,6 +154,8 @@ func (mar *Maria) Reset() {
 	mar.RecentDL = mar.RecentDL[:0]
 	mar.RecentDLL = mar.RecentDLL[:0]
 
+	mar.lineram.initialise()
+	mar.newFrame()
 }
 
 func (mar *Maria) Label() string {

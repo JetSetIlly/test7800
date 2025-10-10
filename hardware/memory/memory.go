@@ -14,6 +14,8 @@ import (
 )
 
 type Memory struct {
+	ctx Context
+
 	BIOS     *bios.BIOS
 	INPTCTRL *inptctrl.INPTCTRL
 	RAM7800  *ram.RAM
@@ -86,18 +88,8 @@ type Area interface {
 }
 
 func Create(ctx Context) (*Memory, AddChips) {
-	var b bios.BIOS
-	switch ctx.Spec().ID {
-	case "PAL":
-		b = bios.NewPAL()
-	case "NTSC":
-		b = bios.NewNTSC()
-	default:
-		b = bios.NewNTSC()
-	}
-
 	mem := &Memory{
-		BIOS:     &b,
+		ctx:      ctx,
 		INPTCTRL: inptctrl.Create(ctx),
 		RAM7800:  ram.Create(ctx, "ram7800", 0x1000),
 		RAMRIOT:  ram.Create(ctx, "ramRIOT", 0x0080),
@@ -115,6 +107,17 @@ func (mem *Memory) IsSlowAddressBus() bool {
 }
 
 func (mem *Memory) Reset(random bool) {
+	var b bios.BIOS
+	switch mem.ctx.Spec().ID {
+	case "PAL":
+		b = bios.NewPAL()
+	case "NTSC":
+		b = bios.NewNTSC()
+	default:
+		b = bios.NewNTSC()
+	}
+	mem.BIOS = &b
+
 	mem.INPTCTRL.Reset()
 	mem.RAM7800.Reset(random)
 	mem.RAMRIOT.Reset(random)

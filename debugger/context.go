@@ -7,22 +7,33 @@ import (
 )
 
 type context struct {
-	console    string
-	spec       string
-	rand       *rand.Rand
-	Breaks     []error
-	useOverlay bool
-	audio      string
-	sampleRate int
+	console       string
+	requestedSpec string
+	loaderSpec    string
+	rand          *rand.Rand
+	Breaks        []error
+	useOverlay    bool
+	audio         string
+	sampleRate    int
 }
 
 func (ctx *context) Spec() spec.Spec {
-	switch ctx.spec {
-	case "NTSC":
+	if ctx.requestedSpec == "AUTO" {
+		switch ctx.loaderSpec {
+		case "NTSC":
+			return spec.NTSC
+		case "PAL":
+			return spec.PAL
+		}
+	}
+
+	switch ctx.requestedSpec {
+	case "AUTO", "NTSC":
 		return spec.NTSC
 	case "PAL":
 		return spec.PAL
 	}
+
 	panic("currently unsupported specification")
 }
 

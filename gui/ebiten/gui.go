@@ -181,21 +181,30 @@ func (eg *guiEbiten) Update() error {
 		eg.cursor = img.Cursor
 
 		dim := img.Main.Bounds()
-		if eg.main == nil || (eg.main == nil && eg.main.Bounds() != dim) {
+
+		if eg.main == nil || eg.main.Bounds() != dim {
 			eg.width = dim.Dx()
 			eg.height = dim.Dy()
 			eg.main = ebiten.NewImage(eg.width, eg.height)
-			eg.prev = ebiten.NewImage(eg.width, eg.height)
 			eg.overlay = ebiten.NewImage(eg.width, eg.height)
 		}
+		if img.Main != nil {
+			eg.main.WritePixels(img.Main.Pix)
+		}
 
-		eg.main.WritePixels(img.Main.Pix)
-
-		if img.Prev != nil && img.ID != eg.prevID {
+		// previous image is a little different because we don't want to show the previous image if
+		// the dimensions are different to the main image
+		if eg.prev == nil || eg.prev.Bounds() != dim {
+			eg.prev = ebiten.NewImage(eg.width, eg.height)
+		} else if img.Prev != nil && img.ID != eg.prevID {
 			eg.prevID = img.ID
 			eg.prev.WritePixels(img.Prev.Pix)
 		}
 
+		// the overlay image should always match the size of the main image
+		if eg.overlay == nil || eg.overlay.Bounds() != dim {
+			eg.overlay = ebiten.NewImage(eg.width, eg.height)
+		}
 		if img.Overlay != nil {
 			eg.overlay.WritePixels(img.Overlay.Pix)
 		}
