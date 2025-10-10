@@ -89,6 +89,10 @@ func Create(ctx Context, g *gui.GUI, riot riot, limiter limiter) *TIA {
 	return tia
 }
 
+func (tia *TIA) Reset() error {
+	return nil
+}
+
 func (tia *TIA) Insert(c external.CartridgeInsertor, externalChips audio.SoundChipIterator) error {
 	// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
 	if c.OneButtonStick {

@@ -40,8 +40,10 @@ type debugger struct {
 	sig     chan os.Signal
 	input   chan input
 
-	// this channel is poassed to the debugger during creation via the UI type
+	// these channels are passed to the debugger as part of the creation process, via the gui.GUI
+	// argument
 	state chan gui.State
+	cmds  chan gui.Command
 
 	console        *hardware.Console
 	breakpoints    map[uint16]bool
@@ -75,7 +77,7 @@ type debugger struct {
 func (m *debugger) reset() {
 	m.ctx.Reset()
 
-	var cartridgeReset external.CartridgeReset
+	var resetProcedure external.CartridgeReset
 
 	err := m.console.Insert(m.loader)
 	if err != nil {
@@ -85,7 +87,7 @@ func (m *debugger) reset() {
 			fmt.Sprintf("%s cartridge from %s", m.console.Mem.External.Label(),
 				filepath.Base(m.loader.Filename())),
 		))
-		cartridgeReset = m.loader.ResetProcedure()
+		resetProcedure = m.loader.ResetProcedure()
 	}
 
 	// try and (re)attach coproc developer/disassembly to external device
@@ -98,7 +100,9 @@ func (m *debugger) reset() {
 		coproc.SetYieldHook(m)
 	}
 
-	var noBIOS = m.biosHelper.bypass || cartridgeReset.BypassBIOS
+	m.biosHelper.reset(m.console.Mem.BIOS.MD5())
+
+	var noBIOS = m.biosHelper.bypass || resetProcedure.BypassBIOS
 
 	err = m.console.Reset(true)
 	if err != nil {
@@ -116,7 +120,7 @@ func (m *debugger) reset() {
 		m.console.Mem.INPTCTRL.Write(0x01, 0x07)
 		m.console.Mem.INPTCTRL.Write(0x01, 0x07)
 
-		// set 6507 program-counter to normal reset address
+		// explicitely set 6507 program-counter to reset address when the BIOS is disabled
 		m.console.MC.LoadPCIndirect(cpu.Reset)
 		if err != nil {
 			fmt.Println(m.styles.err.Render(err.Error()))
@@ -134,8 +138,6 @@ func (m *debugger) reset() {
 	fmt.Println(m.styles.cpu.Render(
 		m.console.MC.String(),
 	))
-
-	m.biosHelper.reset(m.console.Mem.BIOS.MD5())
 }
 
 func (m *debugger) contextBreaks() error {
@@ -191,8 +193,30 @@ func (m *debugger) last() {
 // coproc instructions to output on error
 const maxRecentLen = 100
 
-// returns true if quit signal has been received from the GUI
+var (
+	runStop     = errors.New("run stop")
+	runContinue = errors.New("run continue")
+	runQuit     = errors.New("run quit")
+)
+
 func (m *debugger) run() bool {
+	for {
+		err := m.runLoop()
+		if errors.Is(err, runStop) {
+			return false
+		}
+		if errors.Is(err, runQuit) {
+			return true
+		}
+		if !errors.Is(err, runContinue) {
+			fmt.Println(m.styles.err.Render(err.Error()))
+			return true
+		}
+	}
+}
+
+// returns true if quit signal has been received from the GUI
+func (m *debugger) runLoop() error {
 	if m.stepRule == nil {
 		fmt.Println(m.styles.debugger.Render("emulation running"))
 	}
@@ -209,6 +233,7 @@ func (m *debugger) run() bool {
 		contextErr    = errors.New("context")
 		endRunErr     = errors.New("end run")
 		quitErr       = errors.New("quit")
+		commandErr    = errors.New("command")
 	)
 
 	// always cancel stepping rule
@@ -279,6 +304,11 @@ func (m *debugger) run() bool {
 			return err
 		}
 
+		// end execution if there are commands in the queue
+		if len(m.cmds) > 0 {
+			return commandErr
+		}
+
 		return nil
 	}
 
@@ -289,7 +319,7 @@ func (m *debugger) run() bool {
 	m.state <- gui.StatePaused
 
 	if errors.Is(err, quitErr) {
-		return true
+		return runQuit
 	}
 
 	m.console.MARIA.PushRender()
@@ -365,11 +395,25 @@ func (m *debugger) run() bool {
 	} else if errors.Is(err, contextErr) {
 		s := strings.TrimPrefix(err.Error(), contextErr.Error())
 		fmt.Println(m.styles.err.Render(s))
+
+	} else if errors.Is(err, commandErr) {
+		// debugger commands
+		var drained bool
+		for !drained {
+			select {
+			default:
+				drained = true
+			case cmd := <-m.cmds:
+				m.commands(cmd)
+				return runContinue
+			}
+		}
+
 	} else if err != nil {
 		fmt.Println(m.styles.err.Render(err.Error()))
 	}
 
-	return false
+	return runStop
 }
 
 func (m *debugger) loop() {
@@ -535,6 +579,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		ctx:          ctx,
 		guiQuit:      guiQuit,
 		state:        g.State,
+		cmds:         g.Commands,
 		sig:          make(chan os.Signal, 1),
 		input:        make(chan input, 1),
 		loader:       loader,

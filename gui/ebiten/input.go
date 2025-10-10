@@ -1,10 +1,28 @@
 package ebiten
 
 import (
+	"fmt"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/jetsetilly/test7800/gui"
 )
+
+func (eg *guiEbiten) inputDragAndDrop() error {
+	df := ebiten.DroppedFiles()
+	if df != nil {
+		f := fmt.Sprintf("%v", df)
+		if len(f) > 3 {
+			f = f[3 : len(f)-2]
+			select {
+			case eg.g.Commands <- []string{"INSERT", f}:
+			default:
+				return nil
+			}
+		}
+	}
+	return nil
+}
 
 func (eg *guiEbiten) inputGamepadAxis() error {
 	const gamepad = 0
@@ -14,7 +32,7 @@ func (eg *guiEbiten) inputGamepadAxis() error {
 	v := ebiten.GamepadAxis(gamepad, 0)
 	if eg.gamepadAnalogue[0] != 0 && v <= deadzone && v >= -deadzone {
 		// stick is in the deadzone so make sure left/right input is nullified
-		for _, v := range []gui.Input{{Action: gui.StickLeft}, {Action: gui.StickRight}} {
+		for _, v := range []gui.Input{{Action: gui.StickLeft, Data: false}, {Action: gui.StickRight, Data: false}} {
 			select {
 			case eg.g.UserInput <- v:
 			default:
@@ -28,14 +46,14 @@ func (eg *guiEbiten) inputGamepadAxis() error {
 	} else if v != eg.gamepadAnalogue[0] {
 		if v < -deadzone {
 			select {
-			case eg.g.UserInput <- gui.Input{Action: gui.StickLeft, Set: true}:
+			case eg.g.UserInput <- gui.Input{Action: gui.StickLeft, Data: true}:
 			default:
 				return nil
 			}
 			eg.gamepadAnalogue[0] = v
 		} else if v > deadzone {
 			select {
-			case eg.g.UserInput <- gui.Input{Action: gui.StickRight, Set: true}:
+			case eg.g.UserInput <- gui.Input{Action: gui.StickRight, Data: true}:
 			default:
 				return nil
 			}
@@ -46,7 +64,7 @@ func (eg *guiEbiten) inputGamepadAxis() error {
 	// up and down direction of the stick
 	v = ebiten.GamepadAxis(gamepad, 1)
 	if eg.gamepadAnalogue[1] != 0 && v <= deadzone && v >= -deadzone {
-		for _, v := range []gui.Input{{Action: gui.StickUp}, {Action: gui.StickDown}} {
+		for _, v := range []gui.Input{{Action: gui.StickUp, Data: false}, {Action: gui.StickDown, Data: false}} {
 			select {
 			case eg.g.UserInput <- v:
 			default:
@@ -58,14 +76,14 @@ func (eg *guiEbiten) inputGamepadAxis() error {
 	} else if v != eg.gamepadAnalogue[1] {
 		if v < -deadzone {
 			select {
-			case eg.g.UserInput <- gui.Input{Action: gui.StickUp, Set: true}:
+			case eg.g.UserInput <- gui.Input{Action: gui.StickUp, Data: true}:
 			default:
 				return nil
 			}
 			eg.gamepadAnalogue[1] = v
 		} else if v > deadzone {
 			select {
-			case eg.g.UserInput <- gui.Input{Action: gui.StickDown, Set: true}:
+			case eg.g.UserInput <- gui.Input{Action: gui.StickDown, Data: true}:
 			default:
 				return nil
 			}
@@ -88,27 +106,27 @@ func (eg *guiEbiten) inputGamepad() error {
 		switch p {
 		// d-pad
 		case ebiten.GamepadButton14:
-			inp = gui.Input{Action: gui.StickLeft}
+			inp = gui.Input{Action: gui.StickLeft, Data: false}
 		case ebiten.GamepadButton12:
-			inp = gui.Input{Action: gui.StickRight}
+			inp = gui.Input{Action: gui.StickRight, Data: false}
 		case ebiten.GamepadButton11:
-			inp = gui.Input{Action: gui.StickUp}
+			inp = gui.Input{Action: gui.StickUp, Data: false}
 		case ebiten.GamepadButton13:
-			inp = gui.Input{Action: gui.StickDown}
+			inp = gui.Input{Action: gui.StickDown, Data: false}
 
 		// fire buttons
 		case ebiten.GamepadButton0, ebiten.GamepadButton2:
-			inp = gui.Input{Action: gui.StickButtonA}
+			inp = gui.Input{Action: gui.StickButtonA, Data: false}
 		case ebiten.GamepadButton1, ebiten.GamepadButton3:
-			inp = gui.Input{Action: gui.StickButtonB}
+			inp = gui.Input{Action: gui.StickButtonB, Data: false}
 
 		// control
 		case ebiten.GamepadButton8: // xbox button
-			inp = gui.Input{Action: gui.Select}
+			inp = gui.Input{Action: gui.Select, Data: false}
 		case ebiten.GamepadButton6: // back button
-			inp = gui.Input{Action: gui.Pause}
+			inp = gui.Input{Action: gui.Pause, Data: false}
 		case ebiten.GamepadButton7: // start button
-			inp = gui.Input{Action: gui.Start}
+			inp = gui.Input{Action: gui.Start, Data: false}
 		}
 
 		select {
@@ -122,27 +140,27 @@ func (eg *guiEbiten) inputGamepad() error {
 		switch p {
 		// d-pad
 		case ebiten.GamepadButton14:
-			inp = gui.Input{Action: gui.StickLeft, Set: true}
+			inp = gui.Input{Action: gui.StickLeft, Data: true}
 		case ebiten.GamepadButton12:
-			inp = gui.Input{Action: gui.StickRight, Set: true}
+			inp = gui.Input{Action: gui.StickRight, Data: true}
 		case ebiten.GamepadButton11:
-			inp = gui.Input{Action: gui.StickUp, Set: true}
+			inp = gui.Input{Action: gui.StickUp, Data: true}
 		case ebiten.GamepadButton13:
-			inp = gui.Input{Action: gui.StickDown, Set: true}
+			inp = gui.Input{Action: gui.StickDown, Data: true}
 
 		// fire buttons
 		case ebiten.GamepadButton0, ebiten.GamepadButton2:
-			inp = gui.Input{Action: gui.StickButtonA, Set: true}
+			inp = gui.Input{Action: gui.StickButtonA, Data: true}
 		case ebiten.GamepadButton1, ebiten.GamepadButton3:
-			inp = gui.Input{Action: gui.StickButtonB, Set: true}
+			inp = gui.Input{Action: gui.StickButtonB, Data: true}
 
 		// control
 		case ebiten.GamepadButton8: // xbox button
-			inp = gui.Input{Action: gui.Select, Set: true}
+			inp = gui.Input{Action: gui.Select, Data: true}
 		case ebiten.GamepadButton6: // back button
-			inp = gui.Input{Action: gui.Pause, Set: true}
+			inp = gui.Input{Action: gui.Pause, Data: true}
 		case ebiten.GamepadButton7: // start button
-			inp = gui.Input{Action: gui.Start, Set: true}
+			inp = gui.Input{Action: gui.Start, Data: true}
 		}
 
 		select {
@@ -168,27 +186,27 @@ func (eg *guiEbiten) inputKeyboard() error {
 		case ebiten.KeyEscape:
 			return ebiten.Termination
 		case ebiten.KeyArrowLeft, ebiten.KeyNumpad4:
-			inp = gui.Input{Action: gui.StickLeft}
+			inp = gui.Input{Action: gui.StickLeft, Data: false}
 		case ebiten.KeyArrowRight, ebiten.KeyNumpad6:
-			inp = gui.Input{Action: gui.StickRight}
+			inp = gui.Input{Action: gui.StickRight, Data: false}
 		case ebiten.KeyArrowUp, ebiten.KeyNumpad8:
-			inp = gui.Input{Action: gui.StickUp}
+			inp = gui.Input{Action: gui.StickUp, Data: false}
 		case ebiten.KeyArrowDown, ebiten.KeyNumpad2:
-			inp = gui.Input{Action: gui.StickDown}
+			inp = gui.Input{Action: gui.StickDown, Data: false}
 		case ebiten.KeySpace, ebiten.KeyZ:
-			inp = gui.Input{Action: gui.StickButtonA}
+			inp = gui.Input{Action: gui.StickButtonA, Data: false}
 		case ebiten.KeyB, ebiten.KeyX:
-			inp = gui.Input{Action: gui.StickButtonB}
+			inp = gui.Input{Action: gui.StickButtonB, Data: false}
 		case ebiten.KeyF1:
-			inp = gui.Input{Action: gui.Select}
+			inp = gui.Input{Action: gui.Select, Data: false}
 		case ebiten.KeyF2:
-			inp = gui.Input{Action: gui.Start}
+			inp = gui.Input{Action: gui.Start, Data: false}
 		case ebiten.KeyF3:
-			inp = gui.Input{Action: gui.Pause}
+			inp = gui.Input{Action: gui.Pause, Data: false}
 		case ebiten.KeyF4:
-			inp = gui.Input{Action: gui.P0Pro, Set: eg.proDifficulty[0]}
+			inp = gui.Input{Action: gui.P0Pro, Data: eg.proDifficulty[0]}
 		case ebiten.KeyF5:
-			inp = gui.Input{Action: gui.P1Pro, Set: eg.proDifficulty[1]}
+			inp = gui.Input{Action: gui.P1Pro, Data: eg.proDifficulty[1]}
 		}
 
 		select {
@@ -201,23 +219,23 @@ func (eg *guiEbiten) inputKeyboard() error {
 	for _, r := range pressed {
 		switch r {
 		case ebiten.KeyArrowLeft, ebiten.KeyNumpad4:
-			inp = gui.Input{Action: gui.StickLeft, Set: true}
+			inp = gui.Input{Action: gui.StickLeft, Data: true}
 		case ebiten.KeyArrowRight, ebiten.KeyNumpad6:
-			inp = gui.Input{Action: gui.StickRight, Set: true}
+			inp = gui.Input{Action: gui.StickRight, Data: true}
 		case ebiten.KeyArrowUp, ebiten.KeyNumpad8:
-			inp = gui.Input{Action: gui.StickUp, Set: true}
+			inp = gui.Input{Action: gui.StickUp, Data: true}
 		case ebiten.KeyArrowDown, ebiten.KeyNumpad2:
-			inp = gui.Input{Action: gui.StickDown, Set: true}
+			inp = gui.Input{Action: gui.StickDown, Data: true}
 		case ebiten.KeySpace, ebiten.KeyZ:
-			inp = gui.Input{Action: gui.StickButtonA, Set: true}
+			inp = gui.Input{Action: gui.StickButtonA, Data: true}
 		case ebiten.KeyB, ebiten.KeyX:
-			inp = gui.Input{Action: gui.StickButtonB, Set: true}
+			inp = gui.Input{Action: gui.StickButtonB, Data: true}
 		case ebiten.KeyF1:
-			inp = gui.Input{Action: gui.Select, Set: true}
+			inp = gui.Input{Action: gui.Select, Data: true}
 		case ebiten.KeyF2:
-			inp = gui.Input{Action: gui.Start, Set: true}
+			inp = gui.Input{Action: gui.Start, Data: true}
 		case ebiten.KeyF3:
-			inp = gui.Input{Action: gui.Pause, Set: true}
+			inp = gui.Input{Action: gui.Pause, Data: true}
 		case ebiten.KeyF4:
 			eg.proDifficulty[0] = !eg.proDifficulty[0]
 		case ebiten.KeyF5:

@@ -71,10 +71,14 @@ func (con *Console) Reset(random bool) error {
 	if random {
 		rnd = con.ctx
 	}
-	con.MC.Reset(rnd)
+
 	con.Mem.Reset(random)
-	con.MARIA.Reset()
 	con.RIOT.Reset()
+	con.TIA.Reset()
+	con.MARIA.Reset()
+
+	// reset CPU after memory reset so that we get the correct reset address (the BIOS might be locked)
+	con.MC.Reset(rnd)
 
 	return nil
 }
@@ -105,7 +109,7 @@ func (con *Console) Step() error {
 		case inp := <-con.g.UserInput:
 			switch inp.Action {
 			case gui.StickLeft:
-				if inp.Set {
+				if inp.Data.(bool) {
 					// unset the opposite direction first (applies to all
 					// other directions below)
 					con.RIOT.PortWrite(0x00, 0x80, 0x7f)
@@ -114,21 +118,21 @@ func (con *Console) Step() error {
 					con.RIOT.PortWrite(0x00, 0x40, 0xbf)
 				}
 			case gui.StickUp:
-				if inp.Set {
+				if inp.Data.(bool) {
 					con.RIOT.PortWrite(0x00, 0x20, 0xdf)
 					con.RIOT.PortWrite(0x00, 0x00, 0xef)
 				} else {
 					con.RIOT.PortWrite(0x00, 0x10, 0xef)
 				}
 			case gui.StickRight:
-				if inp.Set {
+				if inp.Data.(bool) {
 					con.RIOT.PortWrite(0x00, 0x40, 0xbf)
 					con.RIOT.PortWrite(0x00, 0x00, 0x7f)
 				} else {
 					con.RIOT.PortWrite(0x00, 0x80, 0x7f)
 				}
 			case gui.StickDown:
-				if inp.Set {
+				if inp.Data.(bool) {
 					con.RIOT.PortWrite(0x00, 0x10, 0xef)
 					con.RIOT.PortWrite(0x00, 0x00, 0xdf)
 				} else {
@@ -141,7 +145,7 @@ func (con *Console) Step() error {
 					return fmt.Errorf("stick button a: %w", err)
 				}
 				if b&0x04 == 0x04 {
-					if inp.Set {
+					if inp.Data.(bool) {
 						con.TIA.PortWrite(0x0c, 0x00, 0x7f)
 					} else {
 						con.TIA.PortWrite(0x0c, 0x80, 0x7f)
@@ -149,7 +153,7 @@ func (con *Console) Step() error {
 				} else {
 					// the two-button stick write to INPT0/INPT1 has an opposite logic to
 					// the write to INPT4/INPT5
-					if inp.Set {
+					if inp.Data.(bool) {
 						con.TIA.PortWrite(0x09, 0x80, 0x7f)
 					} else {
 						con.TIA.PortWrite(0x09, 0x00, 0x7f)
@@ -162,7 +166,7 @@ func (con *Console) Step() error {
 					return fmt.Errorf("stick button b: %w", err)
 				}
 				if b&0x04 == 0x04 {
-					if inp.Set {
+					if inp.Data.(bool) {
 						con.TIA.PortWrite(0x0c, 0x00, 0x7f)
 					} else {
 						con.TIA.PortWrite(0x0c, 0x80, 0x7f)
@@ -170,38 +174,38 @@ func (con *Console) Step() error {
 				} else {
 					// the two-button stick write to INPT0/INPT1 has an opposite logic to
 					// the write to INPT4/INPT5
-					if inp.Set {
+					if inp.Data.(bool) {
 						con.TIA.PortWrite(0x08, 0x80, 0x7f)
 					} else {
 						con.TIA.PortWrite(0x08, 0x00, 0x7f)
 					}
 				}
 			case gui.Select:
-				if inp.Set {
+				if inp.Data.(bool) {
 					con.RIOT.PortWrite(0x02, 0x00, 0xfd)
 				} else {
 					con.RIOT.PortWrite(0x02, 0x02, 0xfd)
 				}
 			case gui.Start:
-				if inp.Set {
+				if inp.Data.(bool) {
 					con.RIOT.PortWrite(0x02, 0x00, 0xfe)
 				} else {
 					con.RIOT.PortWrite(0x02, 0x01, 0xfe)
 				}
 			case gui.Pause:
-				if inp.Set {
+				if inp.Data.(bool) {
 					con.RIOT.PortWrite(0x02, 0x00, 0xf7)
 				} else {
 					con.RIOT.PortWrite(0x02, 0x08, 0xf7)
 				}
 			case gui.P0Pro:
-				if inp.Set {
+				if inp.Data.(bool) {
 					con.RIOT.PortWrite(0x02, 0x80, 0x7f)
 				} else {
 					con.RIOT.PortWrite(0x02, 0x00, 0x7f)
 				}
 			case gui.P1Pro:
-				if inp.Set {
+				if inp.Data.(bool) {
 					con.RIOT.PortWrite(0x02, 0x40, 0xbf)
 				} else {
 					con.RIOT.PortWrite(0x02, 0x00, 0xbf)

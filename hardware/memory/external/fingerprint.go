@@ -14,6 +14,7 @@ import (
 	"github.com/jetsetilly/test7800/logger"
 )
 
+// CartridgeReset contains 'instructions' to be followed when the cartridge is inserted
 type CartridgeReset struct {
 	// if BypassBIOS is true then the normal BIOS initialisation procedure is bypassed
 	BypassBIOS bool

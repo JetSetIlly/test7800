@@ -36,9 +36,12 @@ type AudioSetup struct {
 	Read AudioReader
 }
 
+type Command []string
+
 type GUI struct {
 	SetImage  chan Image
 	UserInput chan Input
+	Commands  chan Command
 
 	// implementations of UI should default to StateRunning
 	State chan State
@@ -56,6 +59,7 @@ func NewGUI() *GUI {
 	return &GUI{
 		SetImage:   make(chan Image, 1),
 		UserInput:  make(chan Input, 10),
+		Commands:   make(chan Command, 10),
 		State:      make(chan State, 1),
 		AudioSetup: make(chan AudioSetup, 1),
 	}

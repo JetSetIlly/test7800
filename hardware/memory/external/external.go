@@ -41,8 +41,10 @@ func Create(ctx Context) *Device {
 }
 
 func (dev *Device) Insert(c CartridgeInsertor) error {
+	// eject any existing device to make sure we forget about any chips on the optional bus
+	dev.Eject()
+
 	if c.creator == nil {
-		dev.Eject()
 		return nil
 	}
 

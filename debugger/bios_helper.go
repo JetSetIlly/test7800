@@ -21,6 +21,7 @@ type biosHelper struct {
 func (hlp *biosHelper) reset(md5sum string) {
 	const supportedBIOS = "0x0763f1ffb006ddbe32e52d497ee848ae"
 	hlp.cartridgeAccepted = hlp.bypass && md5sum == supportedBIOS
+	hlp.checksum = false
 }
 
 func (hlp *biosHelper) cartridgeAcceptedCheck(mc *cpu.CPU) error {

@@ -120,6 +120,12 @@ func (eg *guiEbiten) Update() error {
 		return ebiten.Termination
 	}
 
+	// drag and drop of files is a special type of input
+	err = eg.inputDragAndDrop()
+	if err != nil {
+		logger.Log(logger.Allow, "gui", err.Error())
+	}
+
 	// change state if necessary
 	select {
 	case eg.state = <-eg.g.State:

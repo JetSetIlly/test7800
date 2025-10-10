@@ -6,14 +6,32 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jetsetilly/dialog"
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/hardware/memory"
+	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/logger"
 )
 
 // returns true if debugger is to quit
 func (m *debugger) commands(cmd []string) bool {
 	switch strings.ToUpper(cmd[0]) {
+	case "INSERT":
+		if len(cmd) < 2 {
+			fmt.Println(m.styles.err.Render(
+				"INSERT requires a filename",
+			))
+			break // switch
+		}
+
+		var err error
+		m.loader, err = external.Fingerprint(cmd[1], "AUTO")
+		if err != nil {
+			dialog.Message("Problem with selected file\n\n%v", err).Error()
+		} else {
+			m.reset()
+		}
+
 	case "BOOT":
 		if len(cmd) < 5 {
 			fmt.Println(m.styles.err.Render(

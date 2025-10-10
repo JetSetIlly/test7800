@@ -4,11 +4,12 @@ type Action int
 
 type Input struct {
 	Action Action
-	Set    bool
+	Data   any
 }
 
 const (
 	Nothing Action = iota
+
 	StickLeft
 	StickUp
 	StickRight
