@@ -463,6 +463,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var audio string
 	var samplerate int
 	var mapper string
+	var useDialog bool
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
 	flgs.StringVar(&spec, "spec", "AUTO", "TV specification of the console: AUTO, NTSC or PAL")
@@ -476,6 +477,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.StringVar(&audio, "audio", "MONO", "enable audio: MONO, STEREO, NONE")
 	flgs.IntVar(&samplerate, "samplerate", 48000, "sample rate of audio")
 	flgs.StringVar(&mapper, "mapper", "AUTO", "mapper selection. automatic selection by default")
+	flgs.BoolVar(&useDialog, "dialog", true, "present user with file dialogue on startup if no file is specified")
 	err := flgs.Parse(args)
 	if err != nil {
 		return err
@@ -517,34 +519,36 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 
 	// if no filename has been specified then open a file dialog
 	if len(args) == 0 {
-		lastSelectedROM, err := resources.Read("lastSelectedROM")
-		if err != nil {
-			return err
-		}
-
-		dlg := dialog.File()
-		dlg = dlg.Title("Select 7800 ROM")
-		dlg = dlg.Filter("7800 Files", "a78", "bin", "elf", "boot")
-		dlg = dlg.Filter("A78 Files Only", "a78")
-		dlg = dlg.Filter("All Files")
-		dlg = dlg.SetStartDir(filepath.Dir(lastSelectedROM))
-		filename, err = dlg.Load()
-		if err != nil {
-			if errors.Is(err, dialog.ErrCancelled) {
-				return nil
+		if useDialog {
+			lastSelectedROM, err := resources.Read("lastSelectedROM")
+			if err != nil {
+				return err
 			}
-			return err
-		}
 
-		loader, err = external.Fingerprint(filename, mapper)
-		if err != nil {
-			dialog.Message("Problem with selected file\n\n%v", err).Error()
-			return err
-		}
+			dlg := dialog.File()
+			dlg = dlg.Title("Select 7800 ROM")
+			dlg = dlg.Filter("7800 Files", "a78", "bin", "elf", "boot")
+			dlg = dlg.Filter("A78 Files Only", "a78")
+			dlg = dlg.Filter("All Files")
+			dlg = dlg.SetStartDir(filepath.Dir(lastSelectedROM))
+			filename, err = dlg.Load()
+			if err != nil {
+				if errors.Is(err, dialog.ErrCancelled) {
+					return nil
+				}
+				return err
+			}
 
-		err = resources.Write("lastSelectedROM", filename)
-		if err != nil {
-			return err
+			loader, err = external.Fingerprint(filename, mapper)
+			if err != nil {
+				dialog.Message("Problem with selected file\n\n%v", err).Error()
+				return err
+			}
+
+			err = resources.Write("lastSelectedROM", filename)
+			if err != nil {
+				return err
+			}
 		}
 
 		// we always want to run immediately if the filename has been chosen through the file dialog
