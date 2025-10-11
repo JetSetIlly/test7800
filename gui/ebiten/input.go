@@ -2,6 +2,7 @@ package ebiten
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -11,11 +12,11 @@ import (
 func (eg *guiEbiten) inputDragAndDrop() error {
 	df := ebiten.DroppedFiles()
 	if df != nil {
-		f := fmt.Sprintf("%v", df)
-		if len(f) > 3 {
-			f = f[3 : len(f)-2]
+		f := fmt.Sprintf("%#v", df)
+		s := strings.Split(f, "\"")
+		if len(s) > 1 {
 			select {
-			case eg.g.Commands <- []string{"INSERT", f}:
+			case eg.g.Commands <- []string{"INSERT", s[1]}:
 			default:
 				return nil
 			}
