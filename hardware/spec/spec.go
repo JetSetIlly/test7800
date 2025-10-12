@@ -48,7 +48,7 @@ func init() {
 		// starts on raster 16 and ends on raster 258."
 		ID:             "NTSC",
 		VisibleTop:     16,
-		VisibleBottom:  258,
+		VisibleBottom:  261,
 		SafeTop:        41,
 		SafeBottom:     233,
 		AbsoluteBottom: 263,
