@@ -15,6 +15,10 @@ import (
 
 // returns true if debugger is to quit
 func (m *debugger) commands(cmd []string) bool {
+	if len(cmd) == 0 {
+		return false
+	}
+
 	switch strings.ToUpper(cmd[0]) {
 	case "INSERT":
 		if len(cmd) < 2 {
