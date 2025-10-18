@@ -2,7 +2,8 @@ package ebiten
 
 import (
 	"fmt"
-	"strings"
+	"io"
+	"io/fs"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -11,17 +12,36 @@ import (
 
 func (eg *guiEbiten) inputDragAndDrop() error {
 	df := ebiten.DroppedFiles()
-	if df != nil {
-		f := fmt.Sprintf("%#v", df)
-		s := strings.Split(f, "\"")
-		if len(s) > 1 {
+	if df == nil {
+		return nil
+	}
+
+	if dfs, ok := df.(fs.ReadDirFS); ok {
+		fls, err := dfs.ReadDir(".")
+		if err != nil {
+			return err
+		}
+		if len(fls) > 0 {
+			f, err := df.Open(fls[0].Name())
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			b, err := io.ReadAll(f)
+			if err != nil {
+				return err
+			}
 			select {
-			case eg.g.Commands <- []string{"INSERT", s[1]}:
+			case eg.g.Blob <- gui.Blob{
+				Filename: fls[0].Name(),
+				Data:     b,
+			}:
 			default:
-				return nil
+				return fmt.Errorf("couldn't drop file")
 			}
 		}
 	}
+
 	return nil
 }
 

@@ -65,7 +65,10 @@ func Fingerprint(filename string, mapper string) (CartridgeInsertor, error) {
 	if err != nil {
 		return CartridgeInsertor{}, err
 	}
+	return FingerprintBlob(filename, d, mapper)
+}
 
+func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsertor, error) {
 	// normalise mapper string
 	mapper = strings.ToUpper(mapper)
 

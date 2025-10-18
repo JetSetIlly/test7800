@@ -38,10 +38,16 @@ type AudioSetup struct {
 
 type Command []string
 
+type Blob struct {
+	Filename string
+	Data     []uint8
+}
+
 type GUI struct {
 	SetImage  chan Image
 	UserInput chan Input
 	Commands  chan Command
+	Blob      chan Blob
 
 	// implementations of UI should default to StateRunning
 	State chan State
@@ -60,6 +66,7 @@ func NewGUI() *GUI {
 		SetImage:   make(chan Image, 1),
 		UserInput:  make(chan Input, 10),
 		Commands:   make(chan Command, 10),
+		Blob:       make(chan Blob, 1),
 		State:      make(chan State, 1),
 		AudioSetup: make(chan AudioSetup, 1),
 	}

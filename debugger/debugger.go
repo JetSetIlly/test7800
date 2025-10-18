@@ -44,6 +44,7 @@ type debugger struct {
 	// argument
 	state chan gui.State
 	cmds  chan gui.Command
+	blob  chan gui.Blob
 
 	console        *hardware.Console
 	breakpoints    map[uint16]bool
@@ -249,6 +250,8 @@ func (m *debugger) runLoop() error {
 			return endRunErr
 		case <-m.guiQuit:
 			return quitErr
+		case d := <-m.blob:
+			m.loadBlob(d)
 		default:
 		}
 
@@ -417,6 +420,15 @@ func (m *debugger) runLoop() error {
 	return runStop
 }
 
+func (m *debugger) loadBlob(blob gui.Blob) {
+	loader, err := external.FingerprintBlob(blob.Filename, blob.Data, "AUTO")
+	if err != nil {
+		return
+	}
+	m.loader = loader
+	m.reset()
+}
+
 func (m *debugger) loop() {
 	for {
 		fmt.Printf("%s> ", m.console.MARIA.Coords.ShortString())
@@ -426,6 +438,8 @@ func (m *debugger) loop() {
 		select {
 		case cmd = <-m.cmds:
 			fmt.Print("\r")
+		case d := <-m.blob:
+			m.loadBlob(d)
 		case input := <-m.input:
 			if input.err != nil {
 				fmt.Println(m.styles.err.Render(input.err.Error()))
@@ -587,6 +601,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		guiQuit:      guiQuit,
 		state:        g.State,
 		cmds:         g.Commands,
+		blob:         g.Blob,
 		sig:          make(chan os.Signal, 1),
 		input:        make(chan input, 1),
 		loader:       loader,
