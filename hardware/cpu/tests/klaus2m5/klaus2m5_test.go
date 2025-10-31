@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/jetsetilly/test7800/hardware/cpu"
+	"github.com/jetsetilly/test7800/test"
 )
 
 type testMem struct {
@@ -113,9 +114,7 @@ func runTestBinary(t *testing.T, opt opts) {
 		// set to true. note that we expect the execution to return false. if it
 		// does not then something unexpected has gone wrong
 		ok := run(true)
-		if ok {
-			t.Fatalf("unexpected run() success")
-		}
+		test.DemandFailure(t, ok)
 
 		// output immediate CPU history
 		for _, l := range history {
