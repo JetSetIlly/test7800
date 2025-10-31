@@ -62,6 +62,10 @@ func (ctx *Context) UseStereo() bool {
 	return false
 }
 
+func (ctx *Context) SampleRate() (int, bool) {
+	return 48000, true
+}
+
 func main() {
 	// logger messages will be viewable in javascript log for WASM build
 	logger.SetEcho(os.Stderr, false)
