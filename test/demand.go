@@ -17,44 +17,44 @@ package test
 
 import "testing"
 
-// DemandEquility is used to test equality between one value and another. If the
+// DemandEquality is used to test equality between one value and another. If the
 // test fails it is a testing fatility
 //
 // This is particular useful if the values being tested are used in further
 // tests and so must be correct. For example, testing that the lengths of two
 // slices are equal before iterating over them in unison
-func DemandEquality[T comparable](t *testing.T, v T, expectedValue T) {
+func DemandEquality[T comparable](t *testing.T, v T, expectedValue T, tags ...any) {
 	t.Helper()
 	if v != expectedValue {
-		t.Fatalf("equality test of type %T failed: '%v' does not equal '%v')", v, v, expectedValue)
+		t.Fatalf("%sequality test of type %T failed: '%v' does not equal '%v')", id(tags...), v, v, expectedValue)
 	}
 }
 
-// DemandSucess is used to test for a value which indicates an 'successful'
+// DemandSuccess is used to test for a value which indicates an 'successful'
 // value for the type. See ExpectSucess() for more information on success
 // values
-func DemandSuccess(t *testing.T, v any) {
+func DemandSuccess(t *testing.T, v any, tags ...any) {
 	t.Helper()
-	if !expectSuccess(t, v) {
-		t.Fatalf("a success value is demanded for type %T", v)
+	if !expect(t, v, tags...) {
+		t.Fatalf("%sa success value is demanded for type %T", id(tags...), v)
 	}
 }
 
 // DemandFailure is used to test for a value which indicates an 'unsuccessful'
 // value for the type. See ExpectFailure() for more information on failure
 // values
-func DemandFailure(t *testing.T, v any) {
+func DemandFailure(t *testing.T, v any, tags ...any) {
 	t.Helper()
-	if !expectFailure(t, v) {
-		t.Fatalf("a failure value is demanded for type %T", v)
+	if expect(t, v, tags...) {
+		t.Fatalf("%sa failure value is demanded for type %T", id(tags...), v)
 	}
 }
 
 // DemandImplements tests whether an instance is an implementation of type T
-func DemandImplements[T comparable](t *testing.T, instance any, implements T) bool {
+func DemandImplements[T comparable](t *testing.T, instance any, implements T, tags ...any) bool {
 	t.Helper()
 	if _, ok := instance.(T); !ok {
-		t.Fatalf("implementation test of type %T failed: type %T does not implement %T", instance, instance, implements)
+		t.Fatalf("%simplementation test of type %T failed: type %T does not implement %T", id(tags...), instance, instance, implements)
 		return false
 	}
 	return true

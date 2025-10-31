@@ -13,8 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Gopher2600.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package test contains helper functions to remove common boilerplate to make
-// testing easier.
+// Package test contains helper functions for standard Go testing.
 //
 // The ExpectEquality() is the most basic and probably the most useful function.
 // It compares like-typed variables for equality and returns true if they match.
@@ -24,13 +23,19 @@
 // success. These two functions work with bool or error and special handling for
 // nil.
 //
-// ExpectImplements() tests whether an instance implements the specified type.
+// All functions a return a boolean to indicate whether the test has passed. This allows
+// the user to control larger test procedures that have several stages.
 //
-// ExpectFailure(), ExpectSuccess() and ExpectImplements() all return a boolean
-// to indicate whether the test has passed. This allows the user to control
-// larger test procedures that have several stages
+// The tags argument for every public function allows the test to be tagged with
+// additional information. Each tag will appear at the beginning of any error
+// message separated by a colon. For example,
 //
-// The Writer type meanwhile, implements the io.Writer interface and should be
-// used to capture output. The Writer.Compare() function can then be used to
-// test for equality.
+//	v := false
+//	testFile = "my test data"
+//	lineNo = 100
+//	test.ExpectSuccess(t, v, testFile, lineNo)
+//
+// will fail with the following:
+//
+//	my test data: 100: a success value is expected for type bool
 package test

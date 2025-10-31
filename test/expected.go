@@ -21,10 +21,10 @@ import (
 )
 
 // ExpectEquality is used to test equality between one value and another
-func ExpectEquality[T comparable](t *testing.T, value T, expectedValue T) bool {
+func ExpectEquality[T comparable](t *testing.T, value T, expectedValue T, tags ...any) bool {
 	t.Helper()
 	if value != expectedValue {
-		t.Errorf("equality test of type %T failed: '%v' does not equal '%v')", value, value, expectedValue)
+		t.Errorf("%sequality test of type %T failed: '%v' does not equal '%v')", id(tags...), value, value, expectedValue)
 		return false
 	}
 	return true
@@ -32,7 +32,7 @@ func ExpectEquality[T comparable](t *testing.T, value T, expectedValue T) bool {
 
 // ExpectInequality is used to test inequality between one value and another. In
 // other words, the test does not want to succeed if the values are equal
-func ExpectInequality[T comparable](t *testing.T, value T, expectedValue T) bool {
+func ExpectInequality[T comparable](t *testing.T, value T, expectedValue T, tags ...any) bool {
 	t.Helper()
 	if value == expectedValue {
 		t.Errorf("inequality test of type %T failed: '%v' does equal '%v')", value, value, expectedValue)
@@ -51,7 +51,7 @@ type Approximate interface {
 //
 // Tolerance represents a percentage. For example, 0.5 is tolerance of +/- 50%.
 // If the tolerance value is negative then the positive equivalent is used.
-func ExpectApproximate[T Approximate](t *testing.T, value T, expectedValue T, tolerance float64) bool {
+func ExpectApproximate[T Approximate](t *testing.T, value T, expectedValue T, tolerance float64, tags ...any) bool {
 	t.Helper()
 
 	tolerance = math.Abs(tolerance)
@@ -60,7 +60,7 @@ func ExpectApproximate[T Approximate](t *testing.T, value T, expectedValue T, to
 	bot := float64(expectedValue) * (1 - tolerance)
 
 	if float64(value) < bot || float64(value) > top {
-		t.Errorf("approximation test of type %T failed: '%v' is outside the range '%v' to '%v')", value, value, top, bot)
+		t.Errorf("%sapproximation test of type %T failed: '%v' is outside the range '%v' to '%v')", id(tags...), value, value, top, bot)
 		return false
 	}
 	return true
@@ -73,37 +73,15 @@ func ExpectApproximate[T Approximate](t *testing.T, value T, expectedValue T, to
 //	bool == false
 //	error != nil
 //
-// If type is nil then the test will fail
-func ExpectFailure(t *testing.T, v any) bool {
+// # If type is nil then the test will fail
+//
+// Any other type will fatally fail - only bool, error and nil are supported
+func ExpectFailure(t *testing.T, v any, tags ...any) bool {
 	t.Helper()
-	if !expectFailure(t, v) {
-		t.Errorf("a failure value is expected for type %T", v)
+	if expect(t, v) {
+		t.Errorf("%sa failure value is expected for type %T", id(tags...), v)
 		return false
 	}
-	return true
-}
-
-func expectFailure(t *testing.T, v any) bool {
-	t.Helper()
-
-	switch v := v.(type) {
-	case bool:
-		if v {
-			return false
-		}
-
-	case error:
-		if v == nil {
-			return false
-		}
-
-	case nil:
-		return false
-
-	default:
-		t.Fatalf("unsupported type (%T) for ExpectSuccess()", v)
-	}
-
 	return true
 }
 
@@ -114,17 +92,21 @@ func expectFailure(t *testing.T, v any) bool {
 //	bool == true
 //	error == nil
 //
-// If type is nil then the test will succeed
-func ExpectSuccess(t *testing.T, v any) bool {
+// # If type is nil then the test will succeed
+//
+// Any other type will fatally fail - only bool, error and nil are supported
+func ExpectSuccess(t *testing.T, v any, tags ...any) bool {
 	t.Helper()
-	if !expectSuccess(t, v) {
-		t.Errorf("a success value is expected for type %T", v)
+	if !expect(t, v) {
+		t.Errorf("%sa success value is expected for type %T", id(tags...), v)
 		return false
 	}
 	return true
 }
 
-func expectSuccess(t *testing.T, v any) bool {
+// expect is a basic test for success/failure. if it returns true the value v is
+// considered to be "successful"
+func expect(t *testing.T, v any, tags ...any) bool {
 	t.Helper()
 
 	switch v := v.(type) {
@@ -142,7 +124,7 @@ func expectSuccess(t *testing.T, v any) bool {
 		return true
 
 	default:
-		t.Fatalf("unsupported type (%T) for ExpectSuccess()", v)
+		t.Fatalf("%sunsupported type (%T) for expect test", id(tags...), v)
 	}
 
 	return true
