@@ -668,7 +668,6 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 		// instruction is read but the PC is not incremented
 
 		if defn.Operator == instructions.Brk {
-			fmt.Printf("%04x %s\n", mc.LastResult.Address, defn)
 			// BRK is unusual in that it increases the PC by two bytes despite
 			// being an implied addressing instruction
 			// +1 cycle
