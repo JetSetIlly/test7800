@@ -5,6 +5,7 @@ import (
 
 	"github.com/jetsetilly/test7800/coprocessor"
 	"github.com/jetsetilly/test7800/hardware/memory/external/elf"
+	"github.com/jetsetilly/test7800/hardware/memory/external/hsc"
 	"github.com/jetsetilly/test7800/logger"
 )
 
@@ -63,6 +64,11 @@ func (dev *Device) Insert(c CartridgeInsertor) error {
 		}
 		dev.chips = append(dev.chips, s)
 		logger.Log(logger.Allow, "chips", s.Label())
+	}
+
+	if c.UseHSC {
+		logger.Logf(logger.Allow, "HSC", "inserting %s into high-score cartridge", dev.inserted.Label())
+		dev.inserted = hsc.Create(dev.ctx, dev.inserted)
 	}
 
 	return nil

@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -73,12 +74,21 @@ type debugger struct {
 
 	// biosHelper handling
 	biosHelper biosHelper
+
+	// use high-score cartridge shim. values should be "a78" or a string that is parsable using strconv.ParseBool()
+	hscAuto  bool
+	hscForce bool
 }
 
 func (m *debugger) reset() {
 	m.ctx.Reset()
 
 	var resetProcedure external.CartridgeReset
+
+	// update HSC flag for loader before inserting
+	if !m.hscAuto {
+		m.loader.UseHSC = m.hscForce
+	}
 
 	err := m.console.Insert(m.loader)
 	if err != nil {
@@ -470,6 +480,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var spec string
 	var profile string
 	var bios bool
+	var hsc string
 	var checksum bool
 	var overlay bool
 	var run bool
@@ -484,6 +495,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.StringVar(&spec, "tv", "AUTO", "alternative name for 'spec' argument")
 	flgs.StringVar(&profile, "profile", "NONE", "create profile for emulator: CPU, MEM or BOTH")
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
+	flgs.StringVar(&hsc, "hsc", "AUTO", "use High Score Cartridge: AUTO, TRUE or FALSE")
 	flgs.BoolVar(&checksum, "checksum", true, "allow BIOS checksum checks")
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
@@ -497,6 +509,20 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		return err
 	}
 	args = flgs.Args()
+
+	// handle hsc flag
+	var hscAuto bool
+	var hscForce bool
+	if strings.ToUpper(hsc) == "AUTO" {
+		hscAuto = true
+		hscForce = false
+	} else {
+		hscAuto = false
+		hscForce, err = strconv.ParseBool(hsc)
+		if err != nil {
+			return fmt.Errorf("hsc option should be one of AUTO, TRUE or FALSE")
+		}
+	}
 
 	// check that string options are valid. it's good to do this as early as possible even though we
 	// may not use the values until much later
@@ -614,6 +640,8 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 			bypass:   !bios,
 			checksum: checksum,
 		},
+		hscAuto:  hscAuto,
+		hscForce: hscForce,
 	}
 	m.console = hardware.Create(&m.ctx, g)
 	m.console.Reset(true)

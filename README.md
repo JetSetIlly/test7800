@@ -82,6 +82,16 @@ References to "7800 Software Guide" in comments are referring to [this wiki page
 
 [POKEY schematics](https://atarimuseum.ctrl-alt-rees.com/whatsnew/2016-NOV-2.html)
 
+#### High Score Cartridge
+
+[HSC BIOS Disassemblies](https://forums.atariage.com/topic/142139-high-score-cart-source-code/)
+
+[Initial SRAM contents](https://forums.atariage.com/topic/366014-hsc-uninitialized-data-formatting/)
+
+[Test ROM](https://forums.atariage.com/topic/314321-save-dev-test/)
+
+[Game Values](https://forums.atariage.com/topic/128432-high-score-cart-values/)
+
 ### Acknowledgements
 
 Zachary Scolaro helped with the MARIA emulation, particular to get it off the ground when I wasn't sure about it at all. And Rob Tuccitto has provided much advice and links to information about the 7800 internals. Thanks to both.

@@ -39,6 +39,10 @@ type CartridgeInsertor struct {
 
 	// list of additional chips (eg. POKEYs) that are present in the cartridge
 	chips []func(Context) (OptionalBus, error)
+
+	// use high-score cartridge shim with cartridge
+	UseHSC     bool
+	UseSavekey bool
 }
 
 func (c CartridgeInsertor) Filename() string {
@@ -142,6 +146,10 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 				spec = "NTSC"
 			}
 
+			// save device
+			useHSC := d[0x3a]&0x01 == 0x01
+			useSavekey := d[0x3a]&0x02 == 0x02
+
 			// cartridge type
 			cartType := (uint16(d[0x35]) << 8) | uint16(d[0x36])
 			logger.Logf(logger.Allow, "a78", "cart type: %08b %08b", uint8(cartType>>8), uint8(cartType))
@@ -192,6 +200,8 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 					OneButtonStick: oneButtonStick,
 					spec:           spec,
 					chips:          chips,
+					UseHSC:         useHSC,
+					UseSavekey:     useSavekey,
 				}, nil
 			}
 
@@ -211,6 +221,8 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 					OneButtonStick: oneButtonStick,
 					spec:           spec,
 					chips:          chips,
+					UseHSC:         useHSC,
+					UseSavekey:     useSavekey,
 				}, nil
 			}
 
@@ -225,6 +237,8 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 					OneButtonStick: oneButtonStick,
 					spec:           spec,
 					chips:          chips,
+					UseHSC:         useHSC,
+					UseSavekey:     useSavekey,
 				}, nil
 			}
 
@@ -241,6 +255,8 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 					OneButtonStick: oneButtonStick,
 					spec:           spec,
 					chips:          chips,
+					UseHSC:         useHSC,
+					UseSavekey:     useSavekey,
 				}, nil
 			}
 
@@ -261,6 +277,8 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 					OneButtonStick: oneButtonStick,
 					spec:           spec,
 					chips:          chips,
+					UseHSC:         useHSC,
+					UseSavekey:     useSavekey,
 				}, nil
 			}
 
