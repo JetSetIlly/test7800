@@ -2,7 +2,7 @@ package debugger
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -61,7 +61,7 @@ func (m *debugger) bootParse(args []string) error {
 
 // loads a ROM file at the stated origin and sets the PC accordingly
 func (m *debugger) boot(romfile string, origin mappedAddress, entry mappedAddress, inptctrl uint8) error {
-	d, err := ioutil.ReadFile(romfile)
+	d, err := os.ReadFile(romfile)
 	if err != nil {
 		return fmt.Errorf("error loading %s", romfile)
 	}
