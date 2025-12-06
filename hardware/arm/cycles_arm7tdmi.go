@@ -47,30 +47,32 @@ func (arm *ARM) sCycle_ARM7TDMI(bus busAccess, addr uint32) {
 	}
 	arm.state.lastCycle = S
 
-	if !arm.mmap.IsFlash(addr) {
+	id := arm.mmap.RegionID(addr)
+	clkLen := arm.clkLen[id]
+	if !clkLen.useMAM {
 		arm.state.stretchedCycles++
 		return
 	}
 
 	switch arm.state.mam.mamcr {
 	default:
-		arm.state.stretchedCycles += arm.clklenFlash
+		arm.state.stretchedCycles += clkLen.length
 	case 0:
-		arm.state.stretchedCycles += arm.clklenFlash
+		arm.state.stretchedCycles += clkLen.length
 	case 1:
 		// for MAM-1, we go to flash memory only if it's a program access (ie. not a data access)
 		if bus.isDataAccess() {
-			arm.state.stretchedCycles += arm.clklenFlash
+			arm.state.stretchedCycles += clkLen.length
 		} else if arm.isLatched(S, bus, addr) {
 			arm.state.stretchedCycles++
 		} else {
-			arm.state.stretchedCycles += arm.clklenFlash
+			arm.state.stretchedCycles += clkLen.length
 		}
 	case 2:
 		if arm.isLatched(S, bus, addr) {
 			arm.state.stretchedCycles++
 		} else {
-			arm.state.stretchedCycles += arm.clklenFlash
+			arm.state.stretchedCycles += clkLen.length
 		}
 	}
 }
@@ -117,23 +119,25 @@ func (arm *ARM) nCycle_ARM7TDMI(bus busAccess, addr uint32) {
 	}
 	arm.state.lastCycle = N
 
-	if !arm.mmap.IsFlash(addr) {
-		arm.state.stretchedCycles += float32(mclkNonFlash)
+	id := arm.mmap.RegionID(addr)
+	clkLen := arm.clkLen[id]
+	if !clkLen.useMAM {
+		arm.state.stretchedCycles++
 		return
 	}
 
 	switch arm.state.mam.mamcr {
 	default:
-		arm.state.stretchedCycles += arm.clklenFlash * float32(mclkFlash)
+		arm.state.stretchedCycles += clkLen.length * float32(mclkFlash)
 	case 0:
-		arm.state.stretchedCycles += arm.clklenFlash * float32(mclkFlash)
+		arm.state.stretchedCycles += clkLen.length * float32(mclkFlash)
 	case 1:
-		arm.state.stretchedCycles += arm.clklenFlash * float32(mclkFlash)
+		arm.state.stretchedCycles += clkLen.length * float32(mclkFlash)
 	case 2:
 		if arm.isLatched(N, bus, addr) {
 			arm.state.stretchedCycles += float32(mclkNonFlash)
 		} else {
-			arm.state.stretchedCycles += arm.clklenFlash * float32(mclkFlash)
+			arm.state.stretchedCycles += clkLen.length * float32(mclkFlash)
 		}
 	}
 }

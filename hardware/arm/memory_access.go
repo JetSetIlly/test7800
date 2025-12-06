@@ -17,44 +17,7 @@ package arm
 
 import (
 	"fmt"
-
-	"github.com/jetsetilly/test7800/coprocessor"
-	"github.com/jetsetilly/test7800/coprocessor/faults"
 )
-
-func (arm *ARM) memoryFault(event string, fault faults.Category, addr uint32) {
-	arm.state.yield.Type = coprocessor.YieldMemoryAccessError
-	arm.state.yield.Error = fmt.Errorf("%s: %s: %08x (PC: %08x)", fault, event, addr, arm.state.instructionPC)
-
-	if arm.dev == nil {
-		return
-	}
-
-	arm.dev.MemoryFault(event, fault, arm.state.instructionPC, addr)
-}
-
-func (arm *ARM) illegalAccess(event string, addr uint32) {
-	if arm.state.stackHasCollided {
-		return
-	}
-	if arm.abortOnMemoryFault {
-		arm.memoryFault(event, faults.IllegalAddress, addr)
-	}
-}
-
-// nullAccess is a special condition of illegalAccess()
-func (arm *ARM) nullAccess(event string, addr uint32) {
-	if arm.abortOnMemoryFault {
-		arm.memoryFault(event, faults.NullDereference, addr)
-	}
-}
-
-// misalignedAccess is a special condition of illegalAccess()
-func (arm *ARM) misalignedAccess(event string, addr uint32) {
-	if arm.misalignedAccessIsFault {
-		arm.memoryFault(event, faults.MisalignedAccess, addr)
-	}
-}
 
 func (arm *ARM) read8bit(addr uint32) uint8 {
 	if addr < arm.mmap.NullAccessBoundary {
@@ -85,6 +48,11 @@ func (arm *ARM) read8bit(addr uint32) uint8 {
 		}
 		if addr == arm.mmap.APBDIV {
 			return uint8(0)
+		}
+
+		if ok, name := arm.mmap.IsUnimplemented(addr); ok {
+			arm.unimplemented(fmt.Sprintf("Read 8bit: %s", name), addr)
+			return uint8(arm.mmap.IllegalAccessValue)
 		}
 
 		arm.illegalAccess("Read 8bit", addr)
@@ -125,6 +93,11 @@ func (arm *ARM) write8bit(addr uint32, val uint8) {
 			}
 		}
 		if addr == arm.mmap.APBDIV {
+			return
+		}
+
+		if ok, name := arm.mmap.IsUnimplemented(addr); ok {
+			arm.unimplemented(fmt.Sprintf("Write 8bit: %s", name), addr)
 			return
 		}
 
@@ -186,6 +159,11 @@ func (arm *ARM) read16bit(addr uint32, requiresAlignment bool) uint16 {
 			return uint16(0)
 		}
 
+		if ok, name := arm.mmap.IsUnimplemented(addr); ok {
+			arm.unimplemented(fmt.Sprintf("Read 16bit: %s", name), addr)
+			return uint16(arm.mmap.IllegalAccessValue)
+		}
+
 		arm.illegalAccess("Read 16bit", addr)
 		return uint16(arm.mmap.IllegalAccessValue)
 	}
@@ -238,6 +216,11 @@ func (arm *ARM) write16bit(addr uint32, val uint16, requiresAlignment bool) {
 			}
 		}
 		if addr == arm.mmap.APBDIV {
+			return
+		}
+
+		if ok, name := arm.mmap.IsUnimplemented(addr); ok {
+			arm.unimplemented(fmt.Sprintf("Write 16bit: %s", name), addr)
 			return
 		}
 
@@ -296,6 +279,11 @@ func (arm *ARM) read32bit(addr uint32, requiresAlignment bool) uint32 {
 			return uint32(0)
 		}
 
+		if ok, name := arm.mmap.IsUnimplemented(addr); ok {
+			arm.unimplemented(fmt.Sprintf("Read 32bit: %s", name), addr)
+			return arm.mmap.IllegalAccessValue
+		}
+
 		arm.illegalAccess("Read 32bit", addr)
 		return arm.mmap.IllegalAccessValue
 	}
@@ -348,6 +336,11 @@ func (arm *ARM) write32bit(addr uint32, val uint32, requiresAlignment bool) {
 			}
 		}
 		if addr == arm.mmap.APBDIV {
+			return
+		}
+
+		if ok, name := arm.mmap.IsUnimplemented(addr); ok {
+			arm.unimplemented(fmt.Sprintf("Write 32bit: %s", name), addr)
 			return
 		}
 

@@ -59,6 +59,9 @@ const cycleLimit = 1500000
 // running in immediate mode
 const instructionsLimit = 1300000
 
+// The latency above which the memory is considered slow for cycle counting purposes
+const slowMemoryLatency = 25.0
+
 // stepFunction variations are a result of different ARM architectures
 type stepFunction func(opcode uint16, memIdx int)
 
@@ -147,9 +150,8 @@ type ARMState struct {
 	protectVariableMemTop bool
 	variableMemtop        uint32
 
-	// once the stack has been found to have collided there are no more attempts
-	// to protect the stack
-	stackHasCollided bool
+	// once a stack has caused an error we no longer check for more stack errors
+	stackHasErrors bool
 
 	// cycle counting
 
@@ -193,11 +195,20 @@ type ARMState struct {
 	instruction32bitOpcodeHi uint16
 }
 
+// precalculated clock length values for each memory region
+type clkLen struct {
+	length float32
+	useMAM bool
+}
+
 // ARM implements the ARM7TDMI-S LPC2103 processor.
 type ARM struct {
 	mmap architecture.Map
 	mem  SharedMemory
 	hook CartridgeHook
+
+	// map of clkLen values per possible latency values
+	clkLen []clkLen
 
 	// the binary interface for reading data returned by SharedMemory interface.
 	// defaults to LittleEndian
@@ -211,8 +222,7 @@ type ARM struct {
 	state *ARMState
 
 	// updated on every call to run()
-	abortOnMemoryFault      bool
-	misalignedAccessIsFault bool
+	abortOnMemoryFault bool
 
 	// the speed at which the arm is running at and the required stretching for
 	// access to flash memory. speed is in MHz. Access latency of Flash memory is
@@ -229,8 +239,7 @@ type ARM struct {
 	// MAM also requires no stretching.
 	//
 	// updated from prefs on every Run() invocation
-	Clk         float32
-	clklenFlash float32
+	Clk float32
 
 	// value used to stretch (or shink) the number of cycles used by each
 	// instruction. a value of 1.0 is a neutral regulator
@@ -310,6 +319,7 @@ func NewARM(mmap architecture.Map, mem SharedMemory, hook CartridgeHook) *ARM {
 		mmap:           mmap,
 		mem:            mem,
 		hook:           hook,
+		clkLen:         make([]clkLen, len(mmap.Regions)+1),
 		byteOrder:      binary.LittleEndian,
 		executionCache: make(map[uint32][]decodeFunction),
 		state:          &ARMState{},
@@ -347,6 +357,12 @@ func NewARM(mmap architecture.Map, mem SharedMemory, hook CartridgeHook) *ARM {
 	arm.updatePrefs()
 
 	return arm
+}
+
+func (arm *ARM) Reset() {
+	arm.resetPeripherals()
+	arm.resetRegisters()
+	arm.resetYield()
 }
 
 // Sets the immediate mode cycle flag. This is required to be set for ARM drivers that yield
@@ -429,9 +445,21 @@ func (arm *ARM) updatePrefs() {
 	// update clock value from preferences
 	arm.Clk = 70.00
 
-	// clklen for flash based on flash latency setting
-	latencyInMhz := (1 / (arm.mmap.FlashLatency / 1000000000)) / 1000000
-	arm.clklenFlash = float32(math.Ceil(float64(arm.Clk) / latencyInMhz))
+	// update clkLen entries
+	for _, r := range arm.mmap.Regions {
+		id := arm.mmap.RegionID(r.Origin)
+		latencyInMhz := (1 / (r.Latency / 1000000000)) / 1000000
+		arm.clkLen[id] = clkLen{
+			length: float32(math.Ceil(float64(arm.Clk) / latencyInMhz)),
+			useMAM: r.UseMAM,
+		}
+	}
+
+	// default clk length
+	latencyInMhz := (1 / (1.0 / 1000000000)) / 1000000
+	arm.clkLen[0] = clkLen{
+		length: float32(math.Ceil(float64(arm.Clk) / latencyInMhz)),
+	}
 
 	// get clock regulator from preferences
 	arm.cycleRegulator = 1.0
@@ -460,7 +488,6 @@ func (arm *ARM) updatePrefs() {
 	}
 
 	arm.abortOnMemoryFault = false
-	arm.misalignedAccessIsFault = false
 }
 
 func (arm *ARM) String() string {
@@ -869,7 +896,7 @@ func (arm *ARM) run() (coprocessor.CoProcYield, float32) {
 
 		// stack frame has changed if LR register has changed
 		if expectedLR != arm.state.registers[rLR] {
-			arm.state.stackFrame = expectedSP
+			arm.state.stackFrame = arm.state.registers[rSP]
 		}
 
 		// disassemble if appropriate
@@ -928,34 +955,16 @@ func (arm *ARM) run() (coprocessor.CoProcYield, float32) {
 			}
 		}
 
-		// check for stack errors
-		if arm.state.yield.Type == coprocessor.YieldStackError {
-			if !arm.abortOnMemoryFault {
-				arm.logYield()
-				arm.resetYield()
-			}
-		} else {
-			if !arm.state.yield.Type.Normal() {
-				if arm.state.registers[rSP] != expectedSP {
-					arm.stackProtectCheckSP()
-					if arm.state.yield.Type == coprocessor.YieldStackError {
-						if !arm.abortOnMemoryFault {
-							arm.logYield()
-							arm.resetYield()
-						}
-					}
-				}
+		// check for stack errors if the arm is not already yielding and if the stack has changed
+		if arm.state.yield.Type.Normal() {
+			if arm.state.registers[rSP] != expectedSP {
+				arm.stackProtectCheckSP()
 			}
 		}
 
 		// handle memory access yields. we don't these want these to bleed out
 		// of the ARM unless the abort preference is set
-		if arm.state.yield.Type == coprocessor.YieldMemoryAccessError {
-			// choosing not to log memory access errors. it can be far
-			// too noisy particular during the pre-execution disassembly
-			// stage. we could maybe improve this by indicating that we
-			// expect memory faults and then allowing logging during
-			// normal execution
+		if arm.state.yield.Type == coprocessor.YieldMemoryFault {
 			if !arm.abortOnMemoryFault {
 				arm.resetYield()
 			}

@@ -191,7 +191,7 @@ func newElfMemory(ctx Context) *elfMemory {
 	// SRAM creation
 	const sramSize = 0x10000 // 64kb of SRAM
 	mem.sram = crunched.NewQuick(sramSize)
-	mem.sramOrigin = mem.model.SRAMOrigin
+	mem.sramOrigin = mem.model.Regions["SRAM"].Origin
 	mem.sramMemtop = mem.sramOrigin + sramSize
 
 	// randomise sram data
@@ -210,7 +210,7 @@ func (mem *elfMemory) decode(ef *elf.File) error {
 	mem.byteOrder = ef.ByteOrder
 
 	// load sections
-	origin := mem.model.FlashOrigin
+	origin := mem.model.Regions["CCM"].Origin
 	for _, sec := range ef.Sections {
 		section := &elfSection{
 			name:      sec.Name,
@@ -606,8 +606,8 @@ func (mem *elfMemory) runInitialisation(arm *arm.ARM) error {
 	// the link register should really link to a program that will indicate the
 	// program has ended. if we were emulating the real Uno/PlusCart firmware,
 	// the link register would point to the resume address in the firmware
-	mem.resetSP = mem.model.SRAMOrigin | 0x0000ffdc
-	mem.resetLR = mem.model.FlashOrigin
+	mem.resetSP = mem.model.Regions["SRAM"].Origin | 0x0000ffdc
+	mem.resetLR = mem.model.Regions["CCM"].Origin
 
 	for _, typ := range []elf.SectionType{elf.SHT_PREINIT_ARRAY, elf.SHT_INIT_ARRAY} {
 		for _, sec := range mem.sections {
