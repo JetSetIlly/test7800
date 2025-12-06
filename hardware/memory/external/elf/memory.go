@@ -175,6 +175,14 @@ type elfMemory struct {
 	// the inhibitStrongAccess boolean controls how the MapAddress() function
 	// will react to the accessing of strongarm addresses
 	inhibitStrongarmAccess bool
+
+	// followSnoopBusWithNOP exists only to help vcsRead6(). if there is ever a need to do something
+	// other than a NOP after a snoopDataBus we can think about a more generalised mechanism
+	followSnoopBusWithNOP bool
+
+	// non-volatile memory
+	nv     nonVolatileMem
+	md5sum string
 }
 
 func newElfMemory(ctx Context) *elfMemory {

@@ -16,6 +16,7 @@
 package elf
 
 import (
+	"crypto/md5"
 	"debug/elf"
 	"encoding/binary"
 	"fmt"
@@ -122,6 +123,7 @@ func NewElf(ctx Context, d []byte) (*Elf, error) {
 	if err != nil {
 		return nil, err
 	}
+	cart.mem.md5sum = fmt.Sprintf("%x", md5.Sum(d))
 
 	cart.arm.SetByteOrder(ef.ByteOrder)
 	cart.mem.busStuffingInit()
@@ -192,7 +194,6 @@ func (cart *Elf) reset() {
 	cart.arm.SetInitialRegisters(argOrigin)
 }
 
-// Access implements the mapper.CartMapper interface.
 func (cart *Elf) Access(_ bool, addr uint16, _ uint8) (uint8, error) {
 	if cart.mem.stream.active {
 		if !cart.mem.stream.drain {
@@ -211,7 +212,6 @@ func (cart *Elf) Access(_ bool, addr uint16, _ uint8) (uint8, error) {
 	return cart.mem.gpio.data[DATA_ODR], nil
 }
 
-// NumBanks implements the mapper.CartMapper interface.
 func (cart *Elf) NumBanks() int {
 	return 1
 }
@@ -338,12 +338,10 @@ func (cart *Elf) BusChange(addr uint16, data uint8) error {
 	return nil
 }
 
-// Step implements the mapper.CartMapper interface.
 func (cart *Elf) Step(clock float32) {
 	cart.arm.Step(clock)
 }
 
-// implements arm.CartridgeHook interface.
 func (cart *Elf) ARMinterrupt(addr uint32, val1 uint32, val2 uint32) (arm.ARMinterruptReturn, error) {
 	return arm.ARMinterruptReturn{}, nil
 }
@@ -373,16 +371,14 @@ func (cart *Elf) BusStuff() (uint8, bool) {
 	return 0, false
 }
 
-// ELFSection implements the coprocessor.CartCoProcRelocatable interface.
-func (cart *Elf) ELFSection(name string) ([]uint8, uint32, bool) {
+func (cart *Elf) Section(name string) ([]uint8, uint32) {
 	if idx, ok := cart.mem.sectionsByName[name]; ok {
 		s := cart.mem.sections[idx]
-		return s.data, s.origin, true
+		return s.data, s.origin
 	}
-	return nil, 0, false
+	return nil, 0
 }
 
-// CoProcExecutionState implements the coprocessor.CartCoProcHandler interface.
 func (cart *Elf) CoProcExecutionState() coprocessor.CoProcExecutionState {
 	if cart.mem.parallelARM {
 		return coprocessor.CoProcExecutionState{
@@ -396,12 +392,10 @@ func (cart *Elf) CoProcExecutionState() coprocessor.CoProcExecutionState {
 	}
 }
 
-// CoProcRegister implements the coprocessor.CartCoProcHandler interface.
 func (cart *Elf) GetCoProc() coprocessor.CartCoProc {
 	return cart.arm
 }
 
-// SetYieldHook implements the coprocessor.CartCoProcHandler interface.
 func (cart *Elf) SetYieldHook(hook coprocessor.CartYieldHook) {
 	cart.yieldHook = hook
 }

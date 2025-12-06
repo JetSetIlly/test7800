@@ -1,11 +1,11 @@
-ELF: .text: 20000000 to 20000037 (56) [4 trailing bytes]
+ELF: .text: 10000000 to 10000037 (56) [4 trailing bytes]
 ELF: .text: is readonly
 ELF: .text: is executable
-ELF: .data: 20000038 to 2000003b (4) [4 trailing bytes]
-ELF: .bss: 2000003c to 2000003f (4) [4 trailing bytes]
+ELF: .data: 10000038 to 1000003b (4) [4 trailing bytes]
+ELF: .bss: 1000003c to 1000003f (4) [4 trailing bytes]
 ELF: relocating .text
-ELF: ABS32 vcsSta3 (20000028) => 20000041
-ELF: ABS32 vcsWrite5 (2000002c) => 20000045
-ELF: ABS32 vcsJmp3 (20000030) => 20000049
-ELF: strongarm: 20000040 to 2000004b (12)
+ELF: ABS32 vcsSta3 (10000028) => 10000041
+ELF: ABS32 vcsWrite5 (1000002c) => 10000045
+ELF: ABS32 vcsJmp3 (10000030) => 10000049
+ELF: strongarm: 10000040 to 1000004b (12)
 ELF: ROM does not use any bus stuffing instructions

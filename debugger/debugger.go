@@ -93,7 +93,7 @@ func (m *debugger) reset() {
 	m.ctx.loaderSpec = m.loader.Spec()
 
 	// try and (re)attach coproc developer/disassembly to external device
-	coproc := m.console.Mem.External.GetCoProcHandler()
+	coproc := m.console.Mem.External.GetCoProcBus()
 	if coproc != nil {
 		coproc.GetCoProc().SetDeveloper(m.coprocDev)
 		if m.coprocDisasm.enabled {

@@ -41,12 +41,12 @@ func TestELF(t *testing.T) {
 	test.ExpectInequality(t, e, nil)
 
 	// there should be a .text section
-	_, _, ok := e.ELFSection(".text")
-	test.ExpectSuccess(t, ok)
+	s, _ := e.Section(".text")
+	test.ExpectSuccess(t, s != nil)
 
 	// there is no section named .foo
-	_, _, ok = e.ELFSection(".foo")
-	test.ExpectFailure(t, ok)
+	s, _ = e.Section(".foo")
+	test.ExpectFailure(t, s != nil)
 
 	// logging output
 	b := &bytes.Buffer{}

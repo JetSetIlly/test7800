@@ -16,6 +16,9 @@
 package coprocessor
 
 import (
+	"debug/dwarf"
+	"debug/elf"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"strings"
@@ -188,10 +191,10 @@ type CartCoProc interface {
 	Peek(addr uint32) (uint32, bool)
 }
 
-// CartCoProcHandler is implemented by cartridge mappers that have a coprocessor
-type CartCoProcHandler interface {
+// CartCoProcBus is implemented by cartridge mappers that have a coprocessor
+type CartCoProcBus interface {
 	// return the actual coprocessor interface. if the cartridge implements the
-	// CartCoProcHandler then it should always return a non-nil CartCoProc instance
+	// CartCoProcBus then it should always return a non-nil CartCoProc instance
 	GetCoProc() CartCoProc
 
 	// set interface for cartridge yields
@@ -199,18 +202,41 @@ type CartCoProcHandler interface {
 
 	// the state of the coprocessor
 	CoProcExecutionState() CoProcExecutionState
-
-	// notify cartridge of a change in emulation mode
-	//SetEmulationMode(govern.Mode)
 }
 
-// CartCoProcRelocatable is implemented by cartridge mappers where coprocessor
-// programs can be located anywhere in the coprcessor's memory
-type CartCoProcRelocatable interface {
-	// returns the offset of the named ELF section and whether the named
-	// section exists. not all cartridges that implement this interface will be
-	// able to meaningfully answer this function call
-	ELFSection(string) ([]uint8, uint32, bool)
+// CartCoProcSourceDebugging is implemented by cartridges that are sensitive to
+// being handled by the debugger (eg. breakpoints). This interface allows the
+// cartridge to disable any optimisations that might interfere with that
+type CartCoProcSourceDebugging interface {
+	// putting the cartridge into debuggging mode should happen as soon as
+	// possible in order to give it the best chance of working correctly
+	CoProcSourceDebugging()
+}
+
+// CartCoProcELF is implemented by cartridge mappers that can masquerade as ELF files
+type CartCoProcELF interface {
+	// returns the offset of the named ELF section and whether the named section exists
+	Section(string) ([]uint8, uint32)
+
+	// list of executable sections
+	ExecutableSections() []string
+
+	// returns any DWARF data for the cartridge
+	DWARF() (*dwarf.Data, error)
+
+	// the byte ordering used by the data
+	ByteOrder() binary.ByteOrder
+
+	// list of symbols in the ELF
+	Symbols() []elf.Symbol
+
+	// return whether the ELF cartridge is of the PXE type. the origin address of pRAM is also
+	// returned
+	PXE() (bool, uint32)
+
+	// the last pxe palette address that was referenced. returns false if the PXE is not
+	// enabled or initialised
+	LastPXEPalette(colour uint8) (bool, uint32)
 }
 
 // CartCoProcOrigin is implemented by cartridge mappers where coprocessor
@@ -298,6 +324,7 @@ const (
 	// the program has triggered an unimplemented feature in the coprocessor
 	YieldUnimplementedFeature CoProcYieldType = "Unimplemented Feature"
 
+	// the program has tried to access memory illegally. details will have been
 	// communicated by the MemoryFault() function in the CartCoProcDeveloper interface
 	YieldMemoryFault CoProcYieldType = "Memory Fault"
 
@@ -365,7 +392,7 @@ func (c *CartCoProcDisassemblerStderr) Start() {
 
 // Instruction implements the CartCoProcDisassembler interface.
 func (c *CartCoProcDisassemblerStderr) Step(e CartCoProcDisasmEntry) {
-	fmt.Fprintln(os.Stderr, e)
+	fmt.Fprintln(os.Stderr)
 }
 
 // End implements the CartCoProcDisassembler interface.

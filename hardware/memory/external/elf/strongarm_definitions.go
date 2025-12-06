@@ -71,6 +71,12 @@ func getStrongArmDefinition(mem *elfMemory, name string) (bool, uint32, error) {
 			function: vcsRead4,
 			support:  false,
 		})
+	case "vcsRead6":
+		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
+			name:     name,
+			function: vcsRead6,
+			support:  false,
+		})
 	case "vcsStartOverblank":
 		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
 			name:     name,
@@ -185,6 +191,12 @@ func getStrongArmDefinition(mem *elfMemory, name string) (bool, uint32, error) {
 			function: vcsNop2n,
 			support:  false,
 		})
+	case "vcsNop3":
+		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
+			name:     name,
+			function: vcsNop3,
+			support:  false,
+		})
 	case "vcsPhp3":
 		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
 			name:     name,
@@ -238,6 +250,35 @@ func getStrongArmDefinition(mem *elfMemory, name string) (bool, uint32, error) {
 			name:     name,
 			function: vcsSnoopRead,
 			support:  false,
+		})
+
+	// function for NV memory
+	case "vcsInitNvStore":
+		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
+			name:     name,
+			function: vcsInitNvStore,
+			support:  true,
+		})
+
+	case "vcsWriteNvChunk":
+		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
+			name:     name,
+			function: vcsWriteNvChunk,
+			support:  true,
+		})
+
+	case "vcsProcessNvStoreEvents":
+		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
+			name:     name,
+			function: vcsProcessNvStoreEvents,
+			support:  true,
+		})
+
+	case "vcsIsNvBusy":
+		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
+			name:     name,
+			function: vcsIsNvBusy,
+			support:  true,
 		})
 
 	// C library functions that are often not linked but required

@@ -458,7 +458,7 @@ func (m *debugger) commands(cmd []string) bool {
 		}
 
 	case "COPROC":
-		coproc := m.console.Mem.External.GetCoProcHandler()
+		coproc := m.console.Mem.External.GetCoProcBus()
 		if coproc == nil {
 			fmt.Println(m.styles.err.Render(
 				"external device does not have a coprocessor",

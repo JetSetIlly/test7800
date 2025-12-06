@@ -228,7 +228,14 @@ func snoopDataBus(mem *elfMemory) {
 	if addrIn == mem.strongarm.nextRomAddress {
 		// setting return value
 		mem.arm.RegisterSet(0, uint32(mem.gpio.data[DATA_IDR]))
-		mem.endStrongArmFunction()
+
+		// continue with additional NOP or end strongarm immediately
+		if mem.followSnoopBusWithNOP {
+			mem.followSnoopBusWithNOP = false
+			mem.runStrongArmFunction(vcsNop2)
+		} else {
+			mem.endStrongArmFunction()
+		}
 	}
 
 	// note that this implementation of snoopDataBus is missing the "give
@@ -240,6 +247,12 @@ func snoopDataBus_streaming(mem *elfMemory, addr uint16) {
 	if addr == mem.strongarm.nextRomAddress {
 		mem.arm.RegisterSet(0, uint32(mem.gpio.data[DATA_IDR]))
 		mem.stream.snoopDataBus = false
+
+		// continue with additional NOP or end strongarm immediately
+		if mem.followSnoopBusWithNOP {
+			mem.followSnoopBusWithNOP = false
+			mem.runStrongArmFunction(vcsNop2)
+		}
 	}
 }
 
@@ -259,6 +272,34 @@ func vcsRead4(mem *elfMemory) {
 		}
 	case 2:
 		if mem.injectRomByte(uint8(address >> 8)) {
+			if mem.stream.active {
+				mem.endStrongArmFunction()
+				mem.stream.startDrain()
+				mem.stream.snoopDataBus = true
+			} else {
+				mem.setStrongArmFunction(snoopDataBus)
+			}
+		}
+	}
+}
+
+// uint8_t vcsRead6(uint16_t address)
+func vcsRead6(mem *elfMemory) {
+	address := uint16(mem.strongarm.running.registers[0])
+	address &= Memtop
+
+	switch mem.strongarm.running.state {
+	case 0:
+		if mem.injectRomByte(0xad) {
+			mem.strongarm.running.state++
+		}
+	case 1:
+		if mem.injectRomByte(uint8(address)) {
+			mem.strongarm.running.state++
+		}
+	case 2:
+		if mem.injectRomByte(uint8(address >> 8)) {
+			mem.followSnoopBusWithNOP = true
 			if mem.stream.active {
 				mem.endStrongArmFunction()
 				mem.stream.startDrain()
@@ -595,6 +636,18 @@ func vcsNop2n(mem *elfMemory) {
 	case 0:
 		if mem.injectRomByte(0xea) {
 			mem.strongarm.nextRomAddress += uint16(mem.strongarm.running.registers[0]) - 1
+			mem.strongarm.running.state++
+		}
+	case 1:
+		mem.endStrongArmFunction()
+	}
+}
+
+// void vcsNop3()
+func vcsNop3(mem *elfMemory) {
+	switch mem.strongarm.running.state {
+	case 0:
+		if mem.injectRomByte(0x04) {
 			mem.strongarm.running.state++
 		}
 	case 1:

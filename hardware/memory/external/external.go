@@ -120,8 +120,8 @@ func (dev *Device) BusChange(address uint16, data uint8) error {
 	return nil
 }
 
-func (dev *Device) GetCoProcHandler() coprocessor.CartCoProcHandler {
-	if d, ok := dev.inserted.(coprocessor.CartCoProcHandler); ok {
+func (dev *Device) GetCoProcBus() coprocessor.CartCoProcBus {
+	if d, ok := dev.inserted.(coprocessor.CartCoProcBus); ok {
 		return d
 	}
 	return nil
