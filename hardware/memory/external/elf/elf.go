@@ -148,7 +148,7 @@ func (cart *Elf) Label() string {
 // reading of the reset address.
 func (cart *Elf) reset() {
 	// stream bytes rather than injecting them into the VCS as they arrive
-	cart.mem.stream.active = false //!cart.mem.stream.disabled
+	cart.mem.stream.active = !cart.mem.stream.disabled
 
 	// initialise ROM for the VCS
 	if cart.mem.stream.active {
@@ -163,7 +163,7 @@ func (cart *Elf) reset() {
 		cart.mem.strongarm.nextRomAddress = 0x1000
 		cart.mem.stream.startDrain()
 	} else {
-		cart.mem.setStrongArmFunction(vcsEmulationInit)
+		cart.mem.setStrongArmFunction(vcsLibInit)
 	}
 
 	// set arguments for initial execution of ARM program
@@ -224,8 +224,8 @@ func (cart *Elf) runARM(addr uint16) bool {
 		}
 
 		// run preempted snoopDataBus() function if required
-		if cart.mem.stream.snoopDataBus {
-			snoopDataBus_streaming(cart.mem, addr)
+		if cart.mem.stream.snoopDataBus != nil {
+			cart.mem.stream.snoopDataBus(cart.mem, addr)
 			return true
 		}
 	}

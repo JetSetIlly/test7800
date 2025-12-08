@@ -59,12 +59,6 @@ func getStrongArmDefinition(mem *elfMemory, name string) (bool, uint32, error) {
 			function: vcsSta3,
 			support:  false,
 		})
-	case "SnoopDataBus":
-		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
-			name:     name,
-			function: snoopDataBus,
-			support:  false,
-		})
 	case "vcsRead4":
 		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
 			name:     name,
@@ -239,10 +233,18 @@ func getStrongArmDefinition(mem *elfMemory, name string) (bool, uint32, error) {
 			function: vcsSetNextAddress,
 			support:  true,
 		})
+
+	// 7800 functions
 	case "vcsInjectDmaData":
 		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
 			name:     name,
 			function: vcsInjectDmaData,
+			support:  false,
+		})
+	case "vcsWaitForAddress":
+		tgt, err = mem.relocateStrongArmFunction(strongArmFunctionSpec{
+			name:     name,
+			function: vcsWaitForAddress,
 			support:  false,
 		})
 	case "vcsSnoopRead":

@@ -31,25 +31,24 @@ func (s streamEntry) String() string {
 	return fmt.Sprintf("%04x=%02x (stuff=%v)", s.addr, s.data, s.busstuff)
 }
 
-// the pushBoundary prevents out-of-bounds errors in the event of a strongarm
-// instruction pushing more bytes than are available. a sufficiently high
-// boundary value means that next function to execute will complete without
-// exceeding the bounds of the array
+// the pushBoundary prevents out-of-bounds errors in the event of a strongarm instruction pushing
+// more bytes than are available. a sufficiently high boundary value means that next function to
+// execute will complete without exceeding the bounds of the array
 //
-// the high value is to accomodate the relatively high byte count of the
-// vcsCopyOverblankToRiotRam() function, which consumes about 200 bytes. a
-// typical function will require no more than half-a-dozen bytes but the copy
-// function represents a significant block of 6507 code
+// the high value is to accomodate the relatively high byte count of the vcsCopyOverblankToRiotRam()
+// function, which consumes about 200 bytes. a typical function will require no more than
+// half-a-dozen bytes but the copy function represents a significant block of 6507 code
 const pushBoundary = 200
 
 type stream struct {
-	// diabled indicates that the stream is not available and should not be
-	// activated
+	// diabled indicates that the stream is not available and should not be activated
 	disabled bool
 
-	// whether the stream is acutally active. setting this value should only be
-	// true if the disabled field is false.
-	// ie. only 'active = !disabled' or 'active = false'
+	// whether the stream is acutally active. setting this value should only be true if the disabled
+	// field is false. ie. only 'active = !disabled'
+	//
+	// active can be disabled when specific vcslib functions are executed. this isn't ideal but it's
+	// the only way currently known to get those functions to work
 	active bool
 
 	stream [1000 + pushBoundary]streamEntry
@@ -60,7 +59,8 @@ type stream struct {
 	drainTop int
 
 	// indicates that a data bus snooping needs resolving
-	snoopDataBus bool
+	snoopDataBus     func(mem *elfMemory, addr uint16)
+	snoopDataBusAddr uint16
 }
 
 func (s *stream) startDrain() {
@@ -73,9 +73,9 @@ func (s *stream) push(e streamEntry) {
 	s.stream[s.ptr] = e
 	s.ptr++
 
-	// the stream can be pushed to even if the drain has started. this can
-	// happen when the pushBoundary has been reached but there are still bytes
-	// to be pushed from the current strongarm function
+	// the stream can be pushed to even if the drain has started. this can happen when the
+	// pushBoundary has been reached but there are still bytes to be pushed from the current
+	// strongarm function
 	if s.drain {
 		s.drainTop = s.ptr
 	} else {
