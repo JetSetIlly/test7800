@@ -143,26 +143,26 @@ func (m *debugger) reset() {
 }
 
 func (m *debugger) contextBreaks() error {
-	if len(m.ctx.Breaks) == 0 {
+	if len(m.ctx.breaks) == 0 {
 		return nil
 	}
 
 	if !m.breakspointCtx {
-		m.ctx.Breaks = m.ctx.Breaks[:0]
+		m.ctx.breaks = m.ctx.breaks[:0]
 		return nil
 	}
 
 	// filter errors to only deal with the ones we're interested in
 	// TODO: configurable filters
 	var f []error
-	for _, e := range m.ctx.Breaks {
+	for _, e := range m.ctx.breaks {
 		if !errors.Is(e, maria.ContextError) {
 			f = append(f, e)
 		}
 	}
 
 	// breaks have been processed and so are now cleared
-	m.ctx.Breaks = m.ctx.Breaks[:0]
+	m.ctx.breaks = m.ctx.breaks[:0]
 
 	if len(f) == 0 {
 		return nil

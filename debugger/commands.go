@@ -124,7 +124,7 @@ func (m *debugger) commands(cmd []string) bool {
 				}
 			} else {
 				fmt.Println(m.styles.err.Render(
-					fmt.Sprintf("unrecognised argument for DLL command: %s", cmd[2]),
+					fmt.Sprintf("unrecognised argument for DLL command: %s", cmd[1]),
 				))
 			}
 		} else {
@@ -243,7 +243,7 @@ func (m *debugger) commands(cmd []string) bool {
 		}
 
 		fmt.Println(m.styles.mem.Render(
-			fmt.Sprintf("$%04x = %02x (%s)", ma.address, data, ma.area.Label()),
+			fmt.Sprintf("$%04x = $%02x (%s)", ma.address, data, ma.area.Label()),
 		))
 
 	case "POKE":
@@ -287,7 +287,7 @@ func (m *debugger) commands(cmd []string) bool {
 		}
 
 		fmt.Println(m.styles.mem.Render(
-			fmt.Sprintf("$%04x = %02x (%s)", ma.address, data, ma.area.Label()),
+			fmt.Sprintf("$%04x = $%02x (%s)", ma.address, data, ma.area.Label()),
 		))
 
 	case "BREAK":

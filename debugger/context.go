@@ -11,7 +11,7 @@ type context struct {
 	requestedSpec string
 	loaderSpec    string
 	rand          *rand.Rand
-	Breaks        []error
+	breaks        []error
 	useOverlay    bool
 	audio         string
 	sampleRate    int
@@ -42,8 +42,8 @@ func (ctx *context) IsAtari7800() bool {
 }
 
 func (ctx *context) Reset() {
-	ctx.Breaks = ctx.Breaks[:0]
-	ctx.rand = rand.New(rand.NewPCG(0, 0))
+	ctx.breaks = ctx.breaks[:0]
+	ctx.rand = rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
 }
 
 func (ctx *context) Rand8Bit() uint8 {
@@ -55,7 +55,7 @@ func (ctx *context) Rand16Bit() uint16 {
 }
 
 func (ctx *context) Break(e error) {
-	ctx.Breaks = append(ctx.Breaks, e)
+	ctx.breaks = append(ctx.breaks, e)
 }
 
 func (ctx *context) UseOverlay() bool {
