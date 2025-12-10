@@ -46,9 +46,15 @@ func init() {
 		// "For NTSC consoles, there are a total of 263 rasters per frame (~1/60th
 		// second). The 'visible' screen (during which MARIA attempts display)
 		// starts on raster 16 and ends on raster 258."
-		ID:             "NTSC",
-		VisibleTop:     16,
-		VisibleBottom:  261,
+		//
+		// the number of visible lines (ie. the number of lines between VisibleTop and
+		// VisibleBottom) cannot be more than 264. if it is then there are ROMs which may use
+		// unitialised memory for the DLL data and trigger an interrupt. the best example of this is
+		// the high score entry screen for Centipede (when the HSC is attached)
+		ID:            "NTSC",
+		VisibleTop:    16,
+		VisibleBottom: 258,
+
 		SafeTop:        41,
 		SafeBottom:     233,
 		AbsoluteBottom: 263,
