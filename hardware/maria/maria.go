@@ -361,8 +361,11 @@ func (mar *Maria) newFrame() {
 	} else {
 		mar.currentFrame.left = spec.ClksHBLANK
 		mar.currentFrame.right = spec.ClksScanline
-		mar.currentFrame.top = mar.Spec.VisibleTop + 8
-		mar.currentFrame.bottom = mar.Spec.VisibleBottom - 10
+
+		// there's an overscan adjustment because we don't want to see the entirety of the visible
+		// area, which is really a description of when DMA is active
+		mar.currentFrame.top = mar.Spec.SafeTop
+		mar.currentFrame.bottom = mar.Spec.SafeBottom
 	}
 
 	mar.currentFrame.main = image.NewRGBA(image.Rect(0, 0,
@@ -434,7 +437,7 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 			// reset list of DLLs seen this frame
 			mar.RecentDLL = mar.RecentDLL[:0]
 
-		} else if mar.Coords.Scanline == mar.Spec.VisibleBottom {
+		} else if mar.Coords.Scanline > mar.Spec.VisibleBottom {
 			mar.mstat = vblankEnable
 		}
 	}
@@ -444,9 +447,9 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 		mar.colourBurst = !mar.ctrl.colourKill
 	}
 
-	// the x and y values are the frame coordinates where lineram information
-	// (and debugging overlay information) is plotted. they are adjusted according to
-	// whether the overlay is active or not
+	// the x and y values are the frame coordinates where lineram information (and debugging overlay
+	// information) is plotted. they currentFrame's left and top fields have been pre-adjusted
+	// during the newFrame() function according to whether the overlay is active or not
 	x := mar.Coords.Clk - mar.currentFrame.left
 	y := mar.Coords.Scanline - mar.currentFrame.top
 

@@ -51,13 +51,12 @@ func init() {
 		// VisibleBottom) cannot be more than 264. if it is then there are ROMs which may use
 		// unitialised memory for the DLL data and trigger an interrupt. the best example of this is
 		// the high score entry screen for Centipede (when the HSC is attached)
-		ID:            "NTSC",
-		VisibleTop:    16,
-		VisibleBottom: 258,
-
-		SafeTop:        41,
-		SafeBottom:     233,
+		ID:             "NTSC",
+		VisibleTop:     16,
+		VisibleBottom:  258,
 		AbsoluteBottom: 263,
+		SafeTop:        27,
+		SafeBottom:     253,
 		HorizScan:      15734.26,
 	}
 
@@ -67,8 +66,8 @@ func init() {
 		ID:             "PAL",
 		VisibleTop:     16,
 		VisibleBottom:  308,
-		SafeTop:        41,
-		SafeBottom:     283,
+		SafeTop:        27,
+		SafeBottom:     303,
 		AbsoluteBottom: 313,
 		HorizScan:      15625.00,
 	}
