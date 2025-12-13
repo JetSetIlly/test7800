@@ -488,6 +488,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	var audio string
 	var samplerate int
 	var mapper string
+	var overscan string
 	var useDialog bool
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
@@ -503,6 +504,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.StringVar(&audio, "audio", "MONO", "enable audio: MONO, STEREO, NONE")
 	flgs.IntVar(&samplerate, "samplerate", 48000, "sample rate of audio")
 	flgs.StringVar(&mapper, "mapper", "AUTO", "mapper selection. automatic selection by default")
+	flgs.StringVar(&overscan, "overscan", "AUTO", "television overscan: AUTO, NONE, MODERN, FULL")
 	flgs.BoolVar(&useDialog, "dialog", true, "present user with file dialogue on startup if no file is specified")
 	err := flgs.Parse(args)
 	if err != nil {
@@ -546,6 +548,11 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 
 	if samplerate != 0 && (samplerate < 10000 || samplerate > 100000) {
 		return fmt.Errorf("sample rate should be between 10000 and 100000 (ie. 10Khz or 100Khz)")
+	}
+
+	overscan = strings.ToUpper(overscan)
+	if !slices.Contains([]string{"AUTO", "NONE", "MODERN", "FULL"}, profile) {
+		return fmt.Errorf("overscan option should be one of AUTO, NONE, MODERN, FULL")
 	}
 
 	// TODO: validate -mapper argument
@@ -619,6 +626,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		useOverlay:    overlay,
 		audio:         audio,
 		sampleRate:    samplerate,
+		overscan:      overscan,
 	}
 	ctx.Reset()
 

@@ -28,14 +28,23 @@ const (
 )
 
 type Spec struct {
-	ID             string
-	Palette        [256]color.RGBA
-	VisibleTop     int
-	VisibleBottom  int
-	SafeTop        int
-	SafeBottom     int
+	ID        string
+	Palette   [256]color.RGBA
+	HorizScan float64
+
+	// dma top/bottom defines when dma is working and processing DLLs. it is equivalent to the
+	// duration when VBLANK is disabled
+	DMATop    int
+	DMABottom int
+
+	// safe top/bottom defines the safe area of a typical CRT television
+	SafeTop    int
+	SafeBottom int
+
+	// overscan top defines an extended area in between the size of "safe" and "visble"
+	OverscanTop int
+
 	AbsoluteBottom int
-	HorizScan      float64
 }
 
 var NTSC Spec
@@ -52,24 +61,26 @@ func init() {
 		// unitialised memory for the DLL data and trigger an interrupt. the best example of this is
 		// the high score entry screen for Centipede (when the HSC is attached)
 		ID:             "NTSC",
-		VisibleTop:     16,
-		VisibleBottom:  258,
+		HorizScan:      15734.26,
+		DMATop:         16,
+		DMABottom:      258,
 		AbsoluteBottom: 263,
 		SafeTop:        27,
 		SafeBottom:     253,
-		HorizScan:      15734.26,
+		OverscanTop:    23,
 	}
 
 	PAL = Spec{
 		// 	"For PAL consoles, there are a total of 313 rasters per frame. (~1/50th
 		// 	per second). The 'visible' screen starts on raster 16 and ends on raster 308"
 		ID:             "PAL",
-		VisibleTop:     16,
-		VisibleBottom:  308,
+		HorizScan:      15625.00,
+		DMATop:         16,
+		DMABottom:      308,
 		SafeTop:        27,
 		SafeBottom:     303,
 		AbsoluteBottom: 313,
-		HorizScan:      15625.00,
+		OverscanTop:    24,
 	}
 
 	if len(ntscRaw) != 768 {

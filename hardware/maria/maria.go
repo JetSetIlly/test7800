@@ -16,6 +16,7 @@ type Context interface {
 	Break(error)
 	Spec() spec.Spec
 	UseOverlay() bool
+	Overscan() string
 }
 
 type limiter interface {
@@ -40,6 +41,10 @@ type frame struct {
 	right   int
 	main    *image.RGBA
 	overlay *image.RGBA
+
+	// automatic overscan requires us to track the top-most scanline that is used
+	autoOverscanTop   int
+	autoOverscanTopCt int
 }
 
 type Maria struct {
@@ -350,6 +355,19 @@ func (mar *Maria) Write(idx uint16, data uint8) error {
 }
 
 func (mar *Maria) newFrame() {
+	// check state of overscan expansion.
+	const stableThreshold = 3
+	if mar.currentFrame.autoOverscanTop > 0 && mar.currentFrame.autoOverscanTop == mar.prevFrame.autoOverscanTop {
+		if mar.currentFrame.autoOverscanTopCt < stableThreshold {
+			mar.currentFrame.autoOverscanTopCt++
+		}
+	} else {
+		mar.currentFrame.autoOverscanTopCt = 0
+	}
+	defer func() {
+		mar.currentFrame.autoOverscanTop = 0
+	}()
+
 	mar.prevFrame = mar.currentFrame
 
 	mar.currentFrame.debug = mar.ctx.UseOverlay()
@@ -359,13 +377,33 @@ func (mar *Maria) newFrame() {
 		mar.currentFrame.top = 0
 		mar.currentFrame.bottom = mar.Spec.AbsoluteBottom
 	} else {
-		mar.currentFrame.left = spec.ClksHBLANK
-		mar.currentFrame.right = spec.ClksScanline
-
-		// there's an overscan adjustment because we don't want to see the entirety of the visible
-		// area, which is really a description of when DMA is active
-		mar.currentFrame.top = mar.Spec.SafeTop
-		mar.currentFrame.bottom = mar.Spec.SafeBottom
+		switch mar.ctx.Overscan() {
+		case "AUTO":
+			mar.currentFrame.left = spec.ClksHBLANK
+			mar.currentFrame.right = spec.ClksScanline
+			mar.currentFrame.top = mar.Spec.SafeTop
+			mar.currentFrame.bottom = mar.Spec.SafeBottom
+			if mar.currentFrame.autoOverscanTopCt >= stableThreshold {
+				mar.currentFrame.top = min(mar.currentFrame.top, mar.currentFrame.autoOverscanTop)
+			}
+		case "NONE":
+			fallthrough
+		default:
+			mar.currentFrame.left = spec.ClksHBLANK
+			mar.currentFrame.right = spec.ClksScanline
+			mar.currentFrame.top = mar.Spec.SafeTop
+			mar.currentFrame.bottom = mar.Spec.SafeBottom
+		case "MODERN":
+			mar.currentFrame.left = spec.ClksHBLANK
+			mar.currentFrame.right = spec.ClksScanline
+			mar.currentFrame.top = mar.Spec.OverscanTop
+			mar.currentFrame.bottom = mar.Spec.SafeBottom
+		case "FULL":
+			mar.currentFrame.left = spec.ClksHBLANK
+			mar.currentFrame.right = spec.ClksScanline
+			mar.currentFrame.top = mar.Spec.DMATop
+			mar.currentFrame.bottom = mar.Spec.DMABottom
+		}
 	}
 
 	mar.currentFrame.main = image.NewRGBA(image.Rect(0, 0,
@@ -428,7 +466,7 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 			// this can almost certainly be improved in efficiency
 			mar.newFrame()
 
-		} else if mar.Coords.Scanline == mar.Spec.VisibleTop {
+		} else if mar.Coords.Scanline == mar.Spec.DMATop {
 			mar.mstat = vblankDisable
 
 			// "The end of VBLANK is made up of a DMA startup plus a Long shutdown."
@@ -437,7 +475,7 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 			// reset list of DLLs seen this frame
 			mar.RecentDLL = mar.RecentDLL[:0]
 
-		} else if mar.Coords.Scanline > mar.Spec.VisibleBottom {
+		} else if mar.Coords.Scanline > mar.Spec.DMABottom {
 			mar.mstat = vblankEnable
 		}
 	}
@@ -557,6 +595,8 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 				}
 
+				var hasWritten bool
+
 				for !mar.DL.isEnd {
 					// DMA cycle accumulation for DL header
 					if mar.DL.long {
@@ -594,6 +634,7 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 									x := int(mar.DL.horizontalPosition+(offset*2)+uint8(i)) * 2
 									if x < spec.ClksVisible {
 										if c > 0 || mar.ctrl.kangaroo {
+											hasWritten = true
 											mar.lineram.write(x, p, c)
 											mar.lineram.write(x+1, p, c)
 										}
@@ -605,6 +646,7 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 									x := int(mar.DL.horizontalPosition+(offset*4)+uint8(i)) * 2
 									if x < spec.ClksVisible {
 										if c > 0 || mar.ctrl.kangaroo {
+											hasWritten = true
 											mar.lineram.write(x, mar.DL.palette, c)
 											mar.lineram.write(x+1, mar.DL.palette, c)
 										}
@@ -690,9 +732,16 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 					}
 				}
 
+				// check overscan range
+				if hasWritten {
+					if mar.currentFrame.autoOverscanTop == 0 && mar.Coords.Scanline >= mar.Spec.OverscanTop && mar.Coords.Scanline < mar.Spec.SafeTop {
+						mar.currentFrame.autoOverscanTop = mar.Coords.Scanline
+					}
+				}
+
 				// DLL sequence is reset at beginning of vblankDisable (ie. when scanline is
 				// equal to 'visible top')
-				ok, err := mar.nextDLL(mar.Coords.Scanline == mar.Spec.VisibleTop)
+				ok, err := mar.nextDLL(mar.Coords.Scanline == mar.Spec.DMATop)
 				if err != nil {
 					mar.ctx.Break(fmt.Errorf("%w: %w", ContextError, err))
 				}
