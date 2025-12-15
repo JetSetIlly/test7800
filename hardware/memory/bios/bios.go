@@ -25,7 +25,7 @@ var pal []byte
 var ntsc []byte
 
 // list of known BIOS checksums (md5) and the name
-var knownBIOS map[string]string = map[string]string{
+var KnownBIOS map[string]string = map[string]string{
 	// "7800 BIOS (E).rom" is the PAL ROM
 	"PAL": "0x397bb566584be7b9764e7a68974c4263",
 
@@ -45,12 +45,12 @@ func init() {
 	}
 
 	h := fmt.Sprintf("%#16x", md5.Sum(pal))
-	if h != knownBIOS["PAL"] {
+	if h != KnownBIOS["PAL"] {
 		panic("unsupported PAL bios")
 	}
 
 	h = fmt.Sprintf("%#16x", md5.Sum(ntsc))
-	if h != knownBIOS["NTSC"] {
+	if h != KnownBIOS["NTSC"] {
 		panic("unsupported NTSC bios")
 	}
 }

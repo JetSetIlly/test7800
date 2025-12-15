@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jetsetilly/test7800/hardware/cpu"
+	"github.com/jetsetilly/test7800/hardware/memory/bios"
 )
 
 type biosHelper struct {
@@ -19,8 +20,13 @@ type biosHelper struct {
 }
 
 func (hlp *biosHelper) reset(md5sum string) {
-	const supportedBIOS = "0x0763f1ffb006ddbe32e52d497ee848ae"
-	hlp.cartridgeAccepted = hlp.bypass && md5sum == supportedBIOS
+	for _, v := range bios.KnownBIOS {
+		if v == md5sum {
+			hlp.cartridgeAccepted = true
+			break
+		}
+	}
+	hlp.cartridgeAccepted = hlp.cartridgeAccepted && hlp.bypass
 	hlp.checksum = false
 }
 
