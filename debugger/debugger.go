@@ -476,35 +476,57 @@ func (m *debugger) loop() {
 const programName = "test7800"
 
 func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
-	var filename string
-	var spec string
-	var profile string
-	var bios bool
-	var hsc string
-	var checksum bool
-	var overlay bool
-	var run bool
-	var log bool
-	var audio string
-	var samplerate int
-	var mapper string
-	var overscan string
-	var useDialog bool
+	var (
+		filename   string
+		spec       string
+		profile    string
+		bios       bool
+		hsc        string
+		checksum   bool
+		overlay    bool
+		run        bool
+		log        bool
+		audio      string
+		samplerate int
+		mapper     string
+		overscan   string
+		useDialog  bool
+	)
+
+	specOptions := []string{"AUTO", "NTSC", "PAL"}
+	profileOptions := []string{"NONE", "CPU", "MEM", "BOTH"}
+	hscOptions := []string{"AUTO", "TRUE", "FALSE"}
+	audioOptions := []string{"MONO", "STEREO", "NONE"}
+	overscanOptions := []string{"AUTO", "NONE", "MODERN", "FULL"}
+
+	// creates a printable string from an options list. separated by commas and the last entry with "list"
+	// eg. "AUTO, NTSC list PAL"
+	list := func(opts []string) string {
+		if len(opts) == 0 {
+			return ""
+		}
+		if len(opts) == 1 {
+			return opts[0]
+		}
+		s := strings.Join(opts[:len(opts)-1], ", ")
+		s = fmt.Sprintf("%s or %s", s, opts[len(opts)-1])
+		return s
+	}
 
 	flgs := flag.NewFlagSet(programName, flag.ExitOnError)
-	flgs.StringVar(&spec, "spec", "AUTO", "TV specification of the console: AUTO, NTSC or PAL")
+	flgs.StringVar(&spec, "spec", "AUTO", fmt.Sprintf("TV specification of the console: %s", list(specOptions)))
 	flgs.StringVar(&spec, "tv", "AUTO", "alternative name for 'spec' argument")
-	flgs.StringVar(&profile, "profile", "NONE", "create profile for emulator: CPU, MEM or BOTH")
+	flgs.StringVar(&profile, "profile", "NONE", fmt.Sprintf("create profile for emulator: %s", list(profileOptions)))
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
-	flgs.StringVar(&hsc, "hsc", "AUTO", "use High Score Cartridge: AUTO, TRUE or FALSE")
+	flgs.StringVar(&hsc, "hsc", "AUTO", fmt.Sprintf("use High Score Cartridge: %s", list(hscOptions)))
 	flgs.BoolVar(&checksum, "checksum", true, "allow BIOS checksum checks")
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
 	flgs.BoolVar(&log, "log", false, "echo log to stderr")
-	flgs.StringVar(&audio, "audio", "MONO", "enable audio: MONO, STEREO, NONE")
+	flgs.StringVar(&audio, "audio", "MONO", fmt.Sprintf("enable audio: %s", list(audioOptions)))
 	flgs.IntVar(&samplerate, "samplerate", 48000, "sample rate of audio")
 	flgs.StringVar(&mapper, "mapper", "AUTO", "mapper selection. automatic selection by default")
-	flgs.StringVar(&overscan, "overscan", "AUTO", "television overscan: AUTO, NONE, MODERN, FULL")
+	flgs.StringVar(&overscan, "overscan", "AUTO", fmt.Sprintf("television overscan: %s", list(overscanOptions)))
 	flgs.BoolVar(&useDialog, "dialog", true, "present user with file dialogue on startup if no file is specified")
 	err := flgs.Parse(args)
 	if err != nil {
@@ -522,28 +544,30 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		hscAuto = false
 		hscForce, err = strconv.ParseBool(hsc)
 		if err != nil {
-			return fmt.Errorf("hsc option should be one of AUTO, TRUE or FALSE")
+			return fmt.Errorf("hsc option should be one of %s", list(profileOptions))
 		}
 	}
 
-	// check that string options are valid. it's good to do this as early as possible even though we
-	// may not use the values until much later
-	spec = strings.ToUpper(spec)
-	if !slices.Contains([]string{"AUTO", "NTSC", "PAL"}, spec) {
-		return fmt.Errorf("spec option should be one of AUTO, NTSC or PAL")
-	}
-
-	profile = strings.ToUpper(profile)
-	if !slices.Contains([]string{"NONE", "CPU", "MEM", "BOTH"}, profile) {
-		return fmt.Errorf("profile option should be one of NONE, CPU, MEM or BOTH")
-	}
-
+	// normalise audio option to allow FALSE even though it's not in the list
 	audio = strings.ToUpper(audio)
 	if audio == "FALSE" {
 		audio = "NONE"
 	}
-	if !slices.Contains([]string{"MONO", "STEREO", "NONE"}, audio) {
-		return fmt.Errorf("audio option should be one of MONO, STEREO or NONE")
+
+	// check that other string options are valid. it's good to do this as early as possible even though we
+	// may not use the values until much later
+	spec = strings.ToUpper(spec)
+	if !slices.Contains(specOptions, spec) {
+		return fmt.Errorf("spec option should be one of %s", list(specOptions))
+	}
+
+	profile = strings.ToUpper(profile)
+	if !slices.Contains(profileOptions, profile) {
+		return fmt.Errorf("profile option should be one of %s", list(profileOptions))
+	}
+
+	if !slices.Contains(audioOptions, audio) {
+		return fmt.Errorf("audio option should be one of %s", list(audioOptions))
 	}
 
 	if samplerate != 0 && (samplerate < 10000 || samplerate > 100000) {
@@ -551,8 +575,8 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	}
 
 	overscan = strings.ToUpper(overscan)
-	if !slices.Contains([]string{"AUTO", "NONE", "MODERN", "FULL"}, profile) {
-		return fmt.Errorf("overscan option should be one of AUTO, NONE, MODERN, FULL")
+	if !slices.Contains(overscanOptions, profile) {
+		return fmt.Errorf("overscan option should be one of %s", list(overscanOptions))
 	}
 
 	// TODO: validate -mapper argument
