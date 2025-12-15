@@ -66,7 +66,8 @@ func Create(ctx Context, g *gui.GUI) *Console {
 	return con
 }
 
-func (con *Console) Reset(random bool) error {
+// if biosCheck is nil or if it returns false then the BIOS routines are bypassed
+func (con *Console) Reset(random bool, biosCheck func() bool) error {
 	var rnd cpu.Random
 	if random {
 		rnd = con.ctx
@@ -79,6 +80,18 @@ func (con *Console) Reset(random bool) error {
 
 	// reset CPU after memory reset so that we get the correct reset address (the BIOS might be locked)
 	con.MC.Reset(rnd)
+
+	if biosCheck == nil || !biosCheck() {
+		// writing to the INPTCTRL twice to make sure the halt line has been enabled
+		con.Mem.INPTCTRL.Write(0x01, 0x07)
+		con.Mem.INPTCTRL.Write(0x01, 0x07)
+
+		// explicitely set 6507 program-counter to reset address when the BIOS is disabled
+		err := con.MC.LoadPCIndirect(cpu.Reset)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

@@ -21,7 +21,6 @@ import (
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware"
 	"github.com/jetsetilly/test7800/hardware/arm"
-	"github.com/jetsetilly/test7800/hardware/cpu"
 	"github.com/jetsetilly/test7800/hardware/cpu/execution"
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
@@ -112,36 +111,20 @@ func (m *debugger) reset() {
 		coproc.SetYieldHook(m)
 	}
 
-	m.biosHelper.reset(m.console.Mem.BIOS.MD5())
+	biosCheck := func() bool {
+		m.biosHelper.reset(m.console.Mem.BIOS.MD5())
+		if m.biosHelper.bypass || resetProcedure.BypassBIOS {
+			fmt.Println(m.styles.debugger.Render("console reset with no BIOS"))
+			return false
+		}
+		return true
+	}
 
-	var noBIOS = m.biosHelper.bypass || resetProcedure.BypassBIOS
-
-	err = m.console.Reset(true)
+	err = m.console.Reset(true, biosCheck)
 	if err != nil {
 		fmt.Println(m.styles.err.Render(err.Error()))
 	} else {
-		if noBIOS {
-			fmt.Println(m.styles.debugger.Render("console reset with no BIOS"))
-		} else {
-			fmt.Println(m.styles.debugger.Render("console reset"))
-		}
-	}
-
-	if noBIOS {
-		// writing to the INPTCTRL twice to make sure the halt line has been enabled
-		m.console.Mem.INPTCTRL.Write(0x01, 0x07)
-		m.console.Mem.INPTCTRL.Write(0x01, 0x07)
-
-		// explicitely set 6507 program-counter to reset address when the BIOS is disabled
-		m.console.MC.LoadPCIndirect(cpu.Reset)
-		if err != nil {
-			fmt.Println(m.styles.err.Render(err.Error()))
-		}
-
-		// feedback on the current state of INPTCTRL
-		fmt.Println(m.styles.cpu.Render(
-			m.console.Mem.INPTCTRL.Status(),
-		))
+		fmt.Println(m.styles.debugger.Render("console reset"))
 	}
 
 	fmt.Println(m.styles.mem.Render(
@@ -150,6 +133,17 @@ func (m *debugger) reset() {
 	fmt.Println(m.styles.cpu.Render(
 		m.console.MC.String(),
 	))
+
+	// run preview to gather information about the ROM that can't be determined statically. we don't
+	// always need to do this. at the moment, we only need to do it overscan is AUTO
+	if m.ctx.overscan == "AUTO" {
+		pre, err := newPreview(m.ctx)
+		if err != nil {
+			fmt.Println(m.styles.err.Render(err.Error()))
+		}
+		pre.run(m.loader)
+		pre.sync(m.console)
+	}
 }
 
 func (m *debugger) contextBreaks() error {
@@ -676,7 +670,6 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		hscForce: hscForce,
 	}
 	m.console = hardware.Create(&m.ctx, g)
-	m.console.Reset(true)
 
 	signal.Notify(m.sig, syscall.SIGINT)
 

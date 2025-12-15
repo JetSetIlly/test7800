@@ -42,6 +42,9 @@ type frame struct {
 	main    *image.RGBA
 	overlay *image.RGBA
 
+	// overscan setting at time of newFrame()
+	overscan string
+
 	// automatic overscan requires us to track the top-most scanline that is used
 	autoOverscanTop   int
 	autoOverscanTopCt int
@@ -172,6 +175,18 @@ func (mar *Maria) Status() string {
 		return "WSYNC"
 	}
 	return mar.String()
+}
+
+func (mar *Maria) GetOverscan() (int, int) {
+	return mar.currentFrame.top, mar.currentFrame.bottom
+}
+
+func (mar *Maria) SetOverscan(top int, bottom int) {
+	mar.currentFrame.top = top
+	mar.currentFrame.bottom = bottom
+	mar.prevFrame.top = top
+	mar.prevFrame.bottom = bottom
+	mar.newFrame()
 }
 
 func (mar *Maria) String() string {
@@ -369,6 +384,7 @@ func (mar *Maria) newFrame() {
 	}()
 
 	mar.prevFrame = mar.currentFrame
+	mar.currentFrame.overscan = mar.ctx.Overscan()
 
 	mar.currentFrame.debug = mar.ctx.UseOverlay()
 	if mar.currentFrame.debug {
@@ -377,15 +393,21 @@ func (mar *Maria) newFrame() {
 		mar.currentFrame.top = 0
 		mar.currentFrame.bottom = mar.Spec.AbsoluteBottom
 	} else {
-		switch mar.ctx.Overscan() {
+		switch mar.currentFrame.overscan {
 		case "AUTO":
 			mar.currentFrame.left = spec.ClksHBLANK
 			mar.currentFrame.right = spec.ClksScanline
-			mar.currentFrame.top = mar.Spec.SafeTop
 			mar.currentFrame.bottom = mar.Spec.SafeBottom
+
+			// in AUTO overscan mode we don't want the size of the screen to ever shrink. part of
+			// the solution to that is to not reset the top value of the currentFrame field
+			if mar.currentFrame.top == 0 || mar.currentFrame.overscan != mar.prevFrame.overscan {
+				mar.currentFrame.top = mar.Spec.SafeTop
+			}
 			if mar.currentFrame.autoOverscanTopCt >= stableThreshold {
 				mar.currentFrame.top = min(mar.currentFrame.top, mar.currentFrame.autoOverscanTop)
 			}
+
 		case "NONE":
 			fallthrough
 		default:

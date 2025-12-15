@@ -67,7 +67,7 @@ func (m *debugger) boot(romfile string, origin mappedAddress, entry mappedAddres
 	}
 
 	// the console may already have been reset but we'll reset it again to make sure
-	err = m.console.Reset(true)
+	err = m.console.Reset(true, nil)
 	if err != nil {
 		return err
 	}
