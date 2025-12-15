@@ -180,32 +180,27 @@ func (eg *guiEbiten) Update() error {
 	case img := <-eg.g.SetImage:
 		eg.cursor = img.Cursor
 
-		dim := img.Main.Bounds()
-
-		if eg.main == nil || eg.main.Bounds() != dim {
-			eg.width = dim.Dx()
-			eg.height = dim.Dy()
-			eg.main = ebiten.NewImage(eg.width, eg.height)
-			eg.overlay = ebiten.NewImage(eg.width, eg.height)
-		}
 		if img.Main != nil {
+			if eg.main == nil || eg.main.Bounds() != img.Main.Bounds() {
+				eg.width = img.Main.Bounds().Dx()
+				eg.height = img.Main.Bounds().Dy()
+				eg.main = ebiten.NewImage(eg.width, eg.height)
+			}
 			eg.main.WritePixels(img.Main.Pix)
 		}
 
-		// previous image is a little different because we don't want to show the previous image if
-		// the dimensions are different to the main image
-		if eg.prev == nil || eg.prev.Bounds() != dim {
-			eg.prev = ebiten.NewImage(eg.width, eg.height)
-		} else if img.Prev != nil && img.ID != eg.prevID {
+		if img.Prev != nil && img.ID != eg.prevID {
 			eg.prevID = img.ID
+			if eg.prev == nil || eg.prev.Bounds() != img.Prev.Bounds() {
+				eg.prev = ebiten.NewImage(eg.width, eg.height)
+			}
 			eg.prev.WritePixels(img.Prev.Pix)
 		}
 
-		// the overlay image should always match the size of the main image
-		if eg.overlay == nil || eg.overlay.Bounds() != dim {
-			eg.overlay = ebiten.NewImage(eg.width, eg.height)
-		}
 		if img.Overlay != nil {
+			if eg.overlay == nil || eg.overlay.Bounds() != img.Overlay.Bounds() {
+				eg.overlay = ebiten.NewImage(eg.width, eg.height)
+			}
 			eg.overlay.WritePixels(img.Overlay.Pix)
 		}
 
