@@ -7,6 +7,7 @@ examples/roms/*
 !examples/*.bin
 !hardware/arm/bintest/**/*.bin
 !hardware/arm/bintest/**/*.lst
+!hardware/memory/external/hsc/*.bin
 go.work*
 roms
 roms/*
