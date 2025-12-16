@@ -111,10 +111,12 @@ func (m *debugger) reset() {
 		coproc.SetYieldHook(m)
 	}
 
+	var noBIOS bool
+
 	biosCheck := func() bool {
 		m.biosHelper.reset(m.console.Mem.BIOS.MD5())
 		if m.biosHelper.bypass || resetProcedure.BypassBIOS {
-			fmt.Println(m.styles.debugger.Render("console reset with no BIOS"))
+			noBIOS = true
 			return false
 		}
 		return true
@@ -124,7 +126,13 @@ func (m *debugger) reset() {
 	if err != nil {
 		fmt.Println(m.styles.err.Render(err.Error()))
 	} else {
-		fmt.Println(m.styles.debugger.Render("console reset"))
+		if noBIOS {
+			fmt.Println(m.styles.debugger.Render("console reset (without BIOS)"))
+		} else if m.biosHelper.skipChecksum {
+			fmt.Println(m.styles.debugger.Render("console reset (skipping checksum)"))
+		} else {
+			fmt.Println(m.styles.debugger.Render("console reset"))
+		}
 	}
 
 	fmt.Println(m.styles.mem.Render(
@@ -140,9 +148,14 @@ func (m *debugger) reset() {
 		pre, err := newPreview(m.ctx)
 		if err != nil {
 			fmt.Println(m.styles.err.Render(err.Error()))
+		} else {
+			err = pre.run(m.loader)
+			if err != nil {
+				fmt.Println(m.styles.err.Render(err.Error()))
+			} else {
+				pre.sync(m.console)
+			}
 		}
-		pre.run(m.loader)
-		pre.sync(m.console)
 	}
 }
 
@@ -307,7 +320,7 @@ func (m *debugger) runLoop() error {
 		// affected by the most recent instruction
 		_ = m.console.LastAreaStatus()
 
-		err = m.biosHelper.cartridgeAcceptedCheck(m.console.MC)
+		err = m.biosHelper.cartridgePassCheck(m.console.MC)
 		if err != nil {
 			return err
 		}
@@ -663,8 +676,8 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		coprocDisasm: &coprocDisasm{},
 		coprocDev:    newCoprocDev(),
 		biosHelper: biosHelper{
-			bypass:   !bios,
-			checksum: checksum,
+			bypass:       !bios,
+			skipChecksum: !checksum,
 		},
 		hscAuto:  hscAuto,
 		hscForce: hscForce,

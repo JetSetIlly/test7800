@@ -24,13 +24,24 @@ var pal []byte
 //go:embed "7800 BIOS (U).rom"
 var ntsc []byte
 
-// list of known BIOS checksums (md5) and the name
-var KnownBIOS map[string]string = map[string]string{
-	// "7800 BIOS (E).rom" is the PAL ROM
-	"PAL": "0x397bb566584be7b9764e7a68974c4263",
+type Info struct {
+	Name string
+	MD5  string
 
-	// "7800 BIOS (U).rom" is the NTSC ROM
-	"NTSC": "0x0763f1ffb006ddbe32e52d497ee848ae",
+	// whether the BIOS is known to check ROM signatures
+	ChecksSignature bool
+
+	// these two addresses are the insturction locations for the fail and pass conditions of the
+	// signature check
+	SignatureFail uint16
+	SignaturePass uint16
+}
+
+// list of supported BIOS along with MD5 and whether the BIOS cares about ROM signing
+var Supported map[string]Info = map[string]Info{
+	"PAL": {Name: "PAL", MD5: "0x397bb566584be7b9764e7a68974c4263"},
+	"NTSC": {Name: "NTSC", MD5: "0x0763f1ffb006ddbe32e52d497ee848ae",
+		ChecksSignature: true, SignatureFail: 0x26c2, SignaturePass: 0x23f9},
 }
 
 func init() {
@@ -45,12 +56,12 @@ func init() {
 	}
 
 	h := fmt.Sprintf("%#16x", md5.Sum(pal))
-	if h != KnownBIOS["PAL"] {
+	if h != Supported["PAL"].MD5 {
 		panic("unsupported PAL bios")
 	}
 
 	h = fmt.Sprintf("%#16x", md5.Sum(ntsc))
-	if h != KnownBIOS["NTSC"] {
+	if h != Supported["NTSC"].MD5 {
 		panic("unsupported NTSC bios")
 	}
 }
