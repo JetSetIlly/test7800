@@ -55,19 +55,28 @@ type GUI struct {
 	// AudioSetup should be nil if the emulation is to have no audio
 	AudioSetup chan AudioSetup
 
+	// gui receives a string (last selected file) and returns result over the same channel
+	FileRequest   chan string
+	RequestedFile chan string
+
+	// display an error message
+	ErrorDialog chan string
+
 	// optional function called by GUI during it's update loop
 	UpdateGUI func() error
 }
 
-// NewGUI creates a new GUI instance. It does not initialise the RegisterAudio
-// channel. For that, use the WithAudio() function
+// NewGUI creates a new GUI instance
 func NewGUI() *GUI {
 	return &GUI{
-		SetImage:   make(chan Image, 1),
-		UserInput:  make(chan Input, 10),
-		Commands:   make(chan Command, 10),
-		Blob:       make(chan Blob, 1),
-		State:      make(chan State, 1),
-		AudioSetup: make(chan AudioSetup, 1),
+		SetImage:      make(chan Image, 1),
+		UserInput:     make(chan Input, 10),
+		Commands:      make(chan Command, 10),
+		Blob:          make(chan Blob, 1),
+		State:         make(chan State, 1),
+		AudioSetup:    make(chan AudioSetup, 1),
+		FileRequest:   make(chan string, 1),
+		RequestedFile: make(chan string, 1),
+		ErrorDialog:   make(chan string, 1),
 	}
 }

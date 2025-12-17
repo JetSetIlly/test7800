@@ -16,7 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jetsetilly/dialog"
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware"
@@ -603,23 +602,24 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 				return err
 			}
 
-			dlg := dialog.File()
-			dlg = dlg.Title("Select 7800 ROM")
-			dlg = dlg.Filter("7800 Files", "a78", "bin", "elf", "boot")
-			dlg = dlg.Filter("A78 Files Only", "a78")
-			dlg = dlg.Filter("All Files")
-			dlg = dlg.SetStartDir(filepath.Dir(lastSelectedROM))
-			filename, err = dlg.Load()
-			if err != nil {
-				if errors.Is(err, dialog.ErrCancelled) {
+			var filename string
+
+			select {
+			case g.FileRequest <- lastSelectedROM:
+				filename = <-g.RequestedFile
+				if filename == "" {
 					return nil
 				}
-				return err
+			default:
+				return nil
 			}
 
 			loader, err = external.Fingerprint(filename, mapper)
 			if err != nil {
-				dialog.Message("Problem with selected file\n\n%v", err).Error()
+				select {
+				case g.ErrorDialog <- fmt.Sprintf("Problem with selected file\n\n%v", err):
+				default:
+				}
 				return err
 			}
 

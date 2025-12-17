@@ -96,13 +96,26 @@ type guiEbiten struct {
 }
 
 func (eg *guiEbiten) Update() error {
-	// deal with quit condition
+	// service requests (the SetImage request is serviced in this function below)
 	select {
+	case eg.state = <-eg.g.State:
+		eg.audio.setState(eg.state)
 	case <-eg.endGui:
 		if eg.audio.p != nil {
 			eg.audio.p.Close()
 		}
 		return ebiten.Termination
+	case lastSelectedROM := <-eg.g.FileRequest:
+		n, err := fileRequest(lastSelectedROM)
+		if err != nil {
+			logger.Log(logger.Allow, "gui", err.Error())
+		}
+		select {
+		case eg.g.RequestedFile <- n:
+		default:
+		}
+	case msg := <-eg.g.ErrorDialog:
+		showError(msg)
 	default:
 	}
 
@@ -124,13 +137,6 @@ func (eg *guiEbiten) Update() error {
 	err = eg.inputDragAndDrop()
 	if err != nil {
 		logger.Log(logger.Allow, "gui", err.Error())
-	}
-
-	// change state if necessary
-	select {
-	case eg.state = <-eg.g.State:
-		eg.audio.setState(eg.state)
-	default:
 	}
 
 	// create audio if necessary
@@ -272,12 +278,28 @@ func Launch(endGui chan bool, g *gui.GUI) error {
 		},
 	}
 
-	// wait for the first state change and a possible quit request
-	select {
-	case eg.state = <-g.State:
-		eg.audio.setState(eg.state)
-	case <-endGui:
-		return nil
+	// loop to service requests until the first state change. (the main service loop is in the
+	// Update() function)
+	done := false
+	for !done {
+		select {
+		case eg.state = <-g.State:
+			eg.audio.setState(eg.state)
+			done = true
+		case <-endGui:
+			return nil
+		case lastSelectedROM := <-g.FileRequest:
+			n, err := fileRequest(lastSelectedROM)
+			if err != nil {
+				logger.Log(logger.Allow, "gui", err.Error())
+			}
+			select {
+			case g.RequestedFile <- n:
+			default:
+			}
+		case msg := <-eg.g.ErrorDialog:
+			showError(msg)
+		}
 	}
 
 	var err error
