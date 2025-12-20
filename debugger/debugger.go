@@ -540,6 +540,10 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	}
 	args = flgs.Args()
 
+	if log {
+		logger.SetEcho(os.Stderr, false)
+	}
+
 	// handle hsc flag
 	var hscAuto bool
 	var hscForce bool
@@ -645,10 +649,6 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 
 	} else if len(args) > 1 {
 		return fmt.Errorf("too many arguments to debugger")
-	}
-
-	if log {
-		logger.SetEcho(os.Stderr, false)
 	}
 
 	ctx := context{
