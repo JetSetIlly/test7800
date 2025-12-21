@@ -306,7 +306,11 @@ func (m *debugger) runLoop() error {
 			return fmt.Errorf("%w%w", contextErr, err)
 		}
 		if w != nil {
-			return fmt.Errorf("%w: %04x = %02x -> %02x", watchErr, w.ma.address, w.prev, w.data)
+			if w.write {
+				return fmt.Errorf("%w: %04x = %02x -> %02x", watchErr, w.ma.address, w.prev, w.data)
+			} else {
+				return fmt.Errorf("%w: %04x = %02x", watchErr, w.ma.address, w.data)
+			}
 		}
 
 		// apply step rule and end the run if instructed

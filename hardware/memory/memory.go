@@ -36,6 +36,11 @@ type Memory struct {
 	// most recent state of the address and data buses
 	addressBus uint16
 	dataBus    uint8
+
+	// the following are only used by the debugger
+	LastCPUAddress uint16
+	LastCPUData    uint8
+	LastCPUWrite   bool
 }
 
 type Context interface {
@@ -388,6 +393,11 @@ func (mem *Memory) Read(address uint16) (uint8, error) {
 	// data bus happens late for Read()
 	mem.dataBus = data
 
+	// update debugging information
+	mem.LastCPUAddress = address
+	mem.LastCPUWrite = false
+	mem.LastCPUData = data
+
 	return data, nil
 }
 
@@ -421,6 +431,11 @@ func (mem *Memory) Write(address uint16, data uint8) error {
 	if err != nil {
 		return fmt.Errorf("write %04x: %w", address, err)
 	}
+
+	// update debugging information
+	mem.LastCPUAddress = address
+	mem.LastCPUWrite = true
+	mem.LastCPUData = data
 
 	return nil
 }

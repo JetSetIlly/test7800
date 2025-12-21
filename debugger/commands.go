@@ -409,7 +409,15 @@ func (m *debugger) commands(cmd []string) bool {
 			break // switch
 		}
 
-		for i := 1; i < len(cmd); i++ {
+		write := arg == "WRITE"
+
+		// start index for for loop depends on whether the WRITE flag as used
+		i := 1
+		if write {
+			i += 1
+		}
+
+		for i := i; i < len(cmd); i++ {
 			ma, err := m.parseAddress(cmd[i])
 			if err != nil {
 				fmt.Println(m.styles.err.Render(
@@ -434,8 +442,9 @@ func (m *debugger) commands(cmd []string) bool {
 			}
 
 			m.watches[ma.address] = watch{
-				ma:   ma,
-				data: d,
+				ma:    ma,
+				data:  d,
+				write: write,
 			}
 		}
 
