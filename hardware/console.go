@@ -120,108 +120,114 @@ func (con *Console) Step() error {
 		default:
 			drained = true
 		case inp := <-con.g.UserInput:
-			switch inp.Action {
-			case gui.StickLeft:
-				if inp.Data.(bool) {
-					// unset the opposite direction first (applies to all
-					// other directions below)
-					con.RIOT.PortWrite(0x00, 0x80, 0x7f)
-					con.RIOT.PortWrite(0x00, 0x00, 0xbf)
-				} else {
-					con.RIOT.PortWrite(0x00, 0x40, 0xbf)
-				}
-			case gui.StickUp:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x00, 0x20, 0xdf)
-					con.RIOT.PortWrite(0x00, 0x00, 0xef)
-				} else {
-					con.RIOT.PortWrite(0x00, 0x10, 0xef)
-				}
-			case gui.StickRight:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x00, 0x40, 0xbf)
-					con.RIOT.PortWrite(0x00, 0x00, 0x7f)
-				} else {
-					con.RIOT.PortWrite(0x00, 0x80, 0x7f)
-				}
-			case gui.StickDown:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x00, 0x10, 0xef)
-					con.RIOT.PortWrite(0x00, 0x00, 0xdf)
-				} else {
-					con.RIOT.PortWrite(0x00, 0x20, 0xdf)
-				}
-			case gui.StickButtonA:
-				// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
-				b, err := con.RIOT.Read(0x02)
-				if err != nil {
-					return fmt.Errorf("stick button a: %w", err)
-				}
-				if b&0x04 == 0x04 {
+			if inp.Port == gui.Player0 {
+				switch inp.Action {
+				case gui.StickLeft:
 					if inp.Data.(bool) {
-						con.TIA.PortWrite(0x0c, 0x00, 0x7f)
+						// unset the opposite direction first (applies to all
+						// other directions below)
+						con.RIOT.PortWrite(0x00, 0x80, 0x7f)
+						con.RIOT.PortWrite(0x00, 0x00, 0xbf)
 					} else {
-						con.TIA.PortWrite(0x0c, 0x80, 0x7f)
+						con.RIOT.PortWrite(0x00, 0x40, 0xbf)
 					}
-				} else {
-					// the two-button stick write to INPT0/INPT1 has an opposite logic to
-					// the write to INPT4/INPT5
+				case gui.StickUp:
 					if inp.Data.(bool) {
-						con.TIA.PortWrite(0x09, 0x80, 0x7f)
+						con.RIOT.PortWrite(0x00, 0x20, 0xdf)
+						con.RIOT.PortWrite(0x00, 0x00, 0xef)
 					} else {
-						con.TIA.PortWrite(0x09, 0x00, 0x7f)
+						con.RIOT.PortWrite(0x00, 0x10, 0xef)
 					}
-				}
-			case gui.StickButtonB:
-				// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
-				b, err := con.RIOT.Read(0x02)
-				if err != nil {
-					return fmt.Errorf("stick button b: %w", err)
-				}
-				if b&0x04 == 0x04 {
+				case gui.StickRight:
 					if inp.Data.(bool) {
-						con.TIA.PortWrite(0x0c, 0x00, 0x7f)
+						con.RIOT.PortWrite(0x00, 0x40, 0xbf)
+						con.RIOT.PortWrite(0x00, 0x00, 0x7f)
 					} else {
-						con.TIA.PortWrite(0x0c, 0x80, 0x7f)
+						con.RIOT.PortWrite(0x00, 0x80, 0x7f)
 					}
-				} else {
-					// the two-button stick write to INPT0/INPT1 has an opposite logic to
-					// the write to INPT4/INPT5
+				case gui.StickDown:
 					if inp.Data.(bool) {
-						con.TIA.PortWrite(0x08, 0x80, 0x7f)
+						con.RIOT.PortWrite(0x00, 0x10, 0xef)
+						con.RIOT.PortWrite(0x00, 0x00, 0xdf)
 					} else {
-						con.TIA.PortWrite(0x08, 0x00, 0x7f)
+						con.RIOT.PortWrite(0x00, 0x20, 0xdf)
+					}
+				case gui.StickButtonA:
+					// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
+					b, err := con.RIOT.Read(0x02)
+					if err != nil {
+						return fmt.Errorf("stick button a: %w", err)
+					}
+					if b&0x04 == 0x04 {
+						if inp.Data.(bool) {
+							con.TIA.PortWrite(0x0c, 0x00, 0x7f)
+						} else {
+							con.TIA.PortWrite(0x0c, 0x80, 0x7f)
+						}
+					} else {
+						// the two-button stick write to INPT0/INPT1 has an opposite logic to
+						// the write to INPT4/INPT5
+						if inp.Data.(bool) {
+							con.TIA.PortWrite(0x09, 0x80, 0x7f)
+						} else {
+							con.TIA.PortWrite(0x09, 0x00, 0x7f)
+						}
+					}
+				case gui.StickButtonB:
+					// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
+					b, err := con.RIOT.Read(0x02)
+					if err != nil {
+						return fmt.Errorf("stick button b: %w", err)
+					}
+					if b&0x04 == 0x04 {
+						if inp.Data.(bool) {
+							con.TIA.PortWrite(0x0c, 0x00, 0x7f)
+						} else {
+							con.TIA.PortWrite(0x0c, 0x80, 0x7f)
+						}
+					} else {
+						// the two-button stick write to INPT0/INPT1 has an opposite logic to
+						// the write to INPT4/INPT5
+						if inp.Data.(bool) {
+							con.TIA.PortWrite(0x08, 0x80, 0x7f)
+						} else {
+							con.TIA.PortWrite(0x08, 0x00, 0x7f)
+						}
 					}
 				}
-			case gui.Select:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x02, 0x00, 0xfd)
-				} else {
-					con.RIOT.PortWrite(0x02, 0x02, 0xfd)
-				}
-			case gui.Start:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x02, 0x00, 0xfe)
-				} else {
-					con.RIOT.PortWrite(0x02, 0x01, 0xfe)
-				}
-			case gui.Pause:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x02, 0x00, 0xf7)
-				} else {
-					con.RIOT.PortWrite(0x02, 0x08, 0xf7)
-				}
-			case gui.P0Pro:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x02, 0x80, 0x7f)
-				} else {
-					con.RIOT.PortWrite(0x02, 0x00, 0x7f)
-				}
-			case gui.P1Pro:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x02, 0x40, 0xbf)
-				} else {
-					con.RIOT.PortWrite(0x02, 0x00, 0xbf)
+			}
+			if inp.Port == gui.Panel {
+				switch inp.Action {
+				case gui.Select:
+					if inp.Data.(bool) {
+						con.RIOT.PortWrite(0x02, 0x00, 0xfd)
+					} else {
+						con.RIOT.PortWrite(0x02, 0x02, 0xfd)
+					}
+				case gui.Start:
+					if inp.Data.(bool) {
+						con.RIOT.PortWrite(0x02, 0x00, 0xfe)
+					} else {
+						con.RIOT.PortWrite(0x02, 0x01, 0xfe)
+					}
+				case gui.Pause:
+					if inp.Data.(bool) {
+						con.RIOT.PortWrite(0x02, 0x00, 0xf7)
+					} else {
+						con.RIOT.PortWrite(0x02, 0x08, 0xf7)
+					}
+				case gui.P0Pro:
+					if inp.Data.(bool) {
+						con.RIOT.PortWrite(0x02, 0x80, 0x7f)
+					} else {
+						con.RIOT.PortWrite(0x02, 0x00, 0x7f)
+					}
+				case gui.P1Pro:
+					if inp.Data.(bool) {
+						con.RIOT.PortWrite(0x02, 0x40, 0xbf)
+					} else {
+						con.RIOT.PortWrite(0x02, 0x00, 0xbf)
+					}
 				}
 			}
 		}
