@@ -187,17 +187,17 @@ func (tia *TIA) write(idx uint16, data uint8) error {
 func (tia *TIA) PortWrite(idx uint16, data uint8, mask uint8) error {
 	switch idx {
 	case 0x08:
-		tia.inpt[0] = (data & mask) | (data & ^mask)
+		tia.inpt[0] = (tia.inpt[0] & mask) | (data & ^mask)
 	case 0x09:
-		tia.inpt[1] = (data & mask) | (data & ^mask)
+		tia.inpt[1] = (tia.inpt[1] & mask) | (data & ^mask)
 	case 0x0a:
-		tia.inpt[2] = (data & mask) | (data & ^mask)
+		tia.inpt[2] = (tia.inpt[2] & mask) | (data & ^mask)
 	case 0x0b:
-		tia.inpt[3] = (data & mask) | (data & ^mask)
+		tia.inpt[3] = (tia.inpt[3] & mask) | (data & ^mask)
 	case 0x0c:
-		tia.inpt[4] = (data & mask) | (data & ^mask)
+		tia.inpt[4] = (tia.inpt[4] & mask) | (data & ^mask)
 	case 0x0d:
-		tia.inpt[5] = (data & mask) | (data & ^mask)
+		tia.inpt[5] = (tia.inpt[5] & mask) | (data & ^mask)
 	}
 	return nil
 }
