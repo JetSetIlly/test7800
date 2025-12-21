@@ -121,8 +121,21 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 	if err != nil {
 		return err
 	}
-	con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
-	con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
+
+	switch c.Controller {
+	case "7800_joystick":
+		con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+		con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
+	case "paddle":
+		con.players[0] = peripherals.NewPaddles(con.RIOT, con.TIA, false)
+		con.players[1] = peripherals.NewPaddles(con.RIOT, con.TIA, true)
+	case "2600_joystick":
+		con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, false)
+		con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, false)
+	case "snes2atari":
+		con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+		con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
+	}
 	return nil
 }
 
