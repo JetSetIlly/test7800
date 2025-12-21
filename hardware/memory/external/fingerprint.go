@@ -14,53 +14,6 @@ import (
 	"github.com/jetsetilly/test7800/logger"
 )
 
-// CartridgeReset contains 'instructions' to be followed when the cartridge is inserted
-type CartridgeReset struct {
-	// if BypassBIOS is true then the normal BIOS initialisation procedure is bypassed
-	BypassBIOS bool
-}
-
-type CartridgeInsertor struct {
-	filename string
-	data     []uint8
-
-	// returns a new instance of the cartridge. this will be the
-	creator func(Context, []uint8) (Bus, error)
-
-	// returns the actions to take on cartridge reset
-	reset CartridgeReset
-
-	// whether controller should have just one-buttons. NOTE: placeholder
-	// until we add more sophisticated controller requirements (paddle, etc.)
-	OneButtonStick bool
-
-	// tv specifiction. if the string is empty then the spec of the console is not changed
-	spec string
-
-	// list of additional chips (eg. POKEYs) that are present in the cartridge
-	chips []func(Context) (OptionalBus, error)
-
-	// use high-score cartridge shim with cartridge
-	UseHSC     bool
-	UseSavekey bool
-}
-
-func (c CartridgeInsertor) Filename() string {
-	return c.filename
-}
-
-func (c CartridgeInsertor) Data() []uint8 {
-	return c.data
-}
-
-func (c CartridgeInsertor) Spec() string {
-	return c.spec
-}
-
-func (c CartridgeInsertor) ResetProcedure() CartridgeReset {
-	return c.reset
-}
-
 // error returned when data is not recognised at all
 var UnrecognisedData = errors.New("unrecognised data")
 
@@ -122,20 +75,25 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 			}
 
 			// controller type
-			var oneButtonStick bool
-			controllerP0 := d[0x37]
-			switch controllerP0 {
+			var controller string
+			switch d[0x37] {
 			case 0x00:
 				// no controller, don't care
+				logger.Log(logger.Allow, "a78", "controllers: no controller information")
 			case 0x01:
-				oneButtonStick = false
-				logger.Logf(logger.Allow, "a78", "controllers: using two-button stick")
+				controller = "7800_joystick"
+				logger.Log(logger.Allow, "a78", "controllers: 7800 joystick")
+			case 0x03:
+				controller = "paddle"
+				logger.Log(logger.Allow, "a78", "controllers: paddle")
 			case 0x05:
-				oneButtonStick = true
-				logger.Logf(logger.Allow, "a78", "controllers: using one-button stick")
+				controller = "2600_joystick"
+				logger.Log(logger.Allow, "a78", "controllers: 2600 joystick")
 			case 0x0b:
-				oneButtonStick = false
-				logger.Log(logger.Allow, "a78", "controllers: SNES2Atari emulated as two-button stick")
+				controller = "snes2atari"
+				logger.Log(logger.Allow, "a78", "controllers: snes2atari")
+			default:
+				logger.Logf(logger.Allow, "a78", "controllers: unrecognised controller: %#02x", d[0x37])
 			}
 
 			// tv spec
@@ -197,11 +155,11 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 					creator: func(ctx Context, d []uint8) (Bus, error) {
 						return NewFlat(ctx, d[dataStart:])
 					},
-					OneButtonStick: oneButtonStick,
-					spec:           spec,
-					chips:          chips,
-					UseHSC:         useHSC,
-					UseSavekey:     useSavekey,
+					Controller: controller,
+					spec:       spec,
+					chips:      chips,
+					UseHSC:     useHSC,
+					UseSavekey: useSavekey,
 				}, nil
 			}
 
@@ -218,11 +176,11 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 					creator: func(ctx Context, d []uint8) (Bus, error) {
 						return NewActivision(ctx, d[dataStart:], originalOrder)
 					},
-					OneButtonStick: oneButtonStick,
-					spec:           spec,
-					chips:          chips,
-					UseHSC:         useHSC,
-					UseSavekey:     useSavekey,
+					Controller: controller,
+					spec:       spec,
+					chips:      chips,
+					UseHSC:     useHSC,
+					UseSavekey: useSavekey,
 				}, nil
 			}
 
@@ -234,11 +192,11 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 					creator: func(ctx Context, d []uint8) (Bus, error) {
 						return NewAbsolute(ctx, d[dataStart:])
 					},
-					OneButtonStick: oneButtonStick,
-					spec:           spec,
-					chips:          chips,
-					UseHSC:         useHSC,
-					UseSavekey:     useSavekey,
+					Controller: controller,
+					spec:       spec,
+					chips:      chips,
+					UseHSC:     useHSC,
+					UseSavekey: useSavekey,
 				}, nil
 			}
 
@@ -252,11 +210,11 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 					creator: func(ctx Context, d []uint8) (Bus, error) {
 						return NewBanksets(ctx, supergame, d[dataStart:], banksetRAM)
 					},
-					OneButtonStick: oneButtonStick,
-					spec:           spec,
-					chips:          chips,
-					UseHSC:         useHSC,
-					UseSavekey:     useSavekey,
+					Controller: controller,
+					spec:       spec,
+					chips:      chips,
+					UseHSC:     useHSC,
+					UseSavekey: useSavekey,
 				}, nil
 			}
 
@@ -274,11 +232,11 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 							banked, exram, exrom,
 						)
 					},
-					OneButtonStick: oneButtonStick,
-					spec:           spec,
-					chips:          chips,
-					UseHSC:         useHSC,
-					UseSavekey:     useSavekey,
+					Controller: controller,
+					spec:       spec,
+					chips:      chips,
+					UseHSC:     useHSC,
+					UseSavekey: useSavekey,
 				}, nil
 			}
 
@@ -299,7 +257,7 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 			creator: func(ctx Context, d []uint8) (Bus, error) {
 				return NewSN(ctx, d[:], mapper)
 			},
-			OneButtonStick: false,
+			Controller: "7800_joystick",
 		}, nil
 	}
 
@@ -314,7 +272,7 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 				creator: func(ctx Context, d []uint8) (Bus, error) {
 					return NewFlat(ctx, d[:])
 				},
-				OneButtonStick: false,
+				Controller: "7800_joystick",
 			}, nil
 		}
 	}

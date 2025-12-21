@@ -9,9 +9,17 @@ import (
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
+	"github.com/jetsetilly/test7800/hardware/peripherals"
 	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
+	"github.com/jetsetilly/test7800/logger"
 )
+
+type peripheral interface {
+	Reset()
+	Update(inp gui.Input) error
+	Step()
+}
 
 type Console struct {
 	ctx Context
@@ -22,6 +30,9 @@ type Console struct {
 	MARIA *maria.Maria
 	TIA   *tia.TIA
 	RIOT  *riot.RIOT
+
+	panel  peripheral
+	player [2]peripheral
 
 	// the HLT and RDY lines to the CPU is set by MARIA
 	hlt bool
@@ -63,6 +74,10 @@ func Create(ctx Context, g *gui.GUI) *Console {
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
+	con.panel = peripherals.NewPanel(con.RIOT)
+	con.player[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+	con.player[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
+
 	return con
 }
 
@@ -77,6 +92,10 @@ func (con *Console) Reset(random bool, biosCheck func() bool) error {
 	con.RIOT.Reset()
 	con.TIA.Reset()
 	con.MARIA.Reset()
+
+	con.panel.Reset()
+	con.player[0].Reset()
+	con.player[1].Reset()
 
 	// reset CPU after memory reset so that we get the correct reset address (the BIOS might be locked)
 	con.MC.Reset(rnd)
@@ -101,128 +120,52 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 	if err != nil {
 		return err
 	}
-	err = con.RIOT.Insert(c)
-	if err != nil {
-		return err
-	}
+
 	err = con.TIA.Insert(c, con.Mem.External.Chips)
 	if err != nil {
 		return err
 	}
+
+	switch c.Controller {
+	case "7800_joystick":
+		con.player[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+		con.player[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
+	case "paddle":
+		con.player[0] = peripherals.NewPaddles(con.RIOT, con.TIA, false)
+		con.player[1] = peripherals.NewPaddles(con.RIOT, con.TIA, true)
+	case "2600_joystick":
+		con.player[0] = peripherals.NewStick(con.RIOT, con.TIA, false, false)
+		con.player[1] = peripherals.NewStick(con.RIOT, con.TIA, true, false)
+	case "snes2atari":
+		logger.Log(logger.Allow, "snes2atari", "emulated as a 7800 joystick")
+		con.player[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+		con.player[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
+	default:
+		return fmt.Errorf("unsupported controller type: %s", c.Controller)
+	}
+
 	return nil
 }
 
 func (con *Console) Step() error {
-	// handle input (left stick only)
+	// receive user input
 	var drained bool
 	for !drained {
 		select {
 		default:
 			drained = true
 		case inp := <-con.g.UserInput:
-			switch inp.Action {
-			case gui.StickLeft:
-				if inp.Data.(bool) {
-					// unset the opposite direction first (applies to all
-					// other directions below)
-					con.RIOT.PortWrite(0x00, 0x80, 0x7f)
-					con.RIOT.PortWrite(0x00, 0x00, 0xbf)
-				} else {
-					con.RIOT.PortWrite(0x00, 0x40, 0xbf)
-				}
-			case gui.StickUp:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x00, 0x20, 0xdf)
-					con.RIOT.PortWrite(0x00, 0x00, 0xef)
-				} else {
-					con.RIOT.PortWrite(0x00, 0x10, 0xef)
-				}
-			case gui.StickRight:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x00, 0x40, 0xbf)
-					con.RIOT.PortWrite(0x00, 0x00, 0x7f)
-				} else {
-					con.RIOT.PortWrite(0x00, 0x80, 0x7f)
-				}
-			case gui.StickDown:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x00, 0x10, 0xef)
-					con.RIOT.PortWrite(0x00, 0x00, 0xdf)
-				} else {
-					con.RIOT.PortWrite(0x00, 0x20, 0xdf)
-				}
-			case gui.StickButtonA:
-				// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
-				b, err := con.RIOT.Read(0x02)
-				if err != nil {
-					return fmt.Errorf("stick button a: %w", err)
-				}
-				if b&0x04 == 0x04 {
-					if inp.Data.(bool) {
-						con.TIA.PortWrite(0x0c, 0x00, 0x7f)
-					} else {
-						con.TIA.PortWrite(0x0c, 0x80, 0x7f)
-					}
-				} else {
-					// the two-button stick write to INPT0/INPT1 has an opposite logic to
-					// the write to INPT4/INPT5
-					if inp.Data.(bool) {
-						con.TIA.PortWrite(0x09, 0x80, 0x7f)
-					} else {
-						con.TIA.PortWrite(0x09, 0x00, 0x7f)
-					}
-				}
-			case gui.StickButtonB:
-				// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
-				b, err := con.RIOT.Read(0x02)
-				if err != nil {
-					return fmt.Errorf("stick button b: %w", err)
-				}
-				if b&0x04 == 0x04 {
-					if inp.Data.(bool) {
-						con.TIA.PortWrite(0x0c, 0x00, 0x7f)
-					} else {
-						con.TIA.PortWrite(0x0c, 0x80, 0x7f)
-					}
-				} else {
-					// the two-button stick write to INPT0/INPT1 has an opposite logic to
-					// the write to INPT4/INPT5
-					if inp.Data.(bool) {
-						con.TIA.PortWrite(0x08, 0x80, 0x7f)
-					} else {
-						con.TIA.PortWrite(0x08, 0x00, 0x7f)
-					}
-				}
-			case gui.Select:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x02, 0x00, 0xfd)
-				} else {
-					con.RIOT.PortWrite(0x02, 0x02, 0xfd)
-				}
-			case gui.Start:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x02, 0x00, 0xfe)
-				} else {
-					con.RIOT.PortWrite(0x02, 0x01, 0xfe)
-				}
-			case gui.Pause:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x02, 0x00, 0xf7)
-				} else {
-					con.RIOT.PortWrite(0x02, 0x08, 0xf7)
-				}
-			case gui.P0Pro:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x02, 0x80, 0x7f)
-				} else {
-					con.RIOT.PortWrite(0x02, 0x00, 0x7f)
-				}
-			case gui.P1Pro:
-				if inp.Data.(bool) {
-					con.RIOT.PortWrite(0x02, 0x40, 0xbf)
-				} else {
-					con.RIOT.PortWrite(0x02, 0x00, 0xbf)
-				}
+			var err error
+			switch inp.Port {
+			case gui.Panel:
+				err = con.panel.Update(inp)
+			case gui.Player0:
+				err = con.player[0].Update(inp)
+			case gui.Player1:
+				err = con.player[1].Update(inp)
+			}
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -254,8 +197,11 @@ func (con *Console) Step() error {
 
 			con.cycleRegulator++
 			if con.cycleRegulator > 3 {
-				con.TIA.Tick()
-				con.RIOT.Tick()
+				con.TIA.Step()
+				con.RIOT.Step()
+				con.panel.Step()
+				con.player[0].Step()
+				con.player[1].Step()
 				con.cycleRegulator = 0
 			}
 		}

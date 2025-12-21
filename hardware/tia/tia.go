@@ -87,7 +87,9 @@ func Create(ctx Context, g *gui.GUI, riot riot, limiter limiter) *TIA {
 		}
 	}
 
+	tia.Reset()
 	tia.Insert(external.CartridgeInsertor{}, nil)
+
 	return tia
 }
 
@@ -96,32 +98,15 @@ func (tia *TIA) String() string {
 }
 
 func (tia *TIA) Reset() error {
+	tia.inpt = [6]uint8{
+		0x80, 0x80, 0x80, 0x80,
+		0x80, 0x80,
+	}
 	return nil
 }
 
 func (tia *TIA) Insert(c external.CartridgeInsertor, externalChips audio.SoundChipIterator) error {
-	// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
-	if c.OneButtonStick {
-		tia.inpt = [6]uint8{
-			0x00, 0x00, 0x80, 0x80,
-			0x80, 0x80,
-		}
-	} else {
-		// inpt initialised as though two-button sticks/gamepads are being used. INPT4 and INPT5
-		// represent the primary fire button and the high bit pulled high by default. the high bits
-		// of INPT0 and INPT1 meanwhile, represents the secondary button and is held low by default.
-		//
-		// INPT2 and INPT3 are not connected for joystick peripherals and the high bit is held high
-		// in this case
-		tia.inpt = [6]uint8{
-			0x00, 0x00, 0x00, 0x00,
-			0x80, 0x80,
-		}
-	}
-
-	// piggyback any external soundchips to the TIA audio
 	tia.aud.PiggybackExternalSound(externalChips)
-
 	return nil
 }
 
@@ -187,22 +172,22 @@ func (tia *TIA) write(idx uint16, data uint8) error {
 func (tia *TIA) PortWrite(idx uint16, data uint8, mask uint8) error {
 	switch idx {
 	case 0x08:
-		tia.inpt[0] = (data & mask) | (data & ^mask)
+		tia.inpt[0] = (tia.inpt[0] & mask) | (data & ^mask)
 	case 0x09:
-		tia.inpt[1] = (data & mask) | (data & ^mask)
+		tia.inpt[1] = (tia.inpt[1] & mask) | (data & ^mask)
 	case 0x0a:
-		tia.inpt[2] = (data & mask) | (data & ^mask)
+		tia.inpt[2] = (tia.inpt[2] & mask) | (data & ^mask)
 	case 0x0b:
-		tia.inpt[3] = (data & mask) | (data & ^mask)
+		tia.inpt[3] = (tia.inpt[3] & mask) | (data & ^mask)
 	case 0x0c:
-		tia.inpt[4] = (data & mask) | (data & ^mask)
+		tia.inpt[4] = (tia.inpt[4] & mask) | (data & ^mask)
 	case 0x0d:
-		tia.inpt[5] = (data & mask) | (data & ^mask)
+		tia.inpt[5] = (tia.inpt[5] & mask) | (data & ^mask)
 	}
 	return nil
 }
 
-func (tia *TIA) Tick() {
+func (tia *TIA) Step() {
 	if tia.buf == nil {
 		return
 	}
