@@ -101,10 +101,6 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 	if err != nil {
 		return err
 	}
-	err = con.RIOT.Insert(c)
-	if err != nil {
-		return err
-	}
 	err = con.TIA.Insert(c, con.Mem.External.Chips)
 	if err != nil {
 		return err
