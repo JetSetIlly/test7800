@@ -52,6 +52,10 @@ func Create() *RIOT {
 	return riot
 }
 
+func (riot *RIOT) String() string {
+	return fmt.Sprintf("swcha: %#v(%#v)/%#v  swchb: %#v(%#v)/%#v", riot.swcha_mux, riot.swcha, riot.swacnt, riot.swchb_mux, riot.swchb, riot.swbcnt)
+}
+
 func (riot *RIOT) Reset() {
 	// swcha initialised as though stick is being used
 	riot.swcha = 0x00

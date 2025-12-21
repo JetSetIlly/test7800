@@ -1,6 +1,8 @@
 package tia
 
 import (
+	"fmt"
+
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/hardware/spec"
@@ -87,6 +89,10 @@ func Create(ctx Context, g *gui.GUI, riot riot, limiter limiter) *TIA {
 
 	tia.Insert(external.CartridgeInsertor{}, nil)
 	return tia
+}
+
+func (tia *TIA) String() string {
+	return fmt.Sprintf("%#v", tia.inpt)
 }
 
 func (tia *TIA) Reset() error {
