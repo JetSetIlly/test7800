@@ -9,9 +9,16 @@ import (
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
+	"github.com/jetsetilly/test7800/hardware/peripherals"
 	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
 )
+
+type peripheral interface {
+	Reset()
+	Update(inp gui.Input) error
+	Step()
+}
 
 type Console struct {
 	ctx Context
@@ -22,6 +29,8 @@ type Console struct {
 	MARIA *maria.Maria
 	TIA   *tia.TIA
 	RIOT  *riot.RIOT
+
+	panel peripheral
 
 	// the HLT and RDY lines to the CPU is set by MARIA
 	hlt bool
@@ -62,6 +71,8 @@ func Create(ctx Context, g *gui.GUI) *Console {
 	con.MARIA = maria.Create(ctx, g, con.Mem, con.MC, con.limit)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
+
+	con.panel = peripherals.NewPanel(con.RIOT)
 
 	return con
 }
@@ -116,6 +127,9 @@ func (con *Console) Step() error {
 		default:
 			drained = true
 		case inp := <-con.g.UserInput:
+			if inp.Port == gui.Panel {
+				con.panel.Update(inp)
+			}
 			if inp.Port == gui.Player0 {
 				switch inp.Action {
 				case gui.StickLeft:
@@ -189,40 +203,6 @@ func (con *Console) Step() error {
 						} else {
 							con.TIA.PortWrite(0x08, 0x00, 0x7f)
 						}
-					}
-				}
-			}
-			if inp.Port == gui.Panel {
-				switch inp.Action {
-				case gui.Select:
-					if inp.Data.(bool) {
-						con.RIOT.PortWrite(0x02, 0x00, 0xfd)
-					} else {
-						con.RIOT.PortWrite(0x02, 0x02, 0xfd)
-					}
-				case gui.Start:
-					if inp.Data.(bool) {
-						con.RIOT.PortWrite(0x02, 0x00, 0xfe)
-					} else {
-						con.RIOT.PortWrite(0x02, 0x01, 0xfe)
-					}
-				case gui.Pause:
-					if inp.Data.(bool) {
-						con.RIOT.PortWrite(0x02, 0x00, 0xf7)
-					} else {
-						con.RIOT.PortWrite(0x02, 0x08, 0xf7)
-					}
-				case gui.P0Pro:
-					if inp.Data.(bool) {
-						con.RIOT.PortWrite(0x02, 0x80, 0x7f)
-					} else {
-						con.RIOT.PortWrite(0x02, 0x00, 0x7f)
-					}
-				case gui.P1Pro:
-					if inp.Data.(bool) {
-						con.RIOT.PortWrite(0x02, 0x40, 0xbf)
-					} else {
-						con.RIOT.PortWrite(0x02, 0x00, 0xbf)
 					}
 				}
 			}
