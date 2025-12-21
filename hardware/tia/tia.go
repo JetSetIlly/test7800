@@ -101,7 +101,7 @@ func (tia *TIA) Reset() error {
 
 func (tia *TIA) Insert(c external.CartridgeInsertor, externalChips audio.SoundChipIterator) error {
 	// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
-	if c.OneButtonStick {
+	if c.Controller == "2600_joystick" {
 		tia.inpt = [6]uint8{
 			0x00, 0x00, 0x80, 0x80,
 			0x80, 0x80,
