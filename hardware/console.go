@@ -1,8 +1,6 @@
 package hardware
 
 import (
-	"fmt"
-
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/clocks"
 	"github.com/jetsetilly/test7800/hardware/cpu"
@@ -30,7 +28,8 @@ type Console struct {
 	TIA   *tia.TIA
 	RIOT  *riot.RIOT
 
-	panel peripheral
+	panel   peripheral
+	players [2]peripheral
 
 	// the HLT and RDY lines to the CPU is set by MARIA
 	hlt bool
@@ -73,6 +72,8 @@ func Create(ctx Context, g *gui.GUI) *Console {
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
 	con.panel = peripherals.NewPanel(con.RIOT)
+	con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+	con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
 
 	return con
 }
@@ -88,6 +89,10 @@ func (con *Console) Reset(random bool, biosCheck func() bool) error {
 	con.RIOT.Reset()
 	con.TIA.Reset()
 	con.MARIA.Reset()
+
+	con.panel.Reset()
+	con.players[0].Reset()
+	con.players[1].Reset()
 
 	// reset CPU after memory reset so that we get the correct reset address (the BIOS might be locked)
 	con.MC.Reset(rnd)
@@ -112,10 +117,12 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 	if err != nil {
 		return err
 	}
-	err = con.TIA.Insert(c, con.Mem.External.Chips)
+	err = con.TIA.Insert(con.Mem.External.Chips)
 	if err != nil {
 		return err
 	}
+	con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+	con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
 	return nil
 }
 
@@ -127,84 +134,13 @@ func (con *Console) Step() error {
 		default:
 			drained = true
 		case inp := <-con.g.UserInput:
-			if inp.Port == gui.Panel {
+			switch inp.Port {
+			case gui.Panel:
 				con.panel.Update(inp)
-			}
-			if inp.Port == gui.Player0 {
-				switch inp.Action {
-				case gui.StickLeft:
-					if inp.Data.(bool) {
-						// unset the opposite direction first (applies to all
-						// other directions below)
-						con.RIOT.PortWrite(0x00, 0x80, 0x7f)
-						con.RIOT.PortWrite(0x00, 0x00, 0xbf)
-					} else {
-						con.RIOT.PortWrite(0x00, 0x40, 0xbf)
-					}
-				case gui.StickUp:
-					if inp.Data.(bool) {
-						con.RIOT.PortWrite(0x00, 0x20, 0xdf)
-						con.RIOT.PortWrite(0x00, 0x00, 0xef)
-					} else {
-						con.RIOT.PortWrite(0x00, 0x10, 0xef)
-					}
-				case gui.StickRight:
-					if inp.Data.(bool) {
-						con.RIOT.PortWrite(0x00, 0x40, 0xbf)
-						con.RIOT.PortWrite(0x00, 0x00, 0x7f)
-					} else {
-						con.RIOT.PortWrite(0x00, 0x80, 0x7f)
-					}
-				case gui.StickDown:
-					if inp.Data.(bool) {
-						con.RIOT.PortWrite(0x00, 0x10, 0xef)
-						con.RIOT.PortWrite(0x00, 0x00, 0xdf)
-					} else {
-						con.RIOT.PortWrite(0x00, 0x20, 0xdf)
-					}
-				case gui.StickButtonA:
-					// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
-					b, err := con.RIOT.Read(0x02)
-					if err != nil {
-						return fmt.Errorf("stick button a: %w", err)
-					}
-					if b&0x04 == 0x04 {
-						if inp.Data.(bool) {
-							con.TIA.PortWrite(0x0c, 0x00, 0x7f)
-						} else {
-							con.TIA.PortWrite(0x0c, 0x80, 0x7f)
-						}
-					} else {
-						// the two-button stick write to INPT0/INPT1 has an opposite logic to
-						// the write to INPT4/INPT5
-						if inp.Data.(bool) {
-							con.TIA.PortWrite(0x09, 0x80, 0x7f)
-						} else {
-							con.TIA.PortWrite(0x09, 0x00, 0x7f)
-						}
-					}
-				case gui.StickButtonB:
-					// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
-					b, err := con.RIOT.Read(0x02)
-					if err != nil {
-						return fmt.Errorf("stick button b: %w", err)
-					}
-					if b&0x04 == 0x04 {
-						if inp.Data.(bool) {
-							con.TIA.PortWrite(0x0c, 0x00, 0x7f)
-						} else {
-							con.TIA.PortWrite(0x0c, 0x80, 0x7f)
-						}
-					} else {
-						// the two-button stick write to INPT0/INPT1 has an opposite logic to
-						// the write to INPT4/INPT5
-						if inp.Data.(bool) {
-							con.TIA.PortWrite(0x08, 0x80, 0x7f)
-						} else {
-							con.TIA.PortWrite(0x08, 0x00, 0x7f)
-						}
-					}
-				}
+			case gui.Player0:
+				con.players[0].Update(inp)
+			case gui.Player1:
+				con.players[1].Update(inp)
 			}
 		}
 	}
