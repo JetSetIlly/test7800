@@ -11,28 +11,40 @@ type Input struct {
 }
 
 const (
-	Unplugged Port = iota
-	Player0
+	Player0 Port = iota
 	Player1
 	Panel
 )
 
+const Undefined Port = -1
+
+type PaddleFireData struct {
+	Paddle int // 0 or 1 to indicate which paddle in the pair
+	Fire   bool
+}
+
+type PaddleMoveData struct {
+	Paddle   int // 0 or 1 to indicate which paddle in the pair
+	Distance int // distance moved by paddle device
+}
+
 const (
 	Nothing Action = iota
 
-	Select
-	Start
-	Pause
-	P0Pro
-	P1Pro
+	Select // bool
+	Start  // bool
+	Pause  // bool
+	P0Pro  // bool
+	P1Pro  // bool
 
-	StickLeft
-	StickUp
-	StickRight
-	StickDown
-	StickButtonA
-	StickButtonB
+	StickLeft    // bool
+	StickUp      // bool
+	StickRight   // bool
+	StickDown    // bool
+	StickButtonA // bool
+	StickButtonB // bool
 
-	PaddleFire
-	PaddleSet
+	PaddleSelect // bool
+	PaddleFire   // PaddleFireData
+	PaddleMove   // PaddleMoveData
 )

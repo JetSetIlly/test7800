@@ -5,6 +5,22 @@ import (
 	"slices"
 )
 
+type Register int
+
+const (
+	SWCHA  Register = 0x00
+	SWACNT Register = 0x01
+	SWCHB  Register = 0x02
+	SWBCNT Register = 0x03
+	INTIM  Register = 0x04
+	TIMINT Register = 0x05
+
+	TIM1T  Register = 0x04
+	TIM8T  Register = 0x05
+	TIM64T Register = 0x06
+	T1024T Register = 0x07
+)
+
 type RIOT struct {
 	swcha     uint8
 	swcha_mux uint8
@@ -35,7 +51,7 @@ type RIOT struct {
 	// when INTIM or TIMINT is read, so it's only ever set to 0x04 or 0x05
 	//
 	// set to 0 if the last read was not to the RIOT
-	lastReadIdx int
+	lastReadReg Register
 }
 
 const (
@@ -65,7 +81,7 @@ func (riot *RIOT) Reset() {
 	riot.swbcnt = 0x00
 
 	riot.timint = timintPA7
-	riot.lastReadIdx = 0
+	riot.lastReadReg = 0
 	riot.setTimer(1024, 0)
 }
 
@@ -79,52 +95,55 @@ func (riot *RIOT) Status() string {
 
 func (riot *RIOT) Access(write bool, idx uint16, data uint8) (uint8, error) {
 	if write {
-		return data, riot.Write(idx, data)
+		return data, riot.write(Register(idx), data)
 	}
-	return riot.Read(idx)
+	return riot.read(Register(idx))
 }
 
-func (riot *RIOT) Read(idx uint16) (uint8, error) {
-	switch idx {
-	case 0x00:
+func (riot *RIOT) read(reg Register) (uint8, error) {
+	defer func() {
+		riot.lastReadReg = reg
+	}()
+
+	switch reg {
+	case SWCHA:
 		// the value of SWCHA read by the CPU is not necessarily the same as
 		// either the last written value or the value representing the state of
 		// an attached peripheral. it is derived from a combination of both
 		return riot.deriveSWCHA(), nil
-	case 0x01:
+	case SWACNT:
 		return riot.swacnt, nil
-	case 0x02:
+	case SWCHB:
 		// as for SWCHA
 		return riot.deriveSWCHB(), nil
-	case 0x03:
+	case SWBCNT:
 		return riot.swbcnt, nil
-	case 0x04:
-		riot.lastReadIdx = 0x04
+	case INTIM:
 		return riot.intim, nil
-	case 0x05:
-		riot.lastReadIdx = 0x05
+	case TIMINT:
 		return riot.timint, nil
 	}
+
 	return 0, nil
 }
 
-func (riot *RIOT) Write(idx uint16, data uint8) error {
-	switch idx {
-	case 0x00:
+func (riot *RIOT) write(reg Register, data uint8) error {
+	switch reg {
+	case SWCHA:
 		riot.swcha = data
-	case 0x01:
+	case SWACNT:
 		riot.swacnt = data
-	case 0x02:
+	case SWCHB:
 		riot.swchb = data
-	case 0x03:
+	case SWBCNT:
 		riot.swbcnt = data
-	case 0x04, 0x14:
+	case TIM1T, 0x14:
 		riot.setTimer(1, data)
-	case 0x05, 0x15:
+	case TIM8T, 0x15:
 		riot.setTimer(8, data)
-	case 0x06, 0x16:
+	case TIM64T, 0x16:
 		riot.setTimer(64, data)
-	case 0x07, 0x17:
+	case T1024T, 0x17:
 		riot.setTimer(1024, data)
 	case 0x1f:
 		riot.timint &= ^timintExpired
@@ -162,19 +181,23 @@ func (riot *RIOT) setTimer(divider int, data uint8) {
 	riot.intim = data
 }
 
-func (riot *RIOT) PortWrite(idx uint16, data uint8, mask uint8) error {
-	switch idx {
-	case 0x00:
+func (riot *RIOT) PortRead(reg Register) (uint8, error) {
+	return riot.read(reg)
+}
+
+func (riot *RIOT) PortWrite(reg Register, data uint8, mask uint8) error {
+	switch reg {
+	case SWCHA:
 		riot.swcha_mux = (riot.swcha_mux & mask) | (data & ^mask)
-	case 0x02:
+	case SWCHB:
 		riot.swchb_mux = (riot.swchb_mux & mask) | (data & ^mask)
 	}
 	return nil
 }
 
 func (riot *RIOT) Tick() {
-	switch riot.lastReadIdx {
-	case 0x04:
+	switch riot.lastReadReg {
+	case INTIM:
 		// if INTIM is *read* then the decrement reverts to once per timer
 		// divider. this won't have any discernable effect unless the timer
 		// divider has been flipped to 1 when INTIM cycles back to 255
@@ -188,7 +211,7 @@ func (riot *RIOT) Tick() {
 		if riot.ticksRemaining != 0 || riot.intim != 0xff {
 			riot.timint &= ^timintExpired
 		}
-	case 0x05:
+	case TIMINT:
 		// from the NMOS 6532:
 		//
 		// "Clearing of the PA7 Interrupt Flag occurs when the microprocessor
@@ -207,7 +230,7 @@ func (riot *RIOT) Tick() {
 		// expired (see below)
 		riot.timint &= ^timintPA7
 	}
-	riot.lastReadIdx = 0
+	riot.lastReadReg = 0
 
 	riot.ticksRemaining--
 	if riot.ticksRemaining <= 0 {

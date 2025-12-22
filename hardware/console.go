@@ -14,8 +14,9 @@ import (
 
 type peripheral interface {
 	Reset()
+	Unplug()
 	Update(inp gui.Input) error
-	Step()
+	Tick()
 }
 
 type Console struct {
@@ -66,7 +67,7 @@ func Create(ctx Context, g *gui.GUI) *Console {
 
 	con.MC = cpu.Create(con.Mem)
 	con.RIOT = riot.Create()
-	con.TIA = tia.Create(ctx, g, con.RIOT, con.limit)
+	con.TIA = tia.Create(ctx, g, con.limit)
 	con.MARIA = maria.Create(ctx, g, con.Mem, con.MC, con.limit)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
@@ -74,6 +75,9 @@ func Create(ctx Context, g *gui.GUI) *Console {
 	con.panel = peripherals.NewPanel(con.RIOT)
 	con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
 	con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
+	con.panel.Reset()
+	con.players[0].Reset()
+	con.players[1].Reset()
 
 	return con
 }
@@ -124,39 +128,55 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 
 	switch c.Controller {
 	case "7800_joystick":
-		con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
-		con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
+		if _, ok := con.players[0].(*peripherals.Stick); !ok {
+			con.players[0].Unplug()
+			con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+			con.players[0].Reset()
+		}
+		if _, ok := con.players[1].(*peripherals.Stick); !ok {
+			con.players[1].Unplug()
+			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+			con.players[1].Reset()
+		}
 	case "paddle":
-		con.players[0] = peripherals.NewPaddles(con.RIOT, con.TIA, false)
-		con.players[1] = peripherals.NewPaddles(con.RIOT, con.TIA, true)
+		if _, ok := con.players[0].(*peripherals.Paddles); !ok {
+			con.players[0].Unplug()
+			con.players[0] = peripherals.NewPaddles(con.RIOT, con.TIA, false)
+			con.players[0].Reset()
+		}
+		if _, ok := con.players[1].(*peripherals.Paddles); !ok {
+			con.players[1].Unplug()
+			con.players[1] = peripherals.NewPaddles(con.RIOT, con.TIA, true)
+			con.players[1].Reset()
+		}
 	case "2600_joystick":
-		con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, false)
-		con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, false)
+		if _, ok := con.players[0].(*peripherals.Stick); !ok {
+			con.players[0].Unplug()
+			con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, false)
+			con.players[0].Reset()
+		}
+		if _, ok := con.players[1].(*peripherals.Stick); !ok {
+			con.players[1].Unplug()
+			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+			con.players[1].Reset()
+		}
 	case "snes2atari":
-		con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
-		con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
+		if _, ok := con.players[0].(*peripherals.Stick); !ok {
+			con.players[0].Unplug()
+			con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+			con.players[0].Reset()
+		}
+		if _, ok := con.players[1].(*peripherals.Stick); !ok {
+			con.players[1].Unplug()
+			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+			con.players[1].Reset()
+		}
 	}
 	return nil
 }
 
 func (con *Console) Step() error {
-	// handle input (left stick only)
-	var drained bool
-	for !drained {
-		select {
-		default:
-			drained = true
-		case inp := <-con.g.UserInput:
-			switch inp.Port {
-			case gui.Panel:
-				con.panel.Update(inp)
-			case gui.Player0:
-				con.players[0].Update(inp)
-			case gui.Player1:
-				con.players[1].Update(inp)
-			}
-		}
-	}
+	con.handleInput()
 
 	// interrupts are atomic, meaning that the interrupt occurs between
 	// instruction boundaries and never during an instruction
@@ -187,6 +207,9 @@ func (con *Console) Step() error {
 			if con.cycleRegulator > 3 {
 				con.TIA.Tick()
 				con.RIOT.Tick()
+				con.panel.Tick()
+				con.players[0].Tick()
+				con.players[1].Tick()
 				con.cycleRegulator = 0
 			}
 		}

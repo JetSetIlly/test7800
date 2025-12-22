@@ -1,10 +1,20 @@
 package peripherals
 
+import (
+	"github.com/jetsetilly/test7800/hardware/riot"
+	"github.com/jetsetilly/test7800/hardware/tia"
+)
+
 type RIOT interface {
-	PortWrite(idx uint16, data uint8, mask uint8) error
-	Read(idx uint16) (uint8, error)
+	PortWrite(reg riot.Register, data uint8, mask uint8) error
+	PortRead(reg riot.Register) (uint8, error)
 }
 
 type TIA interface {
-	PortWrite(idx uint16, data uint8, mask uint8) error
+	PortWrite(reg tia.Register, data uint8, mask uint8) error
+}
+
+type PaddlesTIA interface {
+	TIA
+	PaddlesGrounded() bool
 }

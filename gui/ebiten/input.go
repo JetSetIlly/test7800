@@ -287,11 +287,23 @@ func (eg *guiEbiten) inputMouse() error {
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton2) {
 			ebiten.SetCursorMode(ebiten.CursorModeVisible)
 			eg.mouseCaptured = false
+			inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleSelect, Data: false}
+			select {
+			case eg.g.UserInput <- inp:
+			default:
+				return nil
+			}
 		}
 	} else if isCursorInWindow() {
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton2) {
 			ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 			eg.mouseCaptured = true
+			inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleSelect, Data: true}
+			select {
+			case eg.g.UserInput <- inp:
+			default:
+				return nil
+			}
 		}
 	}
 
@@ -300,24 +312,37 @@ func (eg *guiEbiten) inputMouse() error {
 	}
 
 	x, y := ebiten.CursorPosition()
-	deltaX := x - eg.mouseX
-	deltaY := y - eg.mouseY
+	deltaX := (x - eg.mouseX) / 2
 	eg.mouseX = x
 	eg.mouseY = y
 
-	if deltaX != 0 || deltaY != 0 {
-		fmt.Println(deltaX, deltaY)
-	}
-
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
-		inp := gui.Input{Port: gui.Player0, Action: gui.PaddleFire, Data: true}
+	if deltaX != 0 {
+		inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleMove, Data: gui.PaddleMoveData{
+			Paddle:   0,
+			Distance: deltaX,
+		}}
 		select {
 		case eg.g.UserInput <- inp:
 		default:
 			return nil
 		}
-	} else if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
-		inp := gui.Input{Port: gui.Player0, Action: gui.PaddleFire, Data: false}
+	}
+
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
+		inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleFire, Data: gui.PaddleFireData{
+			Paddle: 0,
+			Fire:   true,
+		}}
+		select {
+		case eg.g.UserInput <- inp:
+		default:
+			return nil
+		}
+	} else if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton0) {
+		inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleFire, Data: gui.PaddleFireData{
+			Paddle: 0,
+			Fire:   false,
+		}}
 		select {
 		case eg.g.UserInput <- inp:
 		default:

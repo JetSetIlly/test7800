@@ -9,6 +9,24 @@ import (
 	"github.com/jetsetilly/test7800/logger"
 )
 
+type Register int
+
+const (
+	VBLANK Register = 0x01
+	INPT0  Register = 0x08
+	INPT1  Register = 0x09
+	INPT2  Register = 0x0a
+	INPT3  Register = 0x0b
+	INPT4  Register = 0x0c
+	INPT5  Register = 0x0d
+	AUDC0  Register = 0x15
+	AUDC1  Register = 0x16
+	AUDF0  Register = 0x17
+	AUDF1  Register = 0x18
+	AUDV0  Register = 0x19
+	AUDV1  Register = 0x1a
+)
+
 type TIA struct {
 	inpt [6]uint8
 	aud  *audio.Audio
@@ -19,11 +37,11 @@ type TIA struct {
 	sampleCountLimit int
 	sampleCountStep  int
 
-	// interface to the riot
-	riot riot
-
 	// use stereo mixing for audio
 	stereo bool
+
+	// vblank register
+	vblank uint8
 }
 
 type Context interface {
@@ -33,15 +51,11 @@ type Context interface {
 	SampleRate() (int, bool)
 }
 
-type riot interface {
-	Read(idx uint16) (uint8, error)
-}
-
-type limiter interface {
+type Limiter interface {
 	Nudge()
 }
 
-func Create(ctx Context, g *gui.GUI, riot riot, limiter limiter) *TIA {
+func Create(ctx Context, g *gui.GUI, limiter Limiter) *TIA {
 	tia := &TIA{
 		aud:    audio.NewAudio(),
 		stereo: ctx.UseStereo(),
@@ -119,64 +133,66 @@ func (tia *TIA) Status() string {
 
 func (tia *TIA) Access(write bool, idx uint16, data uint8) (uint8, error) {
 	if write {
-		return data, tia.write(idx, data)
+		return data, tia.write(Register(idx), data)
 	}
-	return tia.read(idx)
+	return tia.read(Register(idx))
 }
 
-func (tia *TIA) read(idx uint16) (uint8, error) {
-	switch idx {
-	case 0x08:
+func (tia *TIA) read(reg Register) (uint8, error) {
+	switch reg {
+	case INPT0:
 		return tia.inpt[0], nil
-	case 0x09:
+	case INPT1:
 		return tia.inpt[1], nil
-	case 0x0a:
+	case INPT2:
 		return tia.inpt[2], nil
-	case 0x0b:
+	case INPT3:
 		return tia.inpt[3], nil
-	case 0x0c:
+	case INPT4:
 		return tia.inpt[4], nil
-	case 0x0d:
+	case INPT5:
 		return tia.inpt[5], nil
 	}
 	return 0, nil
 }
 
-func (tia *TIA) write(idx uint16, data uint8) error {
+func (tia *TIA) write(reg Register, data uint8) error {
 	if tia.buf != nil {
 		tia.buf.crit.Lock()
 		defer tia.buf.crit.Unlock()
 	}
-	switch idx {
-	case 0x15:
+	switch reg {
+	case VBLANK:
+		tia.vblank = data
+	case AUDC0:
 		tia.aud.Channel0.Registers.Control = data & 0x0f
-	case 0x16:
+	case AUDC1:
 		tia.aud.Channel1.Registers.Control = data & 0x0f
-	case 0x17:
+	case AUDF0:
 		tia.aud.Channel0.Registers.Freq = data & 0x1f
-	case 0x18:
+	case AUDF1:
 		tia.aud.Channel1.Registers.Freq = data & 0x1f
-	case 0x19:
+	case AUDV0:
 		tia.aud.Channel0.Registers.Volume = data & 0x0f
-	case 0x1a:
+	case AUDV1:
 		tia.aud.Channel1.Registers.Volume = data & 0x0f
 	}
 	return nil
 }
 
-func (tia *TIA) PortWrite(idx uint16, data uint8, mask uint8) error {
-	switch idx {
-	case 0x08:
+func (tia *TIA) PortWrite(reg Register, data uint8, mask uint8) error {
+	switch reg {
+	case INPT0:
 		tia.inpt[0] = (tia.inpt[0] & mask) | (data & ^mask)
-	case 0x09:
+	case INPT1:
 		tia.inpt[1] = (tia.inpt[1] & mask) | (data & ^mask)
-	case 0x0a:
+	case INPT2:
 		tia.inpt[2] = (tia.inpt[2] & mask) | (data & ^mask)
-	case 0x0b:
+	case INPT3:
 		tia.inpt[3] = (tia.inpt[3] & mask) | (data & ^mask)
-	case 0x0c:
+	case INPT4:
 		tia.inpt[4] = (tia.inpt[4] & mask) | (data & ^mask)
-	case 0x0d:
+	case INPT5:
 		tia.inpt[5] = (tia.inpt[5] & mask) | (data & ^mask)
 	}
 	return nil
@@ -214,4 +230,8 @@ func (tia *TIA) Tick() {
 			tia.buf.data = append(tia.buf.data, uint8(v), uint8(v>>8))
 		}
 	}
+}
+
+func (tia *TIA) PaddlesGrounded() bool {
+	return tia.vblank&0x80 == 0x80
 }

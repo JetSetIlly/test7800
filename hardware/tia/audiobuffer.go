@@ -5,7 +5,7 @@ import "sync"
 // audioBuffer is an io.Reader implementation that forwards TIA audio generated
 // data to something that can play it back (or store it, etc.)
 type audioBuffer struct {
-	limit limiter
+	limit Limiter
 	crit  sync.Mutex
 	data  []uint8
 }
