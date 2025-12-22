@@ -93,6 +93,10 @@ type guiEbiten struct {
 
 	// state of the left analogue stick of the first gamepad
 	gamepadAnalogue [2]float64
+
+	// position of mouse cursor on last update
+	mouseX, mouseY int
+	mouseCaptured  bool
 }
 
 func (eg *guiEbiten) Update() error {
@@ -129,6 +133,10 @@ func (eg *guiEbiten) Update() error {
 		return ebiten.Termination
 	}
 	err = eg.inputGamepadAxis()
+	if err != nil {
+		return ebiten.Termination
+	}
+	err = eg.inputMouse()
 	if err != nil {
 		return ebiten.Termination
 	}
