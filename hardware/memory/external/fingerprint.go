@@ -86,6 +86,9 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 			case 0x03:
 				controller = "paddle"
 				logger.Log(logger.Allow, "a78", "controllers: paddle")
+			case 0x04:
+				controller = "trakball"
+				logger.Log(logger.Allow, "a78", "controllers: trakball")
 			case 0x05:
 				controller = "2600_joystick"
 				logger.Log(logger.Allow, "a78", "controllers: 2600 joystick")

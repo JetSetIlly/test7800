@@ -40,6 +40,7 @@ func NewStick(r RIOT, t TIA, portRight bool, twoButtons bool) *Stick {
 		st.button = tia.INPT5
 		st.singleMask = 0x01
 	} else {
+		st.riotShift = 0
 		st.buttonA = tia.INPT1
 		st.buttonB = tia.INPT0
 		st.button = tia.INPT4
@@ -47,6 +48,10 @@ func NewStick(r RIOT, t TIA, portRight bool, twoButtons bool) *Stick {
 	}
 
 	return st
+}
+
+func (st *Stick) IsAnalogue() bool {
+	return false
 }
 
 func (st *Stick) Reset() {

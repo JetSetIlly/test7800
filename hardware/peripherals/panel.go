@@ -16,6 +16,10 @@ func NewPanel(r RIOT) *Panel {
 	return p
 }
 
+func (p *Panel) IsAnalogue() bool {
+	return false
+}
+
 func (p *Panel) Reset() {
 }
 

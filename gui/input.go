@@ -24,8 +24,13 @@ type PaddleFireData struct {
 }
 
 type PaddleMoveData struct {
-	Paddle   int // 0 or 1 to indicate which paddle in the pair
-	Distance int // distance moved by paddle device
+	Paddle int // 0 or 1 to indicate which paddle in the pair
+	Delta  int // distance moved by paddle device
+}
+
+type TrakballMoveData struct {
+	DeltaX int
+	DeltaY int
 }
 
 const (
@@ -44,7 +49,11 @@ const (
 	StickButtonA // bool
 	StickButtonB // bool
 
-	PaddleSelect // bool
-	PaddleFire   // PaddleFireData
-	PaddleMove   // PaddleMoveData
+	AnalogueSelect // bool
+
+	PaddleFire // PaddleFireData
+	PaddleMove // PaddleMoveData
+
+	TrakballFire // bool
+	TrakballMove // TrakballMove
 )

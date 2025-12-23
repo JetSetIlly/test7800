@@ -11,6 +11,13 @@ import (
 	"github.com/jetsetilly/test7800/gui"
 )
 
+func (eg *guiEbiten) pushInput(inp gui.Input) {
+	select {
+	case eg.g.UserInput <- inp:
+	default:
+	}
+}
+
 func (eg *guiEbiten) inputDragAndDrop() error {
 	df := ebiten.DroppedFiles()
 	if df == nil {
@@ -55,11 +62,7 @@ func (eg *guiEbiten) inputGamepadAxis() error {
 	if eg.gamepadAnalogue[0] != 0 && v <= deadzone && v >= -deadzone {
 		// stick is in the deadzone so make sure left/right input is nullified
 		for _, v := range []gui.Input{{Action: gui.StickLeft, Data: false}, {Action: gui.StickRight, Data: false}} {
-			select {
-			case eg.g.UserInput <- v:
-			default:
-				return nil
-			}
+			eg.pushInput(v)
 		}
 
 		// all values in the deadzone are reduced to zero
@@ -67,18 +70,10 @@ func (eg *guiEbiten) inputGamepadAxis() error {
 
 	} else if v != eg.gamepadAnalogue[0] {
 		if v < -deadzone {
-			select {
-			case eg.g.UserInput <- gui.Input{Action: gui.StickLeft, Data: true}:
-			default:
-				return nil
-			}
+			eg.pushInput(gui.Input{Action: gui.StickLeft, Data: true})
 			eg.gamepadAnalogue[0] = v
 		} else if v > deadzone {
-			select {
-			case eg.g.UserInput <- gui.Input{Action: gui.StickRight, Data: true}:
-			default:
-				return nil
-			}
+			eg.pushInput(gui.Input{Action: gui.StickRight, Data: true})
 			eg.gamepadAnalogue[0] = v
 		}
 	}
@@ -87,28 +82,16 @@ func (eg *guiEbiten) inputGamepadAxis() error {
 	v = ebiten.GamepadAxis(gamepad, 1)
 	if eg.gamepadAnalogue[1] != 0 && v <= deadzone && v >= -deadzone {
 		for _, v := range []gui.Input{{Action: gui.StickUp, Data: false}, {Action: gui.StickDown, Data: false}} {
-			select {
-			case eg.g.UserInput <- v:
-			default:
-				return nil
-			}
+			eg.pushInput(v)
 		}
 		eg.gamepadAnalogue[1] = 0
 
 	} else if v != eg.gamepadAnalogue[1] {
 		if v < -deadzone {
-			select {
-			case eg.g.UserInput <- gui.Input{Action: gui.StickUp, Data: true}:
-			default:
-				return nil
-			}
+			eg.pushInput(gui.Input{Action: gui.StickUp, Data: true})
 			eg.gamepadAnalogue[1] = v
 		} else if v > deadzone {
-			select {
-			case eg.g.UserInput <- gui.Input{Action: gui.StickDown, Data: true}:
-			default:
-				return nil
-			}
+			eg.pushInput(gui.Input{Action: gui.StickDown, Data: true})
 			eg.gamepadAnalogue[1] = v
 		}
 	}
@@ -151,11 +134,7 @@ func (eg *guiEbiten) inputGamepad() error {
 			inp = gui.Input{Port: gui.Panel, Action: gui.Start, Data: false}
 		}
 
-		select {
-		case eg.g.UserInput <- inp:
-		default:
-			return nil
-		}
+		eg.pushInput(inp)
 	}
 
 	for _, p := range pressed {
@@ -185,11 +164,7 @@ func (eg *guiEbiten) inputGamepad() error {
 			inp = gui.Input{Port: gui.Panel, Action: gui.Start, Data: true}
 		}
 
-		select {
-		case eg.g.UserInput <- inp:
-		default:
-			return nil
-		}
+		eg.pushInput(inp)
 	}
 
 	return nil
@@ -231,11 +206,7 @@ func (eg *guiEbiten) inputKeyboard() error {
 			inp = gui.Input{Port: gui.Panel, Action: gui.P1Pro, Data: eg.proDifficulty[1]}
 		}
 
-		select {
-		case eg.g.UserInput <- inp:
-		default:
-			return nil
-		}
+		eg.pushInput(inp)
 	}
 
 	for _, r := range pressed {
@@ -264,11 +235,7 @@ func (eg *guiEbiten) inputKeyboard() error {
 			eg.proDifficulty[1] = !eg.proDifficulty[1]
 		}
 
-		select {
-		case eg.g.UserInput <- inp:
-		default:
-			return nil
-		}
+		eg.pushInput(inp)
 	}
 
 	return nil
@@ -284,27 +251,22 @@ func isCursorInWindow() bool {
 }
 
 func (eg *guiEbiten) inputMouse() error {
+
 	if eg.mouseCaptured {
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton2) {
 			ebiten.SetCursorMode(ebiten.CursorModeVisible)
 			eg.mouseCaptured = false
-			inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleSelect, Data: false}
-			select {
-			case eg.g.UserInput <- inp:
-			default:
-				return nil
-			}
+			eg.pushInput(gui.Input{Port: gui.Undefined, Action: gui.AnalogueSelect, Data: false})
 		}
 	} else if isCursorInWindow() {
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton2) {
 			ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 			eg.mouseCaptured = true
-			inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleSelect, Data: true}
-			select {
-			case eg.g.UserInput <- inp:
-			default:
-				return nil
-			}
+			eg.pushInput(gui.Input{Port: gui.Undefined, Action: gui.AnalogueSelect, Data: true})
+
+			// update mouse position reference immediately so that we don't push erroneous movement
+			// to the emulation
+			eg.mouseX, eg.mouseY = ebiten.CursorPosition()
 		}
 	}
 
@@ -313,8 +275,7 @@ func (eg *guiEbiten) inputMouse() error {
 	}
 
 	// function to change the mouse movement acceleration
-	const exp = 0.6
-	negativeAcceleration := func(delta float64) float64 {
+	negativeAcceleration := func(delta float64, exp float64) float64 {
 		return math.Copysign(math.Pow(math.Abs(delta), exp), delta)
 	}
 
@@ -324,6 +285,18 @@ func (eg *guiEbiten) inputMouse() error {
 	dy := y - eg.mouseY
 	eg.mouseX = x
 	eg.mouseY = y
+
+	// trakball movement
+	if dx != 0 || dy != 0 {
+		eg.pushInput(gui.Input{Port: gui.Undefined, Action: gui.TrakballMove, Data: gui.TrakballMoveData{
+			DeltaX: dx,
+			DeltaY: dy,
+		}})
+	}
+
+	const paddleExp = 0.6
+	dx = int(negativeAcceleration(float64(dx), paddleExp))
+	dy = int(negativeAcceleration(float64(dy), paddleExp))
 
 	// mix y-axis with x-axis. in this scenario the absolute value of the y-axis
 	// is given the same sign as the x-axis
@@ -337,40 +310,27 @@ func (eg *guiEbiten) inputMouse() error {
 		delta += dy
 	}
 
-	// commit to mouse acceleration
-	delta = int(negativeAcceleration(float64(delta)))
+	// paddle movement
 	if delta != 0 {
-		inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleMove, Data: gui.PaddleMoveData{
-			Paddle:   0,
-			Distance: delta,
-		}}
-		select {
-		case eg.g.UserInput <- inp:
-		default:
-			return nil
-		}
+		eg.pushInput(gui.Input{Port: gui.Undefined, Action: gui.PaddleMove, Data: gui.PaddleMoveData{
+			Paddle: 0,
+			Delta:  delta,
+		}})
 	}
 
+	// fire buttons for paddle and trakball
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
-		inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleFire, Data: gui.PaddleFireData{
+		eg.pushInput(gui.Input{Port: gui.Undefined, Action: gui.PaddleFire, Data: gui.PaddleFireData{
 			Paddle: 0,
 			Fire:   true,
-		}}
-		select {
-		case eg.g.UserInput <- inp:
-		default:
-			return nil
-		}
+		}})
+		eg.pushInput(gui.Input{Port: gui.Undefined, Action: gui.TrakballFire, Data: true})
 	} else if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton0) {
-		inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleFire, Data: gui.PaddleFireData{
+		eg.pushInput(gui.Input{Port: gui.Undefined, Action: gui.PaddleFire, Data: gui.PaddleFireData{
 			Paddle: 0,
 			Fire:   false,
-		}}
-		select {
-		case eg.g.UserInput <- inp:
-		default:
-			return nil
-		}
+		}})
+		eg.pushInput(gui.Input{Port: gui.Undefined, Action: gui.TrakballFire, Data: false})
 	}
 
 	return nil

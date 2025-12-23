@@ -77,6 +77,10 @@ func NewPaddles(r RIOT, t PaddlesTIA, portRight bool) *Paddles {
 	return pdl
 }
 
+func (pdl *Paddles) IsAnalogue() bool {
+	return true
+}
+
 func (pdl *Paddles) Reset() {
 	pdl.tia.PortWrite(pdl.paddles[0].inptx, 0x00, 0xf0)
 	pdl.tia.PortWrite(pdl.paddles[1].inptx, 0x00, 0xf0)
@@ -124,9 +128,9 @@ func (pdl *Paddles) Update(inp gui.Input) error {
 
 		switch d.Paddle {
 		case 0:
-			pdl.paddles[0].changeResistance(d.Distance)
+			pdl.paddles[0].changeResistance(d.Delta)
 		case 1:
-			pdl.paddles[1].changeResistance(d.Distance)
+			pdl.paddles[1].changeResistance(d.Delta)
 		default:
 			return fmt.Errorf("paddle: illegal paddle fire data: no such paddle: %d", d.Paddle)
 		}

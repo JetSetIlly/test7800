@@ -13,6 +13,7 @@ import (
 )
 
 type peripheral interface {
+	IsAnalogue() bool
 	Reset()
 	Unplug()
 	Update(inp gui.Input) error
@@ -147,6 +148,17 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 		if _, ok := con.players[1].(*peripherals.Paddles); !ok {
 			con.players[1].Unplug()
 			con.players[1] = peripherals.NewPaddles(con.RIOT, con.TIA, true)
+			con.players[1].Reset()
+		}
+	case "trakball":
+		if _, ok := con.players[0].(*peripherals.Trakball); !ok {
+			con.players[0].Unplug()
+			con.players[0] = peripherals.NewTrakball(con.RIOT, con.TIA, con.Mem, false)
+			con.players[0].Reset()
+		}
+		if _, ok := con.players[1].(*peripherals.Trakball); !ok {
+			con.players[1].Unplug()
+			con.players[1] = peripherals.NewTrakball(con.RIOT, con.TIA, con.Mem, true)
 			con.players[1].Reset()
 		}
 	case "2600_joystick":

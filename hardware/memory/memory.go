@@ -26,7 +26,8 @@ type Memory struct {
 	TIA   Area
 	RIOT  Area
 
-	// the last Area that was written to
+	// the last Area that was read from and written to
+	LastRead  Area
 	LastWrite Area
 
 	// was last memory cycle an access of a TIA or RIOT address
@@ -384,6 +385,7 @@ func (mem *Memory) Read(address uint16) (uint8, error) {
 
 	_, mem.addressBusIsTIA = area.(*tia.TIA)
 	_, mem.addressBusIsRIOT = area.(*riot.RIOT)
+	mem.LastRead = area
 
 	data, err := area.Access(false, idx, mem.dataBus)
 	if err != nil {
@@ -464,4 +466,10 @@ func Write(area Area, address uint16, data uint8) error {
 // HLT should be called whenever the HLT line is changed
 func (mem *Memory) HLT(halt bool) {
 	mem.External.HLT(halt)
+}
+
+// LastReadIsRIOT is used by the trakball peripheral
+func (mem *Memory) LastReadIsRIOT() bool {
+	_, ok := mem.LastRead.(*riot.RIOT)
+	return ok
 }

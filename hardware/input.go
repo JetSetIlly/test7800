@@ -13,23 +13,27 @@ func (con *Console) handleInput() {
 		default:
 			drained = true
 		case inp := <-con.g.UserInput:
-			if inp.Action == gui.PaddleSelect && inp.Data.(bool) {
+			if inp.Action == gui.AnalogueSelect && inp.Data.(bool) {
 				switch inp.Port {
 				case gui.Player0:
-					if _, ok := con.players[0].(*peripherals.Paddles); !ok {
-						logger.Log(logger.Allow, "controllers", "plugging paddle into player 0 port")
-						con.players[0].Unplug()
-						con.players[0] = peripherals.NewPaddles(con.RIOT, con.TIA, false)
-						con.players[0].Reset()
+					if !con.players[0].IsAnalogue() {
+						if _, ok := con.players[0].(*peripherals.Paddles); !ok {
+							logger.Log(logger.Allow, "controllers", "plugging paddle into player 0 port")
+							con.players[0].Unplug()
+							con.players[0] = peripherals.NewPaddles(con.RIOT, con.TIA, false)
+							con.players[0].Reset()
+						}
 					}
 				case gui.Undefined:
 					fallthrough
 				case gui.Player1:
-					logger.Log(logger.Allow, "controllers", "plugging paddle into player 1 port")
-					if _, ok := con.players[1].(*peripherals.Paddles); !ok {
-						con.players[1].Unplug()
-						con.players[1] = peripherals.NewPaddles(con.RIOT, con.TIA, true)
-						con.players[1].Reset()
+					if !con.players[1].IsAnalogue() {
+						logger.Log(logger.Allow, "controllers", "plugging paddle into player 1 port")
+						if _, ok := con.players[1].(*peripherals.Paddles); !ok {
+							con.players[1].Unplug()
+							con.players[1] = peripherals.NewPaddles(con.RIOT, con.TIA, true)
+							con.players[1].Reset()
+						}
 					}
 				}
 			} else {

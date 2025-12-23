@@ -18,3 +18,7 @@ type PaddlesTIA interface {
 	TIA
 	PaddlesGrounded() bool
 }
+
+type Memory interface {
+	LastReadIsRIOT() bool
+}

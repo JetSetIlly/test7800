@@ -72,6 +72,10 @@ References to "7800 Software Guide" in comments are referring to [this wiki page
 
 [Two Button Controllers](https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159)
 
+[Trakball Field Service Manual](https://www.atarimania.com/documents/Atari-CX22-Trakball-Field-Service-Manual.pdf)
+
+[Trakball Schematics](https://atarimuseum.ctrl-alt-rees.com/ahs_archives/archives/archives-techdocs-7800.htm)
+
 #### POKEY
 
 [POKEY C012294 Documentation](https://7800.8bitdev.org/index.php/POKEY_C012294_Documentation)
