@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -311,15 +312,20 @@ func (eg *guiEbiten) inputMouse() error {
 		return nil
 	}
 
+	const exp = 0.6
+	negativeAcceleration := func(dx float64) float64 {
+		return math.Copysign(math.Pow(math.Abs(dx), exp), dx)
+	}
+
 	x, y := ebiten.CursorPosition()
-	deltaX := (x - eg.mouseX) / 2
+	dx := int(negativeAcceleration(float64(x - eg.mouseX)))
 	eg.mouseX = x
 	eg.mouseY = y
 
-	if deltaX != 0 {
+	if dx != 0 {
 		inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleMove, Data: gui.PaddleMoveData{
 			Paddle:   0,
-			Distance: deltaX,
+			Distance: dx,
 		}}
 		select {
 		case eg.g.UserInput <- inp:
