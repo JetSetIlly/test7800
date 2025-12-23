@@ -312,20 +312,37 @@ func (eg *guiEbiten) inputMouse() error {
 		return nil
 	}
 
+	// function to change the mouse movement acceleration
 	const exp = 0.6
-	negativeAcceleration := func(dx float64) float64 {
-		return math.Copysign(math.Pow(math.Abs(dx), exp), dx)
+	negativeAcceleration := func(delta float64) float64 {
+		return math.Copysign(math.Pow(math.Abs(delta), exp), delta)
 	}
 
+	// movement deltas and recording current mouse position for next frame
 	x, y := ebiten.CursorPosition()
-	dx := int(negativeAcceleration(float64(x - eg.mouseX)))
+	dx := x - eg.mouseX
+	dy := y - eg.mouseY
 	eg.mouseX = x
 	eg.mouseY = y
 
-	if dx != 0 {
+	// mix y-axis with x-axis. in this scenario the absolute value of the y-axis
+	// is given the same sign as the x-axis
+	delta := dx
+	if dy < 0 {
+		dy *= -1
+	}
+	if dx < 0 {
+		delta -= dy
+	} else if x > 0 {
+		delta += dy
+	}
+
+	// commit to mouse acceleration
+	delta = int(negativeAcceleration(float64(delta)))
+	if delta != 0 {
 		inp := gui.Input{Port: gui.Undefined, Action: gui.PaddleMove, Data: gui.PaddleMoveData{
 			Paddle:   0,
-			Distance: dx,
+			Distance: delta,
 		}}
 		select {
 		case eg.g.UserInput <- inp:
