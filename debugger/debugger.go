@@ -73,19 +73,29 @@ type debugger struct {
 	// biosHelper handling
 	biosHelper biosHelper
 
-	// use high-score cartridge shim. values should be "a78" or a string that is parsable using strconv.ParseBool()
+	// use high-score cartridge shim
 	hscAuto  bool
 	hscForce bool
+
+	// insert savekey into right port
+	savekeyAuto  bool
+	savekeyForce bool
 }
 
 func (m *debugger) reset() {
 	m.ctx.Reset()
+	m.ctx.allowLogging = true
 
 	var resetProcedure external.CartridgeReset
 
 	// update HSC flag for loader before inserting
 	if !m.hscAuto {
 		m.loader.UseHSC = m.hscForce
+	}
+
+	// update savekey flag for loader before inserting
+	if !m.savekeyAuto {
+		m.loader.UseSavekey = m.savekeyForce
 	}
 
 	err := m.console.Insert(m.loader)
@@ -492,6 +502,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		profile    string
 		bios       bool
 		hsc        string
+		savekey    string
 		checksum   bool
 		overlay    bool
 		run        bool
@@ -506,6 +517,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	specOptions := []string{"AUTO", "NTSC", "PAL"}
 	profileOptions := []string{"NONE", "CPU", "MEM", "BOTH"}
 	hscOptions := []string{"AUTO", "TRUE", "FALSE"}
+	savekeyOptions := []string{"AUTO", "TRUE", "FALSE"}
 	audioOptions := []string{"MONO", "STEREO", "NONE"}
 	overscanOptions := []string{"AUTO", "NONE", "MODERN", "FULL"}
 
@@ -529,6 +541,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.StringVar(&profile, "profile", "NONE", fmt.Sprintf("create profile for emulator: %s", list(profileOptions)))
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
 	flgs.StringVar(&hsc, "hsc", "AUTO", fmt.Sprintf("use High Score Cartridge: %s", list(hscOptions)))
+	flgs.StringVar(&savekey, "savekey", "AUTO", fmt.Sprintf("use Savekey: %s", list(savekeyOptions)))
 	flgs.BoolVar(&checksum, "checksum", true, "allow BIOS checksum checks")
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
@@ -558,7 +571,21 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		hscAuto = false
 		hscForce, err = strconv.ParseBool(hsc)
 		if err != nil {
-			return fmt.Errorf("hsc option should be one of %s", list(profileOptions))
+			return fmt.Errorf("hsc option should be one of %s", list(hscOptions))
+		}
+	}
+
+	// handle savekey flag
+	var savekeyAuto bool
+	var savekeyForce bool
+	if strings.ToUpper(savekey) == "AUTO" {
+		savekeyAuto = true
+		savekeyForce = false
+	} else {
+		savekeyAuto = false
+		savekeyForce, err = strconv.ParseBool(savekey)
+		if err != nil {
+			return fmt.Errorf("savekey option should be one of %s", list(savekeyOptions))
 		}
 	}
 
@@ -683,8 +710,10 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 			bypass:       !bios,
 			skipChecksum: !checksum,
 		},
-		hscAuto:  hscAuto,
-		hscForce: hscForce,
+		hscAuto:      hscAuto,
+		hscForce:     hscForce,
+		savekeyAuto:  savekeyAuto,
+		savekeyForce: savekeyForce,
 	}
 	m.console = hardware.Create(&m.ctx, g)
 

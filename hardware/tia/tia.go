@@ -195,7 +195,7 @@ func (tia *TIA) PortWrite(reg Register, data uint8, mask uint8) error {
 	case INPT5:
 		tia.inpt[5] = (tia.inpt[5] & mask) | (data & ^mask)
 	}
-	return nil
+	return fmt.Errorf("tia: not a port connected register: %v", reg)
 }
 
 func (tia *TIA) Tick() {

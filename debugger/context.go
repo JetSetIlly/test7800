@@ -7,6 +7,7 @@ import (
 )
 
 type context struct {
+	allowLogging  bool
 	console       string
 	requestedSpec string
 	loaderSpec    string
@@ -16,6 +17,11 @@ type context struct {
 	audio         string
 	sampleRate    int
 	overscan      string
+	savekey       bool
+}
+
+func (ctx *context) AllowLogging() bool {
+	return ctx.allowLogging
 }
 
 func (ctx *context) Spec() spec.Spec {
@@ -43,6 +49,7 @@ func (ctx *context) IsAtari7800() bool {
 }
 
 func (ctx *context) Reset() {
+	ctx.allowLogging = false
 	ctx.breaks = ctx.breaks[:0]
 	ctx.rand = rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
 }

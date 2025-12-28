@@ -22,13 +22,15 @@ const (
 )
 
 type RIOT struct {
-	swcha     uint8
+	swcha_w   uint8
 	swcha_mux uint8
 	swacnt    uint8
+	swcha_p   uint8
 
-	swchb     uint8
+	swchb_w   uint8
 	swchb_mux uint8
 	swbcnt    uint8
+	swchb_p   uint8
 
 	// selected timer
 	divider int
@@ -66,19 +68,23 @@ func Create() *RIOT {
 }
 
 func (riot *RIOT) String() string {
-	return fmt.Sprintf("swcha: %#v(%#v)/%#v  swchb: %#v(%#v)/%#v", riot.swcha_mux, riot.swcha, riot.swacnt, riot.swchb_mux, riot.swchb, riot.swbcnt)
+	return fmt.Sprintf("swcha: %#v(%#v)/%#v  swchb: %#v(%#v)/%#v",
+		riot.swcha_mux, riot.deriveSWCHA(), riot.swacnt,
+		riot.swchb_mux, riot.deriveSWCHB(), riot.swbcnt)
 }
 
 func (riot *RIOT) Reset() {
 	// swcha initialised as though stick is being used
-	riot.swcha = 0x00
+	riot.swcha_w = 0x00
 	riot.swcha_mux = 0xff
 	riot.swacnt = 0x00
+	riot.swcha_p = 0x00
 
 	// amateur pro switch selected by default (pro would be 0xff)
-	riot.swchb = 0x00
+	riot.swchb_w = 0x00
 	riot.swchb_mux = 0x3f
 	riot.swbcnt = 0x00
+	riot.swchb_p = 0x00
 
 	riot.timint = timintPA7
 	riot.lastReadReg = 0
@@ -130,13 +136,17 @@ func (riot *RIOT) read(reg Register) (uint8, error) {
 func (riot *RIOT) write(reg Register, data uint8) error {
 	switch reg {
 	case SWCHA:
-		riot.swcha = data
+		riot.swcha_w = data
+		riot.swcha_p = data & riot.swacnt
 	case SWACNT:
 		riot.swacnt = data
+		riot.swcha_p = ^riot.swacnt | riot.swcha_w
 	case SWCHB:
-		riot.swchb = data
+		riot.swchb_w = data
+		riot.swchb_p = data & riot.swbcnt
 	case SWBCNT:
 		riot.swbcnt = data
+		riot.swchb_p = ^riot.swbcnt | riot.swchb_w
 	case TIM1T, 0x14:
 		riot.setTimer(1, data)
 	case TIM8T, 0x15:
@@ -182,17 +192,23 @@ func (riot *RIOT) setTimer(divider int, data uint8) {
 }
 
 func (riot *RIOT) PortRead(reg Register) (uint8, error) {
-	return riot.read(reg)
+	switch reg {
+	case SWCHA:
+		return riot.swcha_p, nil
+	case SWCHB:
+		return riot.swchb_p, nil
+	}
+	return 0, fmt.Errorf("riot: not a port connected register: %v", reg)
 }
 
 func (riot *RIOT) PortWrite(reg Register, data uint8, mask uint8) error {
 	switch reg {
 	case SWCHA:
-		riot.swcha_mux = (riot.swcha_mux & mask) | (data & ^mask)
+		riot.swcha_mux = (riot.swcha_mux & mask) | (data & ^riot.swacnt & ^mask)
 	case SWCHB:
-		riot.swchb_mux = (riot.swchb_mux & mask) | (data & ^mask)
+		riot.swchb_mux = (riot.swchb_mux & mask) | (data & ^riot.swbcnt & ^mask)
 	}
-	return nil
+	return fmt.Errorf("riot: not a port connected register: %v", reg)
 }
 
 func (riot *RIOT) Tick() {
@@ -268,7 +284,7 @@ func (riot *RIOT) Tick() {
 //	(a & c & (^b|b)) | (^a & ^b & c)
 //	(a & c) | (^a & ^b & c)
 func (riot *RIOT) deriveSWCHA() uint8 {
-	return (riot.swcha & riot.swcha_mux) | (^riot.swcha & ^riot.swacnt & riot.swcha_mux)
+	return (riot.swcha_w & riot.swcha_mux) | (^riot.swcha_w & ^riot.swacnt & riot.swcha_mux)
 }
 
 // the derived value of SWCHB. the value it should be if the RIOT logic has
@@ -294,5 +310,5 @@ func (riot *RIOT) deriveSWCHA() uint8 {
 //	(^a & ^b & c) | (a & ^b & c) | (a & b)
 //	(^b & c) | (a & b)
 func (riot *RIOT) deriveSWCHB() uint8 {
-	return (^riot.swbcnt & riot.swchb_mux) | (riot.swchb & riot.swbcnt)
+	return (^riot.swbcnt & riot.swchb_mux) | (riot.swchb_w & riot.swbcnt)
 }

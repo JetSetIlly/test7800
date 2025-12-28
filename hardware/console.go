@@ -8,8 +8,10 @@ import (
 	"github.com/jetsetilly/test7800/hardware/memory"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/hardware/peripherals"
+	"github.com/jetsetilly/test7800/hardware/peripherals/savekey"
 	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
+	"github.com/jetsetilly/test7800/logger"
 )
 
 type peripheral interface {
@@ -45,6 +47,7 @@ type Console struct {
 }
 
 type Context interface {
+	logger.Permission
 	memory.Context
 	tia.Context
 	maria.Context
@@ -184,6 +187,13 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 			con.players[1].Reset()
 		}
 	}
+
+	if c.UseSavekey {
+		con.players[1].Unplug()
+		con.players[1] = savekey.NewSaveKey(con.ctx, con.RIOT, con.TIA, true)
+		con.players[1].Reset()
+	}
+
 	return nil
 }
 
