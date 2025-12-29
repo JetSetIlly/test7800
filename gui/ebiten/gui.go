@@ -206,7 +206,9 @@ func (eg *guiEbiten) Update() error {
 		if img.Prev != nil && img.ID != eg.prevID {
 			eg.prevID = img.ID
 			if eg.prev == nil || eg.prev.Bounds() != img.Prev.Bounds() {
-				eg.prev = ebiten.NewImage(eg.width, eg.height)
+				width := img.Prev.Bounds().Dx()
+				height := img.Prev.Bounds().Dy()
+				eg.prev = ebiten.NewImage(width, height)
 			}
 			eg.prev.WritePixels(img.Prev.Pix)
 		}
