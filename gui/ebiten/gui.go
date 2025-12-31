@@ -52,8 +52,9 @@ func (a *audioPlayer) Read(buf []uint8) (int, error) {
 }
 
 type windowGeometry struct {
-	x, y int
-	w, h int
+	x, y       int
+	w, h       int
+	fullScreen bool
 }
 
 func (g windowGeometry) valid() bool {

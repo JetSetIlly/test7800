@@ -204,6 +204,10 @@ func (eg *guiEbiten) inputKeyboard() error {
 			inp = gui.Input{Port: gui.Panel, Action: gui.P0Pro, Data: eg.proDifficulty[0]}
 		case ebiten.KeyF5:
 			inp = gui.Input{Port: gui.Panel, Action: gui.P1Pro, Data: eg.proDifficulty[1]}
+
+		case ebiten.KeyF11:
+			eg.geom.fullScreen = !eg.geom.fullScreen
+			ebiten.SetFullscreen(eg.geom.fullScreen)
 		}
 
 		eg.pushInput(inp)
@@ -251,7 +255,6 @@ func isCursorInWindow() bool {
 }
 
 func (eg *guiEbiten) inputMouse() error {
-
 	if eg.mouseCaptured {
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton2) {
 			ebiten.SetCursorMode(ebiten.CursorModeVisible)

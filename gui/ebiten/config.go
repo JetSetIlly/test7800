@@ -18,7 +18,7 @@ func onWindowOpen() (windowGeometry, error) {
 
 	var g windowGeometry
 
-	_, err = fmt.Sscanf(s, "%d %d %d %d", &g.x, &g.y, &g.w, &g.h)
+	_, err = fmt.Sscanf(s, "%d %d %d %d %v", &g.x, &g.y, &g.w, &g.h, &g.fullScreen)
 	if err != nil {
 		return windowGeometry{}, err
 	}
@@ -27,6 +27,7 @@ func onWindowOpen() (windowGeometry, error) {
 		return g, nil
 	}
 
+	ebiten.SetFullscreen(g.fullScreen)
 	ebiten.SetWindowPosition(g.x, g.y)
 	ebiten.SetWindowSize(g.w, g.h)
 
@@ -38,6 +39,6 @@ func onWindowClose(g windowGeometry) error {
 		return nil
 	}
 
-	s := fmt.Sprintf("%d %d %d %d", g.x, g.y, g.w, g.h)
+	s := fmt.Sprintf("%d %d %d %d %v", g.x, g.y, g.w, g.h, g.fullScreen)
 	return resources.Write("window", s)
 }
