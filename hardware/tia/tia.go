@@ -2,6 +2,7 @@ package tia
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/spec"
@@ -103,7 +104,16 @@ func Create(ctx Context, g *gui.GUI, limiter Limiter) *TIA {
 }
 
 func (tia *TIA) String() string {
-	return fmt.Sprintf("%#v", tia.inpt)
+	var s strings.Builder
+	fmt.Fprintln(&s, "Left Player")
+	fmt.Fprintf(&s, " INPT0: %#02x\n", tia.inpt[0])
+	fmt.Fprintf(&s, " INPT1: %#02x\n", tia.inpt[1])
+	fmt.Fprintf(&s, " INPT4: %#02x\n", tia.inpt[4])
+	fmt.Fprintln(&s, "Right Player")
+	fmt.Fprintf(&s, " INPT2: %#02x\n", tia.inpt[2])
+	fmt.Fprintf(&s, " INPT3: %#02x\n", tia.inpt[3])
+	fmt.Fprintf(&s, " INPT5: %#02x\n", tia.inpt[5])
+	return strings.Trim(s.String(), "\n")
 }
 
 func (tia *TIA) Reset() error {

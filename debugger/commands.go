@@ -153,6 +153,11 @@ func (m *debugger) commands(cmd []string) bool {
 			m.console.Mem.RAMRIOT.String(),
 		))
 
+	case "TIA":
+		fmt.Println(m.styles.mem.Render(
+			m.console.TIA.String(),
+		))
+
 	case "DUMP":
 		if len(cmd) < 3 {
 			fmt.Println(m.styles.err.Render(
