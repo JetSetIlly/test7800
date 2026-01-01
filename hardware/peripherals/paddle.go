@@ -81,6 +81,10 @@ func (pdl *Paddles) IsAnalogue() bool {
 	return true
 }
 
+func (pdl *Paddles) IsController() bool {
+	return true
+}
+
 func (pdl *Paddles) Reset() {
 	pdl.tia.PortWrite(pdl.paddles[0].inptx, 0x00, 0xf0)
 	pdl.tia.PortWrite(pdl.paddles[1].inptx, 0x00, 0xf0)

@@ -46,6 +46,10 @@ func (tb *Trakball) IsAnalogue() bool {
 	return true
 }
 
+func (tb *Trakball) IsController() bool {
+	return true
+}
+
 func (tb *Trakball) Reset() {
 	tb.tia.PortWrite(tb.button, 0x80, 0x7f)
 }

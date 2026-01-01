@@ -16,6 +16,7 @@ import (
 
 type peripheral interface {
 	IsAnalogue() bool
+	IsController() bool
 	Reset()
 	Unplug()
 	Update(inp gui.Input) error
@@ -32,7 +33,7 @@ type Console struct {
 	TIA   *tia.TIA
 	RIOT  *riot.RIOT
 
-	panel   peripheral
+	panel   *peripherals.Panel
 	players [2]peripheral
 
 	// the HLT and RDY lines to the CPU is set by MARIA
@@ -229,7 +230,6 @@ func (con *Console) Step() error {
 			if con.cycleRegulator > 3 {
 				con.TIA.Tick()
 				con.RIOT.Tick()
-				con.panel.Tick()
 				con.players[0].Tick()
 				con.players[1].Tick()
 				con.cycleRegulator = 0

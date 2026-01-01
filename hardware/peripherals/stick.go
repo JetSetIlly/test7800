@@ -54,22 +54,24 @@ func (st *Stick) IsAnalogue() bool {
 	return false
 }
 
+func (st *Stick) IsController() bool {
+	return true
+}
+
 func (st *Stick) Reset() {
 	if st.twoButtons {
 		st.tia.PortWrite(st.buttonA, 0x00, 0x7f)
 		st.tia.PortWrite(st.buttonB, 0x00, 0x7f)
-	} else {
-		st.tia.PortWrite(st.button, 0x80, 0x7f)
 	}
+	st.tia.PortWrite(st.button, 0x80, 0x7f)
 }
 
 func (st *Stick) Unplug() {
 	if st.twoButtons {
-		st.tia.PortWrite(st.buttonA, 0x80, 0x7f)
-		st.tia.PortWrite(st.buttonB, 0x80, 0x7f)
-	} else {
-		st.tia.PortWrite(st.button, 0x80, 0x7f)
+		st.tia.PortWrite(st.buttonA, 0x00, 0x7f)
+		st.tia.PortWrite(st.buttonB, 0x00, 0x7f)
 	}
+	st.tia.PortWrite(st.button, 0x00, 0x7f)
 }
 
 func (st *Stick) Update(inp gui.Input) error {

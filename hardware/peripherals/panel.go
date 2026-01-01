@@ -16,10 +16,6 @@ func NewPanel(r RIOT) *Panel {
 	return p
 }
 
-func (p *Panel) IsAnalogue() bool {
-	return false
-}
-
 func (p *Panel) Reset() {
 }
 
@@ -62,7 +58,4 @@ func (p *Panel) Update(inp gui.Input) error {
 	}
 
 	return nil
-}
-
-func (p *Panel) Tick() {
 }

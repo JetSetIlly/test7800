@@ -22,6 +22,7 @@ import (
 	"github.com/jetsetilly/test7800/hardware/peripherals"
 	"github.com/jetsetilly/test7800/hardware/peripherals/savekey/i2c"
 	"github.com/jetsetilly/test7800/hardware/riot"
+	"github.com/jetsetilly/test7800/hardware/tia"
 	"github.com/jetsetilly/test7800/logger"
 )
 
@@ -55,6 +56,8 @@ const (
 type SaveKey struct {
 	ctx Context
 
+	portRight bool
+
 	riot peripherals.RIOT
 	tia  peripherals.TIA
 
@@ -86,13 +89,14 @@ type SaveKey struct {
 // NewSaveKey is the preferred method of initialisation for the SaveKey type.
 func NewSaveKey(ctx Context, r peripherals.RIOT, t peripherals.TIA, portRight bool) *SaveKey {
 	sk := &SaveKey{
-		ctx:    ctx,
-		riot:   r,
-		tia:    t,
-		SDA:    i2c.NewTrace("SDA"),
-		SCL:    i2c.NewTrace("SCL"),
-		State:  SaveKeyStopped,
-		EEPROM: newEeprom(ctx),
+		ctx:       ctx,
+		portRight: portRight,
+		riot:      r,
+		tia:       t,
+		SDA:       i2c.NewTrace("SDA"),
+		SCL:       i2c.NewTrace("SCL"),
+		State:     SaveKeyStopped,
+		EEPROM:    newEeprom(ctx),
 	}
 
 	if portRight {
@@ -108,12 +112,26 @@ func (sk *SaveKey) IsAnalogue() bool {
 	return false
 }
 
+func (sk *SaveKey) IsController() bool {
+	return false
+}
+
 func (sk *SaveKey) Reset() {
 	sk.riot.PortWrite(riot.SWCHA, 0x00>>sk.riotShift, 0x0f<<sk.riotShift)
+	if sk.portRight {
+		sk.tia.PortWrite(tia.INPT5, 0x80, 0x7f)
+	} else {
+		sk.tia.PortWrite(tia.INPT4, 0x80, 0x7f)
+	}
 }
 
 func (sk *SaveKey) Unplug() {
 	sk.riot.PortWrite(riot.SWCHA, 0x00>>sk.riotShift, 0x0f<<sk.riotShift)
+	if sk.portRight {
+		sk.tia.PortWrite(tia.INPT5, 0x00, 0x7f)
+	} else {
+		sk.tia.PortWrite(tia.INPT4, 0x00, 0x7f)
+	}
 }
 
 // the active bits in the SWCHA value.

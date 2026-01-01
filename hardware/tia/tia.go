@@ -118,8 +118,8 @@ func (tia *TIA) String() string {
 
 func (tia *TIA) Reset() error {
 	tia.inpt = [6]uint8{
-		0x80, 0x80, 0x80, 0x80,
-		0x80, 0x80,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00,
 	}
 	return nil
 }
@@ -190,6 +190,7 @@ func (tia *TIA) write(reg Register, data uint8) error {
 	return nil
 }
 
+// PortWrite connects peripherals to the RIOT via the player ports
 func (tia *TIA) PortWrite(reg Register, data uint8, mask uint8) error {
 	switch reg {
 	case INPT0:

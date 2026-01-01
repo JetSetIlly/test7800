@@ -191,6 +191,7 @@ func (riot *RIOT) setTimer(divider int, data uint8) {
 	riot.intim = data
 }
 
+// PortRead connects peripherals to the RIOT via the player ports
 func (riot *RIOT) PortRead(reg Register) (uint8, error) {
 	switch reg {
 	case SWCHA:
@@ -201,6 +202,7 @@ func (riot *RIOT) PortRead(reg Register) (uint8, error) {
 	return 0, fmt.Errorf("riot: not a port connected register: %v", reg)
 }
 
+// PortWrite connects peripherals to the RIOT via the player ports
 func (riot *RIOT) PortWrite(reg Register, data uint8, mask uint8) error {
 	switch reg {
 	case SWCHA:
