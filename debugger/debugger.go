@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"slices"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -516,8 +515,8 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 
 	specOptions := []string{"AUTO", "NTSC", "PAL"}
 	profileOptions := []string{"NONE", "CPU", "MEM", "BOTH"}
-	hscOptions := []string{"AUTO", "TRUE", "FALSE"}
-	savekeyOptions := []string{"AUTO", "TRUE", "FALSE"}
+	hscOptions := []string{"AUTO", "ALWAYS", "NEVER"}
+	savekeyOptions := []string{"AUTO", "ALWAYS", "NEVER"}
 	audioOptions := []string{"MONO", "STEREO", "NONE"}
 	overscanOptions := []string{"AUTO", "NONE", "MODERN", "FULL"}
 
@@ -540,8 +539,8 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.StringVar(&spec, "tv", "AUTO", "alternative name for 'spec' argument")
 	flgs.StringVar(&profile, "profile", "NONE", fmt.Sprintf("create profile for emulator: %s", list(profileOptions)))
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
-	flgs.StringVar(&hsc, "hsc", "AUTO", fmt.Sprintf("use High Score Cartridge: %s", list(hscOptions)))
-	flgs.StringVar(&savekey, "savekey", "AUTO", fmt.Sprintf("use Savekey: %s", list(savekeyOptions)))
+	flgs.StringVar(&hsc, "hsc", "AUTO", fmt.Sprintf("use high score cartridge: %s", list(hscOptions)))
+	flgs.StringVar(&savekey, "savekey", "AUTO", fmt.Sprintf("use savekey: %s", list(savekeyOptions)))
 	flgs.BoolVar(&checksum, "checksum", true, "allow BIOS checksum checks")
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
@@ -564,29 +563,35 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	// handle hsc flag
 	var hscAuto bool
 	var hscForce bool
-	if strings.ToUpper(hsc) == "AUTO" {
+	switch strings.ToUpper(hsc) {
+	case "AUTO":
 		hscAuto = true
 		hscForce = false
-	} else {
+	case "NEVER", "FALSE":
 		hscAuto = false
-		hscForce, err = strconv.ParseBool(hsc)
-		if err != nil {
-			return fmt.Errorf("hsc option should be one of %s", list(hscOptions))
-		}
+		hscForce = false
+	case "ALWAYS", "TRUE":
+		hscAuto = false
+		hscForce = true
+	default:
+		return fmt.Errorf("hsc option should be one of %s", list(hscOptions))
 	}
 
 	// handle savekey flag
 	var savekeyAuto bool
 	var savekeyForce bool
-	if strings.ToUpper(savekey) == "AUTO" {
+	switch strings.ToUpper(savekey) {
+	case "AUTO":
 		savekeyAuto = true
 		savekeyForce = false
-	} else {
+	case "NEVER", "FALSE":
 		savekeyAuto = false
-		savekeyForce, err = strconv.ParseBool(savekey)
-		if err != nil {
-			return fmt.Errorf("savekey option should be one of %s", list(savekeyOptions))
-		}
+		savekeyForce = false
+	case "ALWAYS", "TRUE":
+		savekeyAuto = false
+		savekeyForce = true
+	default:
+		return fmt.Errorf("savekey option should be one of %s", list(savekeyOptions))
 	}
 
 	// normalise audio option to allow FALSE even though it's not in the list
