@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jetsetilly/test7800/disassembly"
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware"
@@ -48,6 +50,9 @@ type debugger struct {
 	breakpoints    map[uint16]bool
 	watches        map[uint16]watch
 	breakspointCtx bool
+
+	// last execution entries for each address. this will be initialised to 64k.
+	disasm []*execution.Result
 
 	// recent execution results to be printed on emulation halt
 	recent []execution.Result
@@ -96,6 +101,10 @@ func (m *debugger) reset() {
 	if !m.savekeyAuto {
 		m.loader.UseSavekey = m.savekeyForce
 	}
+
+	// empty recent results and clear disassembly
+	clear(m.disasm)
+	m.recent = m.recent[:0]
 
 	err := m.console.Insert(m.loader)
 	if err != nil {
@@ -202,18 +211,18 @@ func (m *debugger) contextBreaks() error {
 	return err
 }
 
-func (m *debugger) printInstruction(res *disassembly.Entry) {
+func (m *debugger) printInstruction(w io.Writer, style lipgloss.Style, res *disassembly.Entry) {
 	if res.Result.InInterrupt {
-		fmt.Print(m.styles.instruction.Render("!! "))
+		fmt.Fprint(w, style.Render("!! "))
 	}
-	fmt.Println(m.styles.instruction.Render(
+	fmt.Fprintln(w, style.Render(
 		strings.TrimSpace(fmt.Sprintf("%s %s %s", res.Address, res.Operator, res.Operand))),
 	)
 }
 
 func (m *debugger) last() {
 	res := disassembly.FormatResult(m.console.MC.LastResult)
-	m.printInstruction(res)
+	m.printInstruction(os.Stdout, m.styles.instruction, res)
 }
 
 // the number of recent instructions to record. also used to clip the number of
@@ -280,12 +289,16 @@ func (m *debugger) runLoop() error {
 		default:
 		}
 
-		// record last instruction
 		if m.console.MC.LastResult.Final {
+			// record last instruction
 			m.recent = append(m.recent, m.console.MC.LastResult)
 			if len(m.recent) > maxRecentLen {
 				m.recent = m.recent[1:]
 			}
+
+			// record result in disassembly, overwriting the previous entry
+			r := m.console.MC.LastResult
+			m.disasm[m.console.MC.LastResult.Address] = &r
 		}
 
 		instructionCt++
@@ -364,7 +377,7 @@ func (m *debugger) runLoop() error {
 			n := max(len(m.recent)-10, 0)
 			for _, e := range m.recent[n:] {
 				res := disassembly.FormatResult(e)
-				m.printInstruction(res)
+				m.printInstruction(os.Stdout, m.styles.instruction, res)
 			}
 		}
 		fmt.Println(m.styles.cpu.Render(
@@ -709,6 +722,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		styles:       newStyles(),
 		breakpoints:  make(map[uint16]bool),
 		watches:      make(map[uint16]watch),
+		disasm:       make([]*execution.Result, 0x10000),
 		coprocDisasm: &coprocDisasm{},
 		coprocDev:    newCoprocDev(),
 		biosHelper: biosHelper{

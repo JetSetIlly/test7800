@@ -3,6 +3,7 @@ package debugger
 import "github.com/charmbracelet/lipgloss"
 
 type styles struct {
+	plain       lipgloss.Style
 	instruction lipgloss.Style
 	cpu         lipgloss.Style
 	mem         lipgloss.Style
@@ -36,6 +37,7 @@ type styles struct {
 
 func newStyles() styles {
 	return styles{
+		plain:       lipgloss.NewStyle(),
 		instruction: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(3)),
 		cpu:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(4)),
 		mem:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(5)),

@@ -74,6 +74,30 @@ func (m *debugger) commands(cmd []string) bool {
 			m.console.MC.String(),
 		))
 
+	case "DISASM":
+		func() {
+			w := os.Stdout
+			style := m.styles.instruction
+			if len(cmd) == 2 {
+				f, err := os.Create(cmd[1])
+				if err != nil {
+					fmt.Println(m.styles.err.Render(
+						"cannot open file to write DISASM to",
+					))
+					return
+				}
+				w = f
+				style = m.styles.plain
+				defer f.Close()
+			}
+			for _, d := range m.disasm {
+				if d != nil {
+					res := disassembly.FormatResult(*d)
+					m.printInstruction(w, style, res)
+				}
+			}
+		}()
+
 	case "RECENT":
 		n := 10
 		if len(cmd) == 2 {
@@ -89,7 +113,7 @@ func (m *debugger) commands(cmd []string) bool {
 		n = max(len(m.recent)-n, 0)
 		for _, e := range m.recent[n:] {
 			res := disassembly.FormatResult(e)
-			m.printInstruction(res)
+			m.printInstruction(os.Stdout, m.styles.instruction, res)
 		}
 
 	case "BIOS":
