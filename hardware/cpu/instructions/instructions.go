@@ -372,3 +372,13 @@ func (defn Definition) String() string {
 func (defn Definition) IsBranch() bool {
 	return defn.AddressingMode == Relative && defn.Effect == Flow
 }
+
+// IsRead returns true if instruction has read a value into a CPU register.
+func (defn Definition) IsRead() bool {
+	return defn.Effect == Read || defn.Effect == RMW
+}
+
+// IsWrite returns true if instruction has written CPU register value to a memory address.
+func (defn Definition) IsWrite() bool {
+	return defn.Effect == Write || defn.Effect == RMW
+}

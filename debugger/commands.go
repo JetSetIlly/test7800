@@ -101,7 +101,8 @@ func (m *debugger) commands(cmd []string) bool {
 	case "RECENT":
 		func() {
 			w := os.Stdout
-			style := m.styles.instruction
+			instructionStyle := m.styles.instruction
+			cpuStyle := m.styles.cpu
 			n := 10
 			if len(cmd) == 2 {
 				var err error
@@ -117,14 +118,20 @@ func (m *debugger) commands(cmd []string) bool {
 					}
 					n = len(m.recent)
 					w = f
-					style = m.styles.plain
+					instructionStyle = m.styles.plain
+					cpuStyle = m.styles.plain
 					defer f.Close()
 				}
 			}
 			n = max(len(m.recent)-n, 0)
 			for _, e := range m.recent[n:] {
-				res := disassembly.FormatResult(e)
-				m.printInstruction(w, style, res)
+				res := disassembly.FormatResult(e.result)
+				m.printInstruction(w, instructionStyle, res)
+				if e.result.Defn.IsRead() {
+					fmt.Fprint(w, cpuStyle.Render("\t"))
+					fmt.Fprint(w, cpuStyle.Render(e.cpu))
+					fmt.Fprintln(w, cpuStyle.Render(""))
+				}
 			}
 		}()
 
