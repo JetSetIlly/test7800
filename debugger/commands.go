@@ -99,22 +99,34 @@ func (m *debugger) commands(cmd []string) bool {
 		}()
 
 	case "RECENT":
-		n := 10
-		if len(cmd) == 2 {
-			var err error
-			n, err = strconv.Atoi(cmd[1])
-			if err != nil {
-				fmt.Println(m.styles.err.Render(
-					"cannot use RECENT %s", cmd[1],
-				))
-				break // switch
+		func() {
+			w := os.Stdout
+			style := m.styles.instruction
+			n := 10
+			if len(cmd) == 2 {
+				var err error
+				n, err = strconv.Atoi(cmd[1])
+				if err != nil {
+					// if argument is not a number then use it as the name of the file to save to
+					f, err := os.Create(cmd[1])
+					if err != nil {
+						fmt.Println(m.styles.err.Render(
+							"cannot open file to write DISASM to",
+						))
+						return
+					}
+					n = len(m.recent)
+					w = f
+					style = m.styles.plain
+					defer f.Close()
+				}
 			}
-		}
-		n = max(len(m.recent)-n, 0)
-		for _, e := range m.recent[n:] {
-			res := disassembly.FormatResult(e)
-			m.printInstruction(os.Stdout, m.styles.instruction, res)
-		}
+			n = max(len(m.recent)-n, 0)
+			for _, e := range m.recent[n:] {
+				res := disassembly.FormatResult(e)
+				m.printInstruction(w, style, res)
+			}
+		}()
 
 	case "BIOS":
 		fmt.Println(m.styles.mem.Render(
