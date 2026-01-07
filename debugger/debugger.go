@@ -561,7 +561,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 	flgs.StringVar(&profile, "profile", "NONE", fmt.Sprintf("create profile for emulator: %s", list(profileOptions)))
 	flgs.BoolVar(&bios, "bios", true, "run BIOS routines on reset")
 	flgs.StringVar(&hsc, "hsc", "AUTO", fmt.Sprintf("use high score cartridge: %s", list(hscOptions)))
-	flgs.StringVar(&savekey, "savekey", "AUTO", fmt.Sprintf("use savekey: %s", list(savekeyOptions)))
+	flgs.StringVar(&savekey, "savekey", "FALSE", fmt.Sprintf("use savekey: %s", list(savekeyOptions)))
 	flgs.BoolVar(&checksum, "checksum", true, "allow BIOS checksum checks")
 	flgs.BoolVar(&overlay, "overlay", false, "add debugging overlay to display")
 	flgs.BoolVar(&run, "run", false, "start ROM in running state")
