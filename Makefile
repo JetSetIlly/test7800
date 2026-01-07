@@ -1,4 +1,4 @@
-version = v0.7.3-nightly
+version = v0.7.3
 
 goBinary = go
 gcflags = -c 3 -B -wb=false -l -l -l -l
