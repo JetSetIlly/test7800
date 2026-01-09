@@ -78,13 +78,13 @@ func (riot *RIOT) Reset() {
 	riot.swcha_w = 0x00
 	riot.swcha_mux = 0xff
 	riot.swacnt = 0x00
-	riot.swcha_p = 0x00
+	riot.swcha_p = 0xff
 
 	// amateur pro switch selected by default (pro would be 0xff)
 	riot.swchb_w = 0x00
 	riot.swchb_mux = 0x3f
 	riot.swbcnt = 0x00
-	riot.swchb_p = 0x00
+	riot.swchb_p = 0xff
 
 	riot.timint = timintPA7
 	riot.lastReadReg = 0

@@ -140,7 +140,7 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 		}
 		if _, ok := con.players[1].(*peripherals.Stick); !ok {
 			con.players[1].Unplug()
-			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
 			con.players[1].Reset()
 		}
 	case "paddle":
@@ -173,7 +173,7 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 		}
 		if _, ok := con.players[1].(*peripherals.Stick); !ok {
 			con.players[1].Unplug()
-			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, false)
 			con.players[1].Reset()
 		}
 	case "snes2atari":
@@ -184,7 +184,7 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 		}
 		if _, ok := con.players[1].(*peripherals.Stick); !ok {
 			con.players[1].Unplug()
-			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
 			con.players[1].Reset()
 		}
 	}
