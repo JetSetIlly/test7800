@@ -16,6 +16,7 @@
 package savekey
 
 import (
+	"slices"
 	"unicode"
 
 	"github.com/jetsetilly/test7800/gui"
@@ -126,6 +127,7 @@ func (sk *SaveKey) Reset() {
 }
 
 func (sk *SaveKey) Unplug() {
+	sk.EEPROM.unplug()
 	sk.riot.PortWrite(riot.SWCHA, 0x00>>sk.riotShift, 0x0f<<sk.riotShift)
 	if sk.portRight {
 		sk.tia.PortWrite(tia.INPT5, 0x00, 0x7f)
@@ -205,7 +207,7 @@ func (sk *SaveKey) Tick() {
 	if sk.State != SaveKeyStopped && sk.SCL.Hi() && sk.SDA.Rising() {
 		logger.Log(sk.ctx, "savekey", "stopped message")
 		sk.State = SaveKeyStopped
-		sk.EEPROM.Write()
+		sk.EEPROM.dirty = slices.Equal(sk.EEPROM.Data, sk.EEPROM.Disk)
 		return
 	}
 

@@ -743,6 +743,7 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 		savekeyForce: savekeyForce,
 	}
 	m.console = hardware.Create(&m.ctx, g)
+	defer m.console.End()
 
 	signal.Notify(m.sig, syscall.SIGINT)
 

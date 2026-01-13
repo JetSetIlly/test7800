@@ -15,6 +15,9 @@ func main() {
 	endGui := make(chan bool, 1)
 	endDebugger := make(chan bool, 1)
 
+	// the ack channel gives the debugger goroutine to finish up before the program exits
+	endDebuggerAck := make(chan bool, 1)
+
 	g := gui.NewGUI()
 
 	go func() {
@@ -23,11 +26,14 @@ func main() {
 			fmt.Printf("*** %s\n", err)
 		}
 		endGui <- true
+		endDebuggerAck <- true
 	}()
 
 	err := ebiten.Launch(endGui, g)
 	if err != nil {
 		fmt.Printf("*** %s\n", err)
 	}
+
 	endDebugger <- true
+	<-endDebuggerAck
 }

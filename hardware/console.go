@@ -87,6 +87,12 @@ func Create(ctx Context, g *gui.GUI) *Console {
 	return con
 }
 
+func (con *Console) End() {
+	con.panel.Unplug()
+	con.players[0].Unplug()
+	con.players[1].Unplug()
+}
+
 // if biosCheck is nil or if it returns false then the BIOS routines are bypassed
 func (con *Console) Reset(random bool, biosCheck func() bool) error {
 	var rnd cpu.Random
