@@ -205,6 +205,8 @@ func (eg *guiEbiten) inputKeyboard() error {
 		case ebiten.KeyF5:
 			inp = gui.Input{Port: gui.Panel, Action: gui.P1Pro, Data: eg.proDifficulty[1]}
 
+		case ebiten.KeyF7:
+			eg.showInfo = !eg.showInfo
 		case ebiten.KeyF11:
 			eg.geom.fullScreen = !eg.geom.fullScreen
 			ebiten.SetFullscreen(eg.geom.fullScreen)

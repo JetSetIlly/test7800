@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"time"
 
 	"github.com/ebitengine/oto/v3"
-	"github.com/ebitenui/ebitenui"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/logger"
 	"github.com/jetsetilly/test7800/version"
@@ -27,12 +28,10 @@ type guiEbiten struct {
 	g    *gui.GUI
 	geom windowGeometry
 
-	ui *ebitenui.UI
+	ui *ui
 
-	started bool
-	endGui  chan bool
-
-	state gui.State
+	endGui chan bool
+	state  gui.State
 
 	main    *ebiten.Image
 	overlay *ebiten.Image
@@ -62,6 +61,12 @@ type guiEbiten struct {
 	// position of mouse cursor on last update
 	mouseX, mouseY int
 	mouseCaptured  bool
+
+	// whether to show the info text
+	showInfo bool
+
+	// time of last frame
+	lastFrame time.Time
 }
 
 func (eg *guiEbiten) Update() error {
@@ -194,7 +199,15 @@ func (eg *guiEbiten) Update() error {
 }
 
 func (eg *guiEbiten) Draw(screen *ebiten.Image) {
-	defer eg.ui.Draw(screen)
+	defer func() {
+		eg.ui.Draw(screen)
+		if eg.showInfo {
+			var opts text.DrawOptions
+			opts.GeoM.Translate(10, 10)
+			text.Draw(screen, fmt.Sprintf("%s", time.Since(eg.lastFrame)), eg.ui.baseFont, &opts)
+		}
+		eg.lastFrame = time.Now()
+	}()
 
 	const aspectBias = 0.93
 
@@ -276,7 +289,8 @@ func Launch(endGui chan bool, g *gui.GUI) error {
 		audio: audioPlayer{
 			state: gui.StateRunning,
 		},
-		ui: createUI(),
+		ui:        createUI(),
+		lastFrame: time.Now(),
 	}
 
 	// loop to service requests until the first state change. (the main service loop is in the

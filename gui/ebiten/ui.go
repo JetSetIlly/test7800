@@ -15,25 +15,33 @@ import (
 //go:embed "Hack-Regular.ttf"
 var fontHack []byte
 
-func createUI() *ebitenui.UI {
-	ui := &ebitenui.UI{
-		Container: widget.NewContainer(),
-	}
+type ui struct {
+	*ebitenui.UI
+	baseFont text.Face
+}
+
+func createUI() *ui {
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(fontHack))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var fontFace text.Face = &text.GoTextFace{
+	var baseFont text.Face = &text.GoTextFace{
 		Source: s,
 		Size:   15,
 	}
 
-	helloWorldLabel := widget.NewText(
-		widget.TextOpts.Text("", &fontFace, color.White),
-	)
+	ui := &ui{
+		UI: &ebitenui.UI{
+			Container: widget.NewContainer(),
+		},
+		baseFont: baseFont,
+	}
 
-	ui.Container.AddChild(helloWorldLabel)
+	txt := widget.NewText(
+		widget.TextOpts.Text("", &baseFont, color.White),
+	)
+	ui.Container.AddChild(txt)
 
 	return ui
 }
