@@ -204,7 +204,7 @@ func (eg *guiEbiten) Draw(screen *ebiten.Image) {
 	if imageRatio < winRatio {
 		scaling = float64(eg.geom.h) / float64(eg.height)
 	} else {
-		scaling = float64(eg.geom.w) / float64(eg.width)
+		scaling = float64(eg.geom.w) / (float64(eg.width) * aspectBias)
 	}
 
 	scalingX := scaling * aspectBias
