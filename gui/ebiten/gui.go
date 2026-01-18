@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/ebitengine/oto/v3"
+	"github.com/ebitenui/ebitenui"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/logger"
@@ -25,6 +26,8 @@ func (g windowGeometry) valid() bool {
 type guiEbiten struct {
 	g    *gui.GUI
 	geom windowGeometry
+
+	ui *ebitenui.UI
 
 	started bool
 	endGui  chan bool
@@ -62,6 +65,8 @@ type guiEbiten struct {
 }
 
 func (eg *guiEbiten) Update() error {
+	defer eg.ui.Update()
+
 	// service requests (the SetImage request is serviced in this function below)
 	select {
 	case eg.state = <-eg.g.State:
@@ -189,6 +194,8 @@ func (eg *guiEbiten) Update() error {
 }
 
 func (eg *guiEbiten) Draw(screen *ebiten.Image) {
+	defer eg.ui.Draw(screen)
+
 	eg.cursorFrame++
 
 	if eg.main != nil {
@@ -226,9 +233,6 @@ func (eg *guiEbiten) Draw(screen *ebiten.Image) {
 }
 
 func (eg *guiEbiten) Layout(width, height int) (int, int) {
-	if eg.main != nil {
-		return eg.width, eg.height
-	}
 	return width, height
 }
 
@@ -246,6 +250,7 @@ func Launch(endGui chan bool, g *gui.GUI) error {
 		audio: audioPlayer{
 			state: gui.StateRunning,
 		},
+		ui: createUI(),
 	}
 
 	// loop to service requests until the first state change. (the main service loop is in the
