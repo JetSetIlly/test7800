@@ -196,6 +196,8 @@ func (eg *guiEbiten) Update() error {
 func (eg *guiEbiten) Draw(screen *ebiten.Image) {
 	defer eg.ui.Draw(screen)
 
+	const aspectBias = 0.93
+
 	var scaling float64
 	winRatio := float64(eg.geom.w) / float64(eg.geom.h)
 	imageRatio := float64(eg.width) / float64(eg.height)
@@ -205,14 +207,18 @@ func (eg *guiEbiten) Draw(screen *ebiten.Image) {
 		scaling = float64(eg.geom.w) / float64(eg.width)
 	}
 
-	translateX := (float64(eg.geom.w) - (float64(eg.width) * scaling)) / 2
-	translateY := (float64(eg.geom.h) - (float64(eg.height) * scaling)) / 2
+	scalingX := scaling * aspectBias
+	scalingY := scaling
+
+	translateX := (float64(eg.geom.w) - (float64(eg.width) * scalingX)) / 2
+	translateY := (float64(eg.geom.h) - (float64(eg.height) * scalingY)) / 2
 
 	if eg.main != nil {
 		if eg.prev != nil {
 			var op ebiten.DrawImageOptions
-			op.GeoM.Scale(scaling, scaling)
+			op.GeoM.Scale(scalingX, scalingY)
 			op.GeoM.Translate(translateX, translateY)
+			op.Filter = ebiten.FilterPixelated
 			op.ColorScale.SetR(0.2)
 			op.ColorScale.SetG(0.2)
 			op.ColorScale.SetB(0.2)
@@ -221,15 +227,17 @@ func (eg *guiEbiten) Draw(screen *ebiten.Image) {
 		}
 		if eg.main != nil {
 			var op ebiten.DrawImageOptions
-			op.GeoM.Scale(scaling, scaling)
+			op.GeoM.Scale(scalingX, scalingY)
 			op.GeoM.Translate(translateX, translateY)
+			op.Filter = ebiten.FilterPixelated
 			op.Blend = ebiten.BlendSourceOver
 			screen.DrawImage(eg.main, &op)
 		}
 		if eg.overlay != nil {
 			var op ebiten.DrawImageOptions
-			op.GeoM.Scale(scaling, scaling)
+			op.GeoM.Scale(scalingX, scalingY)
 			op.GeoM.Translate(translateX, translateY)
+			op.Filter = ebiten.FilterPixelated
 			op.Blend = ebiten.BlendLighter
 			screen.DrawImage(eg.overlay, &op)
 		}

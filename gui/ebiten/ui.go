@@ -30,7 +30,7 @@ func createUI() *ebitenui.UI {
 	}
 
 	helloWorldLabel := widget.NewText(
-		widget.TextOpts.Text("Test7800", &fontFace, color.White),
+		widget.TextOpts.Text("", &fontFace, color.White),
 	)
 
 	ui.Container.AddChild(helloWorldLabel)
