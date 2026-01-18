@@ -196,11 +196,23 @@ func (eg *guiEbiten) Update() error {
 func (eg *guiEbiten) Draw(screen *ebiten.Image) {
 	defer eg.ui.Draw(screen)
 
-	eg.cursorFrame++
+	var scaling float64
+	winRatio := float64(eg.geom.w) / float64(eg.geom.h)
+	imageRatio := float64(eg.width) / float64(eg.height)
+	if imageRatio < winRatio {
+		scaling = float64(eg.geom.h) / float64(eg.height)
+	} else {
+		scaling = float64(eg.geom.w) / float64(eg.width)
+	}
+
+	translateX := (float64(eg.geom.w) - (float64(eg.width) * scaling)) / 2
+	translateY := (float64(eg.geom.h) - (float64(eg.height) * scaling)) / 2
 
 	if eg.main != nil {
 		if eg.prev != nil {
 			var op ebiten.DrawImageOptions
+			op.GeoM.Scale(scaling, scaling)
+			op.GeoM.Translate(translateX, translateY)
 			op.ColorScale.SetR(0.2)
 			op.ColorScale.SetG(0.2)
 			op.ColorScale.SetB(0.2)
@@ -209,14 +221,20 @@ func (eg *guiEbiten) Draw(screen *ebiten.Image) {
 		}
 		if eg.main != nil {
 			var op ebiten.DrawImageOptions
+			op.GeoM.Scale(scaling, scaling)
+			op.GeoM.Translate(translateX, translateY)
 			op.Blend = ebiten.BlendSourceOver
 			screen.DrawImage(eg.main, &op)
 		}
 		if eg.overlay != nil {
 			var op ebiten.DrawImageOptions
+			op.GeoM.Scale(scaling, scaling)
+			op.GeoM.Translate(translateX, translateY)
 			op.Blend = ebiten.BlendLighter
 			screen.DrawImage(eg.overlay, &op)
 		}
+
+		eg.cursorFrame++
 
 		// draw cursor if emulation is paused
 		if eg.state == gui.StatePaused {
@@ -227,12 +245,12 @@ func (eg *guiEbiten) Draw(screen *ebiten.Image) {
 			screen.Set(eg.cursor[0]+1, eg.cursor[1]+1, color.RGBA{R: v, G: v, B: v, A: 255})
 		}
 	}
-
-	eg.geom.x, eg.geom.y = ebiten.WindowPosition()
-	eg.geom.w, eg.geom.h = ebiten.WindowSize()
 }
 
 func (eg *guiEbiten) Layout(width, height int) (int, int) {
+	eg.geom.x, eg.geom.y = ebiten.WindowPosition()
+	eg.geom.w = width
+	eg.geom.h = height
 	return width, height
 }
 
