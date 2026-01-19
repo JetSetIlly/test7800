@@ -11,7 +11,7 @@ import (
 	"github.com/jetsetilly/test7800/logger"
 )
 
-type Context struct {
+type context struct {
 	console    string
 	spec       string
 	rand       *rand.Rand
@@ -19,7 +19,7 @@ type Context struct {
 	useOverlay bool
 }
 
-func (ctx *Context) Spec() spec.Spec {
+func (ctx *context) Spec() spec.Spec {
 	switch ctx.spec {
 	case "NTSC":
 		return spec.NTSC
@@ -29,60 +29,68 @@ func (ctx *Context) Spec() spec.Spec {
 	panic("currently unsupported specification")
 }
 
-func (ctx *Context) IsAtari7800() bool {
+func (ctx *context) IsAtari7800() bool {
 	return ctx.console == "7800"
 }
 
-func (ctx *Context) Reset() {
+func (ctx *context) Reset() {
 	ctx.Breaks = ctx.Breaks[:0]
 	ctx.rand = rand.New(rand.NewPCG(0, 0))
 }
 
-func (ctx *Context) Rand8Bit() uint8 {
+func (ctx *context) Rand8Bit() uint8 {
 	return uint8(ctx.rand.IntN(255))
 }
 
-func (ctx *Context) Rand16Bit() uint16 {
+func (ctx *context) Rand16Bit() uint16 {
 	return uint16(ctx.rand.IntN(65535))
 }
 
-func (ctx *Context) Break(e error) {
+func (ctx *context) Break(e error) {
 	ctx.Breaks = append(ctx.Breaks, e)
 }
 
-func (ctx *Context) UseOverlay() bool {
+func (ctx *context) UseOverlay() bool {
 	return ctx.useOverlay
 }
 
-func (ctx *Context) UseAudio() bool {
+func (ctx *context) UseAudio() bool {
 	return false
 }
 
-func (ctx *Context) UseStereo() bool {
+func (ctx *context) UseStereo() bool {
 	return false
 }
 
-func (ctx *Context) SampleRate() (int, bool) {
+func (ctx *context) SampleRate() (int, bool) {
 	return 48000, true
+}
+
+func (ctx *context) AllowLogging() bool {
+	return true
+}
+
+func (ctx *context) Overscan() string {
+	return "AUTO"
 }
 
 func main() {
 	// logger messages will be viewable in javascript log for WASM build
 	logger.SetEcho(os.Stderr, false)
 
-	g := gui.NewGUI()
+	g := gui.NewChannels()
 
 	// using PAL BIOS so we get asteroids for free
-	ctx := Context{
+	ctx := context{
 		console: "7800",
 		spec:    "PAL",
 	}
 	ctx.Reset()
 
-	con := hardware.Create(&ctx, g)
-	con.Reset(true)
+	con := hardware.Create(&ctx, g.Debugger())
+	con.Reset(true, func() bool { return true })
 
-	g.UpdateGUI = func() error {
+	update := func() error {
 		fn := con.MARIA.Coords.Frame
 		for con.MARIA.Coords.Frame == fn {
 			err := con.Step()
@@ -96,5 +104,5 @@ func main() {
 	// start off gui in the paused state. gui won't properly begin until it receives a state change
 	g.State <- gui.StatePaused
 
-	ebiten.Launch(nil, g)
+	ebiten.Launch(nil, g.GUI(), update)
 }
