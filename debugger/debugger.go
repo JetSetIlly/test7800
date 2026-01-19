@@ -40,16 +40,11 @@ type recent struct {
 
 type debugger struct {
 	ctx context
+	g   *gui.ChannelsDebugger
 
-	guiQuit chan bool
-	sig     chan os.Signal
-	input   chan input
-
-	// these channels are passed to the debugger as part of the creation process, via the gui.GUI
-	// argument
-	state chan gui.State
-	cmds  chan gui.Command
-	blob  chan gui.Blob
+	endDebugger <-chan bool
+	sig         chan os.Signal
+	input       chan input
 
 	console        *hardware.Console
 	breakpoints    map[uint16]bool
@@ -287,9 +282,9 @@ func (m *debugger) runLoop() error {
 		select {
 		case <-m.sig:
 			return endRunErr
-		case <-m.guiQuit:
+		case <-m.endDebugger:
 			return quitErr
-		case d := <-m.blob:
+		case d := <-m.g.Blob:
 			m.loadBlob(d)
 		default:
 		}
@@ -359,7 +354,7 @@ func (m *debugger) runLoop() error {
 		}
 
 		// end execution if there are commands in the queue
-		if len(m.cmds) > 0 {
+		if len(m.g.Commands) > 0 {
 			return commandErr
 		}
 
@@ -368,9 +363,9 @@ func (m *debugger) runLoop() error {
 
 	startTime = time.Now()
 
-	m.state <- gui.StateRunning
+	m.g.State <- gui.StateRunning
 	err := m.console.Run(hook)
-	m.state <- gui.StatePaused
+	m.g.State <- gui.StatePaused
 
 	if errors.Is(err, quitErr) {
 		return runQuit
@@ -457,7 +452,7 @@ func (m *debugger) runLoop() error {
 			select {
 			default:
 				drained = true
-			case cmd := <-m.cmds:
+			case cmd := <-m.g.Commands:
 				m.commands(cmd)
 				return runContinue
 			}
@@ -486,9 +481,9 @@ func (m *debugger) loop() {
 		var cmd []string
 
 		select {
-		case cmd = <-m.cmds:
+		case cmd = <-m.g.Commands:
 			fmt.Print("\r")
-		case d := <-m.blob:
+		case d := <-m.g.Blob:
 			m.loadBlob(d)
 		case input := <-m.input:
 			if input.err != nil {
@@ -502,7 +497,7 @@ func (m *debugger) loop() {
 		case <-m.sig:
 			fmt.Print("\r")
 			return
-		case <-m.guiQuit:
+		case <-m.endDebugger:
 			fmt.Print("\n")
 			return
 		}
@@ -515,7 +510,7 @@ func (m *debugger) loop() {
 
 const programName = "test7800"
 
-func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
+func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) error {
 	var (
 		filename   string
 		spec       string
@@ -720,10 +715,8 @@ func Launch(guiQuit chan bool, g *gui.GUI, args []string) error {
 
 	m := &debugger{
 		ctx:          ctx,
-		guiQuit:      guiQuit,
-		state:        g.State,
-		cmds:         g.Commands,
-		blob:         g.Blob,
+		g:            g,
+		endDebugger:  endDebugger,
 		sig:          make(chan os.Signal, 1),
 		input:        make(chan input, 1),
 		loader:       loader,

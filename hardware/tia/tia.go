@@ -56,7 +56,7 @@ type Limiter interface {
 	Nudge()
 }
 
-func Create(ctx Context, g *gui.GUI, limiter Limiter) *TIA {
+func Create(ctx Context, g *gui.ChannelsDebugger, limiter Limiter) *TIA {
 	tia := &TIA{
 		aud:    audio.NewAudio(),
 		stereo: ctx.UseStereo(),

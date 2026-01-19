@@ -20,7 +20,7 @@ type Image struct {
 // the state of the emulation
 type State int
 
-// the emulation state can be either paused or running
+// the emulation state can be either paused or running. should default to state running
 const (
 	StateRunning State = iota
 	StatePaused
@@ -43,7 +43,7 @@ type Blob struct {
 	Data     []uint8
 }
 
-type GUI struct {
+type Channels struct {
 	SetImage  chan Image
 	UserInput chan Input
 	Commands  chan Command
@@ -55,20 +55,69 @@ type GUI struct {
 	// AudioSetup should be nil if the emulation is to have no audio
 	AudioSetup chan AudioSetup
 
-	// gui receives a string (last selected file) and returns result over the same channel
+	// gui receives a string (last selected file) over the FileRequest channel
+	// and returns result over the RequestedFile channel
 	FileRequest   chan string
 	RequestedFile chan string
 
 	// display an error message
 	ErrorDialog chan string
-
-	// optional function called by GUI during it's update loop
-	UpdateGUI func() error
 }
 
-// NewGUI creates a new GUI instance
-func NewGUI() *GUI {
-	return &GUI{
+type ChannelsGUI struct {
+	SetImage      <-chan Image
+	UserInput     chan<- Input
+	Commands      chan<- Command
+	Blob          chan<- Blob
+	State         <-chan State
+	AudioSetup    <-chan AudioSetup
+	FileRequest   <-chan string
+	RequestedFile chan<- string
+	ErrorDialog   <-chan string
+}
+
+type ChannelsDebugger struct {
+	SetImage      chan<- Image
+	UserInput     <-chan Input
+	Commands      <-chan Command
+	Blob          <-chan Blob
+	State         chan<- State
+	AudioSetup    chan<- AudioSetup
+	FileRequest   chan<- string
+	RequestedFile <-chan string
+	ErrorDialog   chan<- string
+}
+
+func (c *Channels) GUI() *ChannelsGUI {
+	return &ChannelsGUI{
+		SetImage:      c.SetImage,
+		UserInput:     c.UserInput,
+		Commands:      c.Commands,
+		Blob:          c.Blob,
+		State:         c.State,
+		AudioSetup:    c.AudioSetup,
+		FileRequest:   c.FileRequest,
+		RequestedFile: c.RequestedFile,
+		ErrorDialog:   c.ErrorDialog,
+	}
+}
+
+func (c *Channels) Debugger() *ChannelsDebugger {
+	return &ChannelsDebugger{
+		SetImage:      c.SetImage,
+		UserInput:     c.UserInput,
+		Commands:      c.Commands,
+		Blob:          c.Blob,
+		State:         c.State,
+		AudioSetup:    c.AudioSetup,
+		FileRequest:   c.FileRequest,
+		RequestedFile: c.RequestedFile,
+		ErrorDialog:   c.ErrorDialog,
+	}
+}
+
+func NewChannels() *Channels {
+	return &Channels{
 		SetImage:      make(chan Image, 1),
 		UserInput:     make(chan Input, 10),
 		Commands:      make(chan Command, 10),

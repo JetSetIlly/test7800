@@ -52,7 +52,7 @@ type frame struct {
 
 type Maria struct {
 	ctx Context
-	g   *gui.GUI
+	g   *gui.ChannelsDebugger
 
 	// frame limiter
 	limit limiter
@@ -123,7 +123,7 @@ type CPU interface {
 	InInterrupt() bool
 }
 
-func Create(ctx Context, g *gui.GUI, mem Memory, cpu CPU, limit limiter) *Maria {
+func Create(ctx Context, g *gui.ChannelsDebugger, mem Memory, cpu CPU, limit limiter) *Maria {
 	mar := &Maria{
 		ctx:   ctx,
 		g:     g,

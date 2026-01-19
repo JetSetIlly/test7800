@@ -13,19 +13,19 @@ import (
 type preview struct {
 	ctx     context
 	console *hardware.Console
-	gui     *gui.GUI
+	g       *gui.ChannelsDebugger
 }
 
 func newPreview(ctx context) (*preview, error) {
 	p := &preview{
-		gui: gui.NewGUI(),
+		g: gui.NewChannels().Debugger(),
 		ctx: context{
 			requestedSpec: ctx.requestedSpec,
 			overscan:      ctx.overscan,
 		},
 	}
 	p.ctx.Reset()
-	p.console = hardware.Create(&p.ctx, p.gui)
+	p.console = hardware.Create(&p.ctx, p.g)
 	return p, nil
 }
 

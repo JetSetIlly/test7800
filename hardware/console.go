@@ -25,7 +25,7 @@ type peripheral interface {
 
 type Console struct {
 	ctx Context
-	g   *gui.GUI
+	g   *gui.ChannelsDebugger
 
 	MC    *cpu.CPU
 	Mem   *memory.Memory
@@ -57,7 +57,7 @@ type Context interface {
 	UseAudio() bool
 }
 
-func Create(ctx Context, g *gui.GUI) *Console {
+func Create(ctx Context, g *gui.ChannelsDebugger) *Console {
 	spec := ctx.Spec()
 
 	con := &Console{

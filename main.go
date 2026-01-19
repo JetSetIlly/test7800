@@ -18,10 +18,10 @@ func main() {
 	// the ack channel gives the debugger goroutine to finish up before the program exits
 	endDebuggerAck := make(chan bool, 1)
 
-	g := gui.NewGUI()
+	g := gui.NewChannels()
 
 	go func() {
-		err := debugger.Launch(endDebugger, g, os.Args[1:])
+		err := debugger.Launch(endDebugger, g.Debugger(), os.Args[1:])
 		if err != nil {
 			fmt.Printf("*** %s\n", err)
 		}
@@ -29,7 +29,7 @@ func main() {
 		endDebuggerAck <- true
 	}()
 
-	err := ebiten.Launch(endGui, g)
+	err := ebiten.Launch(endGui, g.GUI(), nil)
 	if err != nil {
 		fmt.Printf("*** %s\n", err)
 	}

@@ -25,13 +25,13 @@ func (g windowGeometry) valid() bool {
 }
 
 type guiEbiten struct {
-	g    *gui.GUI
+	g      *gui.ChannelsGUI
+	endGui <-chan bool
+
 	geom windowGeometry
+	ui   *ui
 
-	ui *ui
-
-	endGui chan bool
-	state  gui.State
+	state gui.State
 
 	main    *ebiten.Image
 	overlay *ebiten.Image
@@ -67,6 +67,9 @@ type guiEbiten struct {
 
 	// time of last frame
 	lastFrame time.Time
+
+	// optional function called by during the update loop
+	update func() error
 }
 
 func (eg *guiEbiten) Update() error {
@@ -154,8 +157,8 @@ func (eg *guiEbiten) Update() error {
 	}
 
 	// run option update function
-	if eg.g.UpdateGUI != nil {
-		err := eg.g.UpdateGUI()
+	if eg.update != nil {
+		err := eg.update()
 		if err != nil {
 			return fmt.Errorf("ebiten: %w", err)
 		}
@@ -275,7 +278,7 @@ func (eg *guiEbiten) Layout(width, height int) (int, int) {
 	return width, height
 }
 
-func Launch(endGui chan bool, g *gui.GUI) error {
+func Launch(endGui <-chan bool, g *gui.ChannelsGUI, update func() error) error {
 	ebiten.SetWindowTitle(version.Title())
 	ebiten.SetVsyncEnabled(true)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
@@ -283,14 +286,15 @@ func Launch(endGui chan bool, g *gui.GUI) error {
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 
 	eg := &guiEbiten{
-		endGui: endGui,
 		g:      g,
+		endGui: endGui,
 		state:  gui.StateRunning,
 		audio: audioPlayer{
 			state: gui.StateRunning,
 		},
 		ui:        createUI(),
 		lastFrame: time.Now(),
+		update:    update,
 	}
 
 	// loop to service requests until the first state change. (the main service loop is in the
