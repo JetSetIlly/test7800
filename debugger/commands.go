@@ -14,7 +14,7 @@ import (
 )
 
 // returns true if debugger is to quit
-func (m *debugger) commands(cmd []string) bool {
+func (m *debugger) parseCommand(cmd []string) bool {
 	if len(cmd) == 0 {
 		return false
 	}

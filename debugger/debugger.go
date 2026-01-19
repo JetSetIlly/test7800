@@ -44,7 +44,7 @@ type debugger struct {
 
 	endDebugger <-chan bool
 	sig         chan os.Signal
-	input       chan input
+	commands    <-chan input
 
 	console        *hardware.Console
 	breakpoints    map[uint16]bool
@@ -269,7 +269,6 @@ func (m *debugger) runLoop() error {
 		contextErr    = errors.New("context")
 		endRunErr     = errors.New("end run")
 		quitErr       = errors.New("quit")
-		commandErr    = errors.New("command")
 	)
 
 	// always cancel stepping rule
@@ -351,11 +350,6 @@ func (m *debugger) runLoop() error {
 		err = m.biosHelper.cartridgePassCheck(m.console.MC)
 		if err != nil {
 			return err
-		}
-
-		// end execution if there are commands in the queue
-		if len(m.g.Commands) > 0 {
-			return commandErr
 		}
 
 		return nil
@@ -444,20 +438,6 @@ func (m *debugger) runLoop() error {
 	} else if errors.Is(err, contextErr) {
 		s := strings.TrimPrefix(err.Error(), contextErr.Error())
 		fmt.Println(m.styles.err.Render(s))
-
-	} else if errors.Is(err, commandErr) {
-		// debugger commands
-		var drained bool
-		for !drained {
-			select {
-			default:
-				drained = true
-			case cmd := <-m.g.Commands:
-				m.commands(cmd)
-				return runContinue
-			}
-		}
-
 	} else if err != nil {
 		fmt.Println(m.styles.err.Render(err.Error()))
 	}
@@ -478,32 +458,31 @@ func (m *debugger) loop() {
 	for {
 		fmt.Printf("%s> ", m.console.MARIA.Coords.ShortString())
 
-		var cmd []string
-
 		select {
-		case cmd = <-m.g.Commands:
-			fmt.Print("\r")
-		case d := <-m.g.Blob:
-			m.loadBlob(d)
-		case input := <-m.input:
-			if input.err != nil {
-				fmt.Println(m.styles.err.Render(input.err.Error()))
-				return
-			}
-			cmd = strings.Fields(input.s)
-			if len(cmd) == 0 {
-				cmd = []string{"STEP"}
-			}
 		case <-m.sig:
 			fmt.Print("\r")
 			return
 		case <-m.endDebugger:
 			fmt.Print("\n")
 			return
-		}
 
-		if m.commands(cmd) {
-			return
+		case d := <-m.g.Blob:
+			m.loadBlob(d)
+
+		case input := <-m.commands:
+			if input.err != nil {
+				fmt.Println(m.styles.err.Render(input.err.Error()))
+				return
+			}
+
+			cmd := strings.Fields(input.s)
+			if len(cmd) == 0 {
+				cmd = []string{"STEP"}
+			}
+
+			if m.parseCommand(cmd) {
+				return
+			}
 		}
 	}
 }
@@ -713,12 +692,31 @@ func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) err
 	}
 	ctx.Reset()
 
+	// user input is entirely over stdin. it's easier to handle this in a separate goroutine. the
+	// commands channel is assigned to a recieve-only field in the debugger type below, so that it
+	// can be inspected at the appropriate point in the debugging loop
+	commands := make(chan input, 1)
+	go func() {
+		r := bufio.NewReader(os.Stdin)
+		b := make([]byte, 256)
+		for {
+			n, err := r.Read(b)
+			select {
+			case commands <- input{
+				s:   strings.TrimSpace(string(b[:n])),
+				err: err,
+			}:
+			default:
+			}
+		}
+	}()
+
 	m := &debugger{
 		ctx:          ctx,
 		g:            g,
 		endDebugger:  endDebugger,
 		sig:          make(chan os.Signal, 1),
-		input:        make(chan input, 1),
+		commands:     commands,
 		loader:       loader,
 		styles:       newStyles(),
 		breakpoints:  make(map[uint16]bool),
@@ -739,21 +737,6 @@ func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) err
 	defer m.console.End()
 
 	signal.Notify(m.sig, syscall.SIGINT)
-
-	go func() {
-		r := bufio.NewReader(os.Stdin)
-		b := make([]byte, 256)
-		for {
-			n, err := r.Read(b)
-			select {
-			case m.input <- input{
-				s:   strings.TrimSpace(string(b[:n])),
-				err: err,
-			}:
-			default:
-			}
-		}
-	}()
 
 	m.reset()
 

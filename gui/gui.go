@@ -36,8 +36,6 @@ type AudioSetup struct {
 	Read AudioReader
 }
 
-type Command []string
-
 type Blob struct {
 	Filename string
 	Data     []uint8
@@ -46,7 +44,6 @@ type Blob struct {
 type Channels struct {
 	SetImage  chan Image
 	UserInput chan Input
-	Commands  chan Command
 	Blob      chan Blob
 
 	// implementations of UI should default to StateRunning
@@ -67,7 +64,6 @@ type Channels struct {
 type ChannelsGUI struct {
 	SetImage      <-chan Image
 	UserInput     chan<- Input
-	Commands      chan<- Command
 	Blob          chan<- Blob
 	State         <-chan State
 	AudioSetup    <-chan AudioSetup
@@ -79,7 +75,6 @@ type ChannelsGUI struct {
 type ChannelsDebugger struct {
 	SetImage      chan<- Image
 	UserInput     <-chan Input
-	Commands      <-chan Command
 	Blob          <-chan Blob
 	State         chan<- State
 	AudioSetup    chan<- AudioSetup
@@ -92,7 +87,6 @@ func (c *Channels) GUI() *ChannelsGUI {
 	return &ChannelsGUI{
 		SetImage:      c.SetImage,
 		UserInput:     c.UserInput,
-		Commands:      c.Commands,
 		Blob:          c.Blob,
 		State:         c.State,
 		AudioSetup:    c.AudioSetup,
@@ -106,7 +100,6 @@ func (c *Channels) Debugger() *ChannelsDebugger {
 	return &ChannelsDebugger{
 		SetImage:      c.SetImage,
 		UserInput:     c.UserInput,
-		Commands:      c.Commands,
 		Blob:          c.Blob,
 		State:         c.State,
 		AudioSetup:    c.AudioSetup,
@@ -120,7 +113,6 @@ func NewChannels() *Channels {
 	return &Channels{
 		SetImage:      make(chan Image, 1),
 		UserInput:     make(chan Input, 10),
-		Commands:      make(chan Command, 10),
 		Blob:          make(chan Blob, 1),
 		State:         make(chan State, 1),
 		AudioSetup:    make(chan AudioSetup, 1),
