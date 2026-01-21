@@ -1,8 +1,10 @@
 package ebiten
 
 import (
+	"bytes"
 	"fmt"
 	"image/color"
+	"log"
 	"math"
 	"time"
 
@@ -12,6 +14,8 @@ import (
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/logger"
 	"github.com/jetsetilly/test7800/version"
+
+	_ "embed"
 )
 
 type windowGeometry struct {
@@ -24,14 +28,17 @@ func (g windowGeometry) valid() bool {
 	return g.x >= 0 && g.y >= 0 && g.w > 0 && g.h > 0
 }
 
+//go:embed "Hack-Regular.ttf"
+var fontHack []byte
+
 type guiEbiten struct {
 	g      *gui.ChannelsGUI
 	endGui <-chan bool
 
-	geom windowGeometry
-	ui   *ui
-
+	geom  windowGeometry
 	state gui.State
+
+	overlayFont text.Face
 
 	main    *ebiten.Image
 	overlay *ebiten.Image
@@ -73,8 +80,6 @@ type guiEbiten struct {
 }
 
 func (eg *guiEbiten) Update() error {
-	defer eg.ui.Update()
-
 	// service requests (the SetImage request is serviced in this function below)
 	select {
 	case eg.state = <-eg.g.State:
@@ -203,11 +208,10 @@ func (eg *guiEbiten) Update() error {
 
 func (eg *guiEbiten) Draw(screen *ebiten.Image) {
 	defer func() {
-		eg.ui.Draw(screen)
 		if eg.showInfo {
 			var opts text.DrawOptions
 			opts.GeoM.Translate(10, 10)
-			text.Draw(screen, fmt.Sprintf("%s", time.Since(eg.lastFrame)), eg.ui.baseFont, &opts)
+			text.Draw(screen, fmt.Sprintf("%s", time.Since(eg.lastFrame)), eg.overlayFont, &opts)
 		}
 		eg.lastFrame = time.Now()
 	}()
@@ -285,14 +289,24 @@ func Launch(endGui <-chan bool, g *gui.ChannelsGUI, update func() error) error {
 	ebiten.SetWindowPosition(10, 10)
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 
+	s, err := text.NewGoTextFaceSource(bytes.NewReader(fontHack))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var baseFont text.Face = &text.GoTextFace{
+		Source: s,
+		Size:   15,
+	}
+
 	eg := &guiEbiten{
-		g:      g,
-		endGui: endGui,
-		state:  gui.StateRunning,
+		g:           g,
+		overlayFont: baseFont,
+		endGui:      endGui,
+		state:       gui.StateRunning,
 		audio: audioPlayer{
 			state: gui.StateRunning,
 		},
-		ui:        createUI(),
 		lastFrame: time.Now(),
 		update:    update,
 	}
@@ -320,8 +334,6 @@ func Launch(endGui <-chan bool, g *gui.ChannelsGUI, update func() error) error {
 			showError(msg)
 		}
 	}
-
-	var err error
 
 	eg.geom, err = onWindowOpen()
 	if err != nil {
