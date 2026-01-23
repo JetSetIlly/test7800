@@ -616,7 +616,7 @@ func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) err
 	}
 
 	overscan = strings.ToUpper(overscan)
-	if !slices.Contains(overscanOptions, profile) {
+	if !slices.Contains(overscanOptions, overscan) {
 		return fmt.Errorf("overscan option should be one of %s", list(overscanOptions))
 	}
 
