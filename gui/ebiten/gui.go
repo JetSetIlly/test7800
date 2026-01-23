@@ -321,6 +321,11 @@ func Launch(endGui <-chan bool, g *gui.ChannelsGUI, update func() error) error {
 	for !done {
 		select {
 		case eg.state = <-g.State:
+			// audio player is not ready yet so we don't really need to push the state change as we
+			// do in the main update loop. however, we do so anyway in case something changes above
+			// and we forget about this. there's no harm or performance penalty in setting the state
+			// like this
+			eg.audio.setState(eg.state)
 			done = true
 		case <-endGui:
 			return nil

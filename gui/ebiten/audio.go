@@ -22,10 +22,12 @@ func (a *audioPlayer) setState(state gui.State) {
 	a.crit.Lock()
 	defer a.crit.Unlock()
 	a.state = state
-	if state == gui.StatePaused {
-		a.p.Pause()
-	} else {
-		a.p.Play()
+	if a.p != nil {
+		if state == gui.StatePaused {
+			a.p.Pause()
+		} else {
+			a.p.Play()
+		}
 	}
 }
 
