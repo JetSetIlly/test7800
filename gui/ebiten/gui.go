@@ -152,7 +152,11 @@ func (eg *guiEbiten) Update() error {
 				case <-ready:
 					eg.audio.r = s.Read
 					eg.audio.p = ctx.NewPlayer(&eg.audio)
-					eg.audio.p.Play()
+					if eg.state == gui.StatePaused {
+						eg.audio.p.Pause()
+					} else {
+						eg.audio.p.Play()
+					}
 				case <-eg.endGui:
 					return ebiten.Termination
 				}
@@ -305,7 +309,7 @@ func Launch(endGui <-chan bool, g *gui.ChannelsGUI, update func() error) error {
 		endGui:      endGui,
 		state:       gui.StateRunning,
 		audio: audioPlayer{
-			state: gui.StateRunning,
+			state: gui.StatePaused,
 		},
 		lastFrame: time.Now(),
 		update:    update,
@@ -317,7 +321,6 @@ func Launch(endGui <-chan bool, g *gui.ChannelsGUI, update func() error) error {
 	for !done {
 		select {
 		case eg.state = <-g.State:
-			eg.audio.setState(eg.state)
 			done = true
 		case <-endGui:
 			return nil

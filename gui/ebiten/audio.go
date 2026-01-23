@@ -22,6 +22,11 @@ func (a *audioPlayer) setState(state gui.State) {
 	a.crit.Lock()
 	defer a.crit.Unlock()
 	a.state = state
+	if state == gui.StatePaused {
+		a.p.Pause()
+	} else {
+		a.p.Play()
+	}
 }
 
 func (a *audioPlayer) Read(buf []uint8) (int, error) {
