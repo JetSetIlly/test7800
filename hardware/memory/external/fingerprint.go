@@ -166,6 +166,25 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 				}, nil
 			}
 
+			// mRAM chip in flat ROM cartridge (no bankswitching)
+			//
+			// it's not clear if the mRAM chip (with a masked address line) can be used in
+			// conjunction with a bankswitching method. as it stands, I think only 'Rescue On
+			// Fractalus' uses this type of RAM chip and that has a flat ROM map
+			if cartType == 0x0080 {
+				return CartridgeInsertor{
+					data: d,
+					creator: func(ctx Context, d []uint8) (Bus, error) {
+						return NewMRAM(ctx, d[dataStart:])
+					},
+					Controller: controller,
+					spec:       spec,
+					chips:      chips,
+					UseHSC:     useHSC,
+					UseSavekey: useSavekey,
+				}, nil
+			}
+
 			// activision
 			if cartType == 0x0100 {
 				// if cartridge name contians the '(OM)' string then the cartridge has been dumped
