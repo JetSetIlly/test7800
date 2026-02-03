@@ -114,17 +114,17 @@ func StaticDisassemble(config StaticDisassembleConfig) error {
 func (arm *ARM) disasmVerbose(entry DisasmEntry) string {
 	var s strings.Builder
 
-	s.WriteString(fmt.Sprintf("instruction PC: %08x", entry.Addr))
+	fmt.Fprintf(&s, "instruction PC: %08x", entry.Addr)
 	if entry.Is32bit {
-		s.WriteString(fmt.Sprintf("opcode: %04x %04x ", entry.OpcodeHi, entry.Opcode))
+		fmt.Fprintf(&s, "opcode: %04x %04x ", entry.OpcodeHi, entry.Opcode)
 	} else {
-		s.WriteString(fmt.Sprintf("opcode: %04x       \n", entry.Opcode))
+		fmt.Fprintf(&s, "opcode: %04x       \n", entry.Opcode)
 	}
-	s.WriteString(fmt.Sprintf("%s %s\n", entry.Operator, entry.Operand))
+	fmt.Fprintf(&s, "%s %s\n", entry.Operator, entry.Operand)
 
 	// register information for verbose output
 	for i, r := range arm.state.registers {
-		s.WriteString(fmt.Sprintf("\tR%02d: %08x", i, r))
+		fmt.Fprintf(&s, "\tR%02d: %08x", i, r)
 		if (i+1)%4 == 0 {
 			s.WriteString("\n")
 		}
@@ -156,7 +156,7 @@ func reglistToMnemonic(regPrefix rune, regList uint16, suffix string) string {
 			if comma {
 				s.WriteString(",")
 			}
-			s.WriteString(fmt.Sprintf("%c%d", regPrefix, i))
+			fmt.Fprintf(&s, "%c%d", regPrefix, i)
 			comma = true
 		}
 		regList >>= 1

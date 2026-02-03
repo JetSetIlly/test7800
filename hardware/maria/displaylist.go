@@ -49,19 +49,19 @@ func (l *dl) String() string {
 
 func (l *dl) Status() string {
 	var s strings.Builder
-	s.WriteString(fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin))
+	fmt.Fprintf(&s, "ct=%d origin=%04x\n", l.ct, l.origin)
 	if l.isEnd {
 		s.WriteString("end")
 		return s.String()
 	}
 	if l.long {
-		s.WriteString(fmt.Sprintf("indirect=%v writemode=%v\n", l.indirect, l.writemode))
+		fmt.Fprintf(&s, "indirect=%v writemode=%v\n", l.indirect, l.writemode)
 	}
-	s.WriteString(fmt.Sprintf("high=%02x ", l.highAddress))
-	s.WriteString(fmt.Sprintf("low=%02x\n", l.lowAddress))
-	s.WriteString(fmt.Sprintf("palette=%03b ", l.palette))
-	s.WriteString(fmt.Sprintf("width=%05b\n", l.width))
-	s.WriteString(fmt.Sprintf("pos=%02x", l.horizontalPosition))
+	fmt.Fprintf(&s, "high=%02x ", l.highAddress)
+	fmt.Fprintf(&s, "low=%02x\n", l.lowAddress)
+	fmt.Fprintf(&s, "palette=%03b ", l.palette)
+	fmt.Fprintf(&s, "width=%05b\n", l.width)
+	fmt.Fprintf(&s, "pos=%02x", l.horizontalPosition)
 	return s.String()
 }
 
@@ -223,13 +223,13 @@ func (l *dll) Status() string {
 
 func (l *dll) String() string {
 	var s strings.Builder
-	s.WriteString(fmt.Sprintf("ct=%d origin=%04x\n", l.ct, l.origin))
-	s.WriteString(fmt.Sprintf("dli=%v ", l.dli))
-	s.WriteString(fmt.Sprintf("h16=%v ", l.h16))
-	s.WriteString(fmt.Sprintf("h8=%v\n", l.h8))
-	s.WriteString(fmt.Sprintf("offset=%02x/%02x ", l.offset-l.workingOffset, l.offset))
-	s.WriteString(fmt.Sprintf("high=%02x ", l.highAddress))
-	s.WriteString(fmt.Sprintf("low=%02x ", l.lowAddress))
+	fmt.Fprintf(&s, "ct=%d origin=%04x\n", l.ct, l.origin)
+	fmt.Fprintf(&s, "dli=%v ", l.dli)
+	fmt.Fprintf(&s, "h16=%v ", l.h16)
+	fmt.Fprintf(&s, "h8=%v\n", l.h8)
+	fmt.Fprintf(&s, "offset=%02x/%02x ", l.offset-l.workingOffset, l.offset)
+	fmt.Fprintf(&s, "high=%02x ", l.highAddress)
+	fmt.Fprintf(&s, "low=%02x ", l.lowAddress)
 	return s.String()
 }
 

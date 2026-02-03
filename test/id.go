@@ -23,7 +23,7 @@ import (
 func id(tags ...any) string {
 	var s strings.Builder
 	for _, t := range tags {
-		s.WriteString(fmt.Sprintf("%v", t))
+		fmt.Fprintf(&s, "%v", t)
 		s.WriteString(": ")
 	}
 	return s.String()

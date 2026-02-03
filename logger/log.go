@@ -36,10 +36,10 @@ func (e *Entry) String() string {
 	if len(e.Tag) == 0 {
 		s.WriteString(e.Detail)
 	} else {
-		s.WriteString(fmt.Sprintf("%s: %s", e.Tag, e.Detail))
+		fmt.Fprintf(&s, "%s: %s", e.Tag, e.Detail)
 	}
 	if e.Repeated > 0 {
-		s.WriteString(fmt.Sprintf(" (repeat x%d)", e.Repeated+1))
+		fmt.Fprintf(&s, " (repeat x%d)", e.Repeated+1)
 	}
 	return s.String()
 }

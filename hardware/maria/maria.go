@@ -191,16 +191,15 @@ func (mar *Maria) SetOverscan(top int, bottom int) {
 
 func (mar *Maria) String() string {
 	var s strings.Builder
-	s.WriteString(fmt.Sprintf("%s: bg=%#02x wsync=%v\n%s\ndpph=%#02x dppl=%#02x charbase=%#02x offset=%#02x",
+	fmt.Fprintf(&s, "%s: bg=%#02x wsync=%v\n%s\ndpph=%#02x dppl=%#02x charbase=%#02x offset=%#02x",
 		mar.Label(), mar.bg, mar.wsync,
 		mar.ctrl.String(),
-		mar.dpph, mar.dppl, mar.charbase, mar.offset,
-	))
+		mar.dpph, mar.dppl, mar.charbase, mar.offset)
 	for p := range mar.palette {
 		s.WriteString("\n")
-		s.WriteString(fmt.Sprintf("palette %d:", p))
+		fmt.Fprintf(&s, "palette %d:", p)
 		for c := range mar.palette[p] {
-			s.WriteString(fmt.Sprintf(" %d=%#02x", c, mar.palette[p][c]))
+			fmt.Fprintf(&s, " %d=%#02x", c, mar.palette[p][c])
 		}
 	}
 	return s.String()

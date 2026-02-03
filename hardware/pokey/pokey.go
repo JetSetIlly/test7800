@@ -97,7 +97,7 @@ func (pk *Pokey) Snapshot() *Pokey {
 func (pk *Pokey) String() string {
 	s := strings.Builder{}
 	for i := range pk.channel {
-		s.WriteString(fmt.Sprintf("ch%d: %s", i, pk.channel[i].String()))
+		fmt.Fprintf(&s, "ch%d: %s", i, pk.channel[i].String())
 	}
 	return s.String()
 }

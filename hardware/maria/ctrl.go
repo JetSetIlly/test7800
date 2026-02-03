@@ -34,11 +34,11 @@ func (ctrl *mariaCtrl) write(data uint8) {
 
 func (ctrl *mariaCtrl) String() string {
 	var s strings.Builder
-	s.WriteString(fmt.Sprintf("ck=%v ", ctrl.colourKill))
-	s.WriteString(fmt.Sprintf("dma=%#02b ", ctrl.dma))
-	s.WriteString(fmt.Sprintf("cw=%v ", ctrl.charWidth))
-	s.WriteString(fmt.Sprintf("bc=%v ", ctrl.border))
-	s.WriteString(fmt.Sprintf("km=%v ", ctrl.kangaroo))
-	s.WriteString(fmt.Sprintf("rm=%#02b ", ctrl.readMode))
+	fmt.Fprintf(&s, "ck=%v ", ctrl.colourKill)
+	fmt.Fprintf(&s, "dma=%#02b ", ctrl.dma)
+	fmt.Fprintf(&s, "cw=%v ", ctrl.charWidth)
+	fmt.Fprintf(&s, "bc=%v ", ctrl.border)
+	fmt.Fprintf(&s, "km=%v ", ctrl.kangaroo)
+	fmt.Fprintf(&s, "rm=%#02b ", ctrl.readMode)
 	return s.String()
 }
