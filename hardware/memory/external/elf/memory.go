@@ -458,14 +458,10 @@ func (mem *elfMemory) decode(ef *elf.File) error {
 				s := (tgt >> 24) & 0x01
 				j1 := uint32(0)
 				j2 := uint32(0)
-				if t1 == 0x01 {
-					j1 = s ^ 0x00
-				} else {
+				if t1 != 0x01 {
 					j1 = s ^ 0x01
 				}
-				if t2 == 0x01 {
-					j2 = s ^ 0x00
-				} else {
+				if t2 != 0x01 {
 					j2 = s ^ 0x01
 				}
 

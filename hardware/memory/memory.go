@@ -186,7 +186,7 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 	}
 
 	// page 1
-	if address >= 0x0000 && address <= 0x001f {
+	if address <= 0x001f {
 		// INPTCTRL or TIA
 		if mem.INPTCTRL.Lock() {
 			return address, mem.TIA
@@ -353,16 +353,12 @@ func (mem *Memory) MapAddress(address uint16, read bool) (uint16, Area) {
 		return address, mem.External
 	}
 
-	if address >= 0x8000 && address <= 0xffff {
-		if mem.INPTCTRL.BIOS() {
-			return address, mem.BIOS
-		}
-
-		// everything else can be handled by the external package
-		return address, mem.External
+	if mem.INPTCTRL.BIOS() {
+		return address, mem.BIOS
 	}
 
-	panic("unhandled address in memory.MapAddress()")
+	// everything else can be handled by the external package
+	return address, mem.External
 }
 
 // Read memory address as viewed by the CPU. This method of reading creates

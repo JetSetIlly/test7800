@@ -27,5 +27,5 @@ func fileRequest(lastSelectedROM string) (string, error) {
 }
 
 func showError(msg string) {
-	dialog.Message(msg).Error()
+	dialog.Message("%s", msg).Error()
 }
