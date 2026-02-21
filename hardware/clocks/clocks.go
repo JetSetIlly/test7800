@@ -11,8 +11,18 @@ const (
 )
 
 const (
+	MariaCycles = 4
+
+	// We know for sure there are four cycles per CPU cycle. So how many cycles when the CPU is running
+	// slower?
+	//
+	// 		1.79Mhz / 1.194182Mhz = 1.50019
+	//
+	// 	So,
+	//
+	// 		4 * 1.50019 = 6.00076
+	//
 	MariaCycles_for_SlowMemory = 6
-	MariaCycles                = 4
 )
 
 const (

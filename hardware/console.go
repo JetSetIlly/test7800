@@ -40,8 +40,9 @@ type Console struct {
 	hlt bool
 	rdy bool
 
-	// counts the number of maria cycles between RIOT/TIA ticks, regardless of current CPU speed
-	cycleRegulator int
+	// TIA/RIOT always run at 3.58Mhz. this field smooths out the variable clock rate of the CPU by
+	// ticking the TIA/RIOT on every other maria cycle
+	clkDiv bool
 
 	// frame limiter
 	limit *limiter
@@ -72,8 +73,8 @@ func Create(ctx Context, g *gui.ChannelsDebugger) *Console {
 
 	con.MC = cpu.Create(con.Mem)
 	con.RIOT = riot.Create()
-	con.TIA = tia.Create(ctx, g, con.limit)
 	con.MARIA = maria.Create(ctx, g, con.Mem, con.MC, con.limit)
+	con.TIA = tia.Create(ctx, g, con.limit)
 
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
@@ -216,38 +217,44 @@ func (con *Console) Step() error {
 		}
 	}()
 
-	// this function is called once per CPU cycle. MARIA runs faster than
-	// the CPU and so there are multiple ticks of the MARIA per CPU cycle
+	// this function is called once per CPU cycle. MARIA runs faster than the CPU and so there are
+	// multiple ticks of the MARIA per CPU cycle
 	//
-	// if the TIA bus is active then the CPU runs at a slower clock
-	var tick func() error
-	tick = func() error {
-		mariaCycles := clocks.MariaCycles
-		if con.Mem.IsSlowAddressBus() {
-			mariaCycles = clocks.MariaCycles_for_SlowMemory
-		}
+	// if the TIA or RIOT bus is active (the memory.IsSlowAddressBus() function) then the CPU runs
+	// at a slower rate
+	tick := func() error {
+		innerTick := func() {
+			var mariaRDY bool
+			var tiaRDY bool
 
-		for i := range mariaCycles {
-			var interrupt bool
-			con.hlt, con.rdy, interrupt = con.MARIA.Tick(i == mariaCycles-1)
-			interruptNext = interruptNext || interrupt
-
-			con.cycleRegulator++
-			if con.cycleRegulator > 3 {
-				con.TIA.Tick()
-				con.RIOT.Tick()
-				con.players[0].Tick()
-				con.players[1].Tick()
-				con.cycleRegulator = 0
+			mariaCycles := clocks.MariaCycles
+			if con.Mem.IsSlowAddressBus() {
+				mariaCycles = clocks.MariaCycles_for_SlowMemory
 			}
+
+			for i := range mariaCycles {
+				var interrupt bool
+				con.hlt, mariaRDY, interrupt = con.MARIA.Tick(i == mariaCycles-1)
+				interruptNext = interruptNext || interrupt
+
+				con.clkDiv = !con.clkDiv
+				if con.clkDiv {
+					tiaRDY = con.TIA.Tick()
+					con.RIOT.Tick()
+					con.players[0].Tick()
+					con.players[1].Tick()
+				}
+			}
+
+			// if either the MARIA or TIA RDY pins are inactive then the CPU's RDY pin is inactive
+			con.rdy = mariaRDY && tiaRDY
 		}
+
+		innerTick()
 
 		// consume DMA cycles (but not WSYNC cycles)
 		for con.hlt && con.Mem.INPTCTRL.HaltEnabled() {
-			err := tick()
-			if err != nil {
-				return err
-			}
+			innerTick()
 		}
 
 		return nil

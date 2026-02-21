@@ -14,6 +14,8 @@ type Register int
 
 const (
 	VBLANK Register = 0x01
+	WSYNC  Register = 0x02
+	RSYNC  Register = 0x03
 	INPT0  Register = 0x08
 	INPT1  Register = 0x09
 	INPT2  Register = 0x0a
@@ -41,8 +43,13 @@ type TIA struct {
 	// use stereo mixing for audio
 	stereo bool
 
-	// vblank register
+	// tia registers
 	vblank uint8
+	wsync  bool
+	rsync  bool
+
+	pclk  int
+	hsync int
 }
 
 type Context interface {
@@ -174,6 +181,10 @@ func (tia *TIA) write(reg Register, data uint8) error {
 	switch reg {
 	case VBLANK:
 		tia.vblank = data
+	case WSYNC:
+		tia.wsync = true
+	case RSYNC:
+		tia.rsync = true
 	case AUDC0:
 		tia.aud.Channel0.Registers.Control = data & 0x0f
 	case AUDC1:
@@ -209,9 +220,28 @@ func (tia *TIA) PortWrite(reg Register, data uint8, mask uint8) error {
 	return fmt.Errorf("tia: not a port connected register: %v", reg)
 }
 
-func (tia *TIA) Tick() {
+func (tia *TIA) Tick() bool {
+	tia.pclk++
+
+	if tia.pclk >= 4 {
+		tia.pclk = 0
+	} else if tia.pclk == 2 {
+		if tia.rsync {
+			tia.rsync = false
+			tia.hsync = 56
+		} else {
+			tia.hsync++
+			if tia.hsync >= 57 {
+				tia.hsync = 0
+				tia.wsync = false
+			}
+		}
+	} else {
+		return !tia.wsync
+	}
+
 	if tia.buf == nil {
-		return
+		return !tia.wsync
 	}
 
 	sample := tia.aud.Step()
@@ -241,6 +271,8 @@ func (tia *TIA) Tick() {
 			tia.buf.data = append(tia.buf.data, uint8(v), uint8(v>>8))
 		}
 	}
+
+	return !tia.wsync
 }
 
 func (tia *TIA) PaddlesGrounded() bool {

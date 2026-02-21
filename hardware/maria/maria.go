@@ -177,6 +177,10 @@ func (mar *Maria) Status() string {
 	return mar.String()
 }
 
+func (mar *Maria) GetCoords() string {
+	return mar.Coords.String()
+}
+
 func (mar *Maria) GetOverscan() (int, int) {
 	return mar.currentFrame.top, mar.currentFrame.bottom
 }
