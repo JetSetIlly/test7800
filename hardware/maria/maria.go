@@ -13,6 +13,7 @@ import (
 
 // Context allows Maria to signal a break
 type Context interface {
+	random
 	Break(error)
 	Spec() spec.Spec
 	UseOverlay() bool
@@ -134,14 +135,18 @@ func Create(ctx Context, g *gui.ChannelsDebugger, mem Memory, cpu CPU, limit lim
 			hlt: mem,
 		},
 	}
-	mar.Reset()
+	mar.Reset(false)
 
 	return mar
 }
 
-func (mar *Maria) Reset() {
-	mar.Coords.Reset()
+func (mar *Maria) Reset(random bool) {
 	mar.Spec = mar.ctx.Spec()
+	if random {
+		mar.Coords.reset(mar.ctx)
+	} else {
+		mar.Coords.reset(nil)
+	}
 
 	mar.bg = 0
 	mar.wsync = false

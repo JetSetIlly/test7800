@@ -96,22 +96,25 @@ func (con *Console) End() {
 
 // if biosCheck is nil or if it returns false then the BIOS routines are bypassed
 func (con *Console) Reset(random bool, biosCheck func() bool) error {
-	var rnd cpu.Random
-	if random {
-		rnd = con.ctx
-	}
-
 	con.Mem.Reset(random)
 	con.RIOT.Reset()
 	con.TIA.Reset()
-	con.MARIA.Reset()
+	con.MARIA.Reset(random)
 
 	con.panel.Reset()
 	con.players[0].Reset()
 	con.players[1].Reset()
 
-	// reset CPU after memory reset so that we get the correct reset address (the BIOS might be locked)
-	con.MC.Reset(rnd)
+	// reset CPU after memory reset so that we get the correct reset address (the BIOS might be
+	// locked)
+	//
+	// the cpu package is intended to be independent of the wider applicaton. as such we pass an
+	// implementation of the cpu.Random interface rather than the random flag
+	if random {
+		con.MC.Reset(con.ctx)
+	} else {
+		con.MC.Reset(nil)
+	}
 
 	if biosCheck == nil || !biosCheck() {
 		// writing to the INPTCTRL twice to make sure the halt line has been enabled
