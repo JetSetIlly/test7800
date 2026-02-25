@@ -1817,7 +1817,9 @@ func (mc *CPU) ExecuteInstruction(cycleCallback func() error) error {
 	// 	return err
 	// }
 
-	return nil
+	// peek at next opcode. this makes sure the correct value is on the address bus for any sub-systems
+	_, err = mc.mem.Read(mc.PC.Address())
+	return err
 }
 
 // adhoc interface exposing the Peek() function to the CPU
