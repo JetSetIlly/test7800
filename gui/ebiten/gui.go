@@ -132,13 +132,6 @@ func (eg *guiEbiten) Update() error {
 		select {
 		case s := <-eg.g.AudioSetup:
 			if s.Read != nil {
-				if eg.audio.p != nil {
-					err := eg.audio.p.Close()
-					if err != nil {
-						return fmt.Errorf("ebiten: %w", err)
-					}
-				}
-
 				ctx, ready, err := oto.NewContext(&oto.NewContextOptions{
 					SampleRate:   s.Freq,
 					ChannelCount: 2,
