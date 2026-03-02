@@ -456,8 +456,8 @@ func (mem *elfMemory) decode(ef *elf.File) error {
 				t1 := (tgt >> 22) & 0x01
 				t2 := (tgt >> 23) & 0x01
 				s := (tgt >> 24) & 0x01
-				j1 := uint32(0)
-				j2 := uint32(0)
+				j1 := s
+				j2 := s
 				if t1 != 0x01 {
 					j1 = s ^ 0x01
 				}
