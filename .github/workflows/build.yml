@@ -15,7 +15,7 @@ jobs:
       run: |
         brew install go
         brew install dylibbundler
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Extract version from Makefile
       id: version
       run: |
@@ -44,7 +44,7 @@ jobs:
         cd .package
         zip -vr Test7800.zip Test7800.app
     - name: Upload package
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: Test7800-macOS
         path: .package/Test7800.zip
