@@ -2,19 +2,21 @@ Test7800 is an experimental emulator for the Atari 7800. It's not complete and i
 
 It supports a78 files, including non-bankswitching regular "flat" ROM files and several different bankswitching "supergame" ROM files. While it does not emulate all conglomerate cartridge hardware configurations, the POKEY chip and many of its layouts are supported.
 
-The 6502, TIA and RIOT emulation is taken from [Gopher2600](https://github.com/JetSetIlly/Gopher2600) and is therefore well tested. The implemenation of the MARIA is new to this project.
+Uniquely, Test7800 also supports the ELF cartridge type which makes use of an ARM chip embedded in the cartridge.
+
+The 6502, TIA, RIOT and ARM emulations are taken from [Gopher2600](https://github.com/JetSetIlly/Gopher2600) and is therefore well tested. The implemenation of the MARIA is new to this project.
 
 ### Basic Usage
 
 Running the program from the desktop icon will open a file selection dialog. Opening a 7800 ROM will cause the emulation window to open.
-
-Only one-button and two-button joysticks for the first player are supported for now. Both keyboard and gamepads are supported.
 
 When using the cursor keys control the stick and the space bar is the fire button. The 'B' key acts as the second fire button.
 
 For gamepads, the d-pad or left analogue stick can be used and the face buttons are used for the joystick fire buttons. On an XBox 360 style controller the `A` and `B` buttons are the primary fire button and the `X` and `Y` keys are the secondary fire buttons
 
 The `Select`, `Start` and `Pause` buttons on the console itself are emulated by the `F1`, `F2` and `F3` keys on the keyboard. For gamepad users the gamepad's `Guide`, `Start` and `Back` buttons can be used.
+
+The mouse can be used for paddle and trackball input for those games that require it.
 
 #### Debugger
 
@@ -46,7 +48,7 @@ This emulation was developed in order to gain an understanding of the Atari 7800
 
 The ultimate plan is to combine this 7800 emulation with [Gopher2600](https://github.com/JetSetIlly/Gopher2600). However, it is proving to be a convenient stand-alone emulator and so is being released for general consumption. The integration with Gopher2600 will happen but probably not any time soon.
 
-#### Performace
+#### Performance
 
 Because the emulator is currently only a test for future ideas it has not been written with performance in mind. No optimisation or perfomance analysis has been performed, with the exception of the automated use of profile guided optimisation. None-the-less, the emulator should run well on reasonably modern hardware. For comparison purposes, the development machine has an `i3-3225` CPU running at 3.30GHz.
 
