@@ -85,9 +85,6 @@ func (eg *guiEbiten) Update() error {
 	case eg.state = <-eg.g.State:
 		eg.audio.setState(eg.state)
 	case <-eg.endGui:
-		if eg.audio.p != nil {
-			eg.audio.p.Close()
-		}
 		return ebiten.Termination
 	case lastSelectedROM := <-eg.g.FileRequest:
 		n, err := fileRequest(lastSelectedROM)
