@@ -58,6 +58,16 @@ func NewBanksets(_ Context, supergame bool, d []byte, ram bool) (*Banksets, erro
 			logger.Log(logger.Allow, "banksets", "128k ROMS should have the supergame flag set")
 			supergame = true
 		}
+	case 262144:
+		if !supergame {
+			logger.Log(logger.Allow, "banksets", "256k ROMS should have the supergame flag set")
+			supergame = true
+		}
+	case 524288:
+		if !supergame {
+			logger.Log(logger.Allow, "banksets", "256k ROMS should have the supergame flag set")
+			supergame = true
+		}
 	default:
 		return nil, fmt.Errorf("banksets: unsupported ROM size: %d", len(d))
 	}
