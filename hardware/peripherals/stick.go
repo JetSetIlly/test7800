@@ -12,7 +12,8 @@ type Stick struct {
 	riot RIOT
 	tia  TIA
 
-	riotShift int
+	riotShift uint8
+	riotMask  uint8
 
 	portRight  bool
 	twoButtons bool
@@ -23,6 +24,13 @@ type Stick struct {
 
 	// https://forums.atariage.com/topic/127162-question-about-joysticks-and-how-they-are-read/#findComment-1537159
 	singleMask uint8
+
+	// current state of the SWCHA register and the button registers
+	//
+	// these fields are used to faciliate quadtari compatability. the quadtari only supports single
+	// button joysticks which iw why we only track the singleButton configuration
+	swcha            uint8
+	singleButtonFire bool
 }
 
 func NewStick(r RIOT, t TIA, portRight bool, twoButtons bool) *Stick {
@@ -35,16 +43,20 @@ func NewStick(r RIOT, t TIA, portRight bool, twoButtons bool) *Stick {
 
 	if portRight {
 		st.riotShift = 4
+		st.riotMask = 0xf0
 		st.buttonA = tia.INPT3
 		st.buttonB = tia.INPT2
 		st.button = tia.INPT5
 		st.singleMask = 0x01
+		st.swcha = 0xf0
 	} else {
 		st.riotShift = 0
+		st.riotMask = 0x0f
 		st.buttonA = tia.INPT1
 		st.buttonB = tia.INPT0
 		st.button = tia.INPT4
 		st.singleMask = 0x04
+		st.swcha = 0xf0
 	}
 
 	return st
@@ -75,39 +87,58 @@ func (st *Stick) Unplug() {
 }
 
 func (st *Stick) Update(inp gui.Input) error {
-	mask := func(v uint8) uint8 {
-		return ^(v >> st.riotShift)
-	}
-
 	switch inp.Action {
 	case gui.StickLeft:
 		if inp.Data.(bool) {
-			// unset the opposite direction first (applies to all other directions below)
-			st.riot.PortWrite(riot.SWCHA, 0x80>>st.riotShift, mask(0x80))
-			st.riot.PortWrite(riot.SWCHA, 0x00>>st.riotShift, mask(0x40))
+			if st.swcha&0x40 != 0x00 {
+				st.swcha |= 0x80
+				st.swcha ^= 0x40
+				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+			}
 		} else {
-			st.riot.PortWrite(riot.SWCHA, 0x40>>st.riotShift, mask(0x40))
+			if st.swcha&0x40 == 0x00 {
+				st.swcha |= 0x40
+				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+			}
 		}
 	case gui.StickUp:
 		if inp.Data.(bool) {
-			st.riot.PortWrite(riot.SWCHA, 0x20>>st.riotShift, mask(0x20))
-			st.riot.PortWrite(riot.SWCHA, 0x00>>st.riotShift, mask(0x10))
+			if st.swcha&0x10 != 0x00 {
+				st.swcha |= 0x20
+				st.swcha ^= 0x10
+				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+			}
 		} else {
-			st.riot.PortWrite(riot.SWCHA, 0x10>>st.riotShift, mask(0x10))
+			if st.swcha&0x10 == 0x00 {
+				st.swcha |= 0x10
+				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+			}
 		}
 	case gui.StickRight:
 		if inp.Data.(bool) {
-			st.riot.PortWrite(riot.SWCHA, 0x40>>st.riotShift, mask(0x40))
-			st.riot.PortWrite(riot.SWCHA, 0x00>>st.riotShift, mask(0x80))
+			if st.swcha&0x80 != 0x00 {
+				st.swcha |= 0x40
+				st.swcha ^= 0x80
+				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+			}
 		} else {
-			st.riot.PortWrite(riot.SWCHA, 0x80>>st.riotShift, mask(0x80))
+			if st.swcha&0x80 == 0x00 {
+				st.swcha |= 0x80
+				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+			}
 		}
 	case gui.StickDown:
 		if inp.Data.(bool) {
-			st.riot.PortWrite(riot.SWCHA, 0x10>>st.riotShift, mask(0x10))
-			st.riot.PortWrite(riot.SWCHA, 0x00>>st.riotShift, mask(0x20))
+			if st.swcha&0x20 != 0x00 {
+				st.swcha |= 0x10
+				st.swcha ^= 0x20
+				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+			}
 		} else {
-			st.riot.PortWrite(riot.SWCHA, 0x20>>st.riotShift, mask(0x20))
+			if st.swcha&0x20 == 0x00 {
+				st.swcha |= 0x20
+				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+			}
 		}
 	case gui.StickButtonA:
 		b, err := st.riot.PortRead(riot.SWCHB)
@@ -117,8 +148,10 @@ func (st *Stick) Update(inp gui.Input) error {
 		if b&st.singleMask == st.singleMask {
 			if inp.Data.(bool) {
 				st.tia.PortWrite(st.button, 0x00, 0x7f)
+				st.singleButtonFire = true
 			} else {
 				st.tia.PortWrite(st.button, 0x80, 0x7f)
+				st.singleButtonFire = false
 			}
 		} else {
 			// the two-button stick write to INPT0/INPT1 has an opposite logic to
@@ -137,8 +170,10 @@ func (st *Stick) Update(inp gui.Input) error {
 		if b&st.singleMask == st.singleMask {
 			if inp.Data.(bool) {
 				st.tia.PortWrite(st.button, 0x00, 0x7f)
+				st.singleButtonFire = true
 			} else {
 				st.tia.PortWrite(st.button, 0x80, 0x7f)
+				st.singleButtonFire = false
 			}
 		} else {
 			// the two-button stick write to INPT0/INPT1 has an opposite logic to
@@ -155,4 +190,12 @@ func (st *Stick) Update(inp gui.Input) error {
 }
 
 func (st *Stick) Tick() {
+}
+
+func (st *Stick) SWCHA() (uint8, uint8) {
+	return st.swcha >> st.riotShift, st.riotMask
+}
+
+func (st *Stick) Button() (tia.Register, bool) {
+	return st.button, st.singleButtonFire
 }

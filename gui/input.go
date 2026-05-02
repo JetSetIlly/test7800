@@ -4,10 +4,13 @@ type Action int
 
 type Port int
 
+type Source string
+
 type Input struct {
 	Port   Port
 	Action Action
 	Data   any
+	Source Source
 }
 
 const (

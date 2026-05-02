@@ -56,6 +56,7 @@ type Context interface {
 	Rand8Bit() uint8
 	Rand16Bit() uint16
 	UseAudio() bool
+	Quadtari() bool
 }
 
 func Create(ctx Context, g *gui.ChannelsDebugger) *Console {
@@ -79,9 +80,10 @@ func Create(ctx Context, g *gui.ChannelsDebugger) *Console {
 	addChips(con.MARIA, con.TIA, con.RIOT)
 
 	con.panel = peripherals.NewPanel(con.RIOT)
-	con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
-	con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
 	con.panel.Reset()
+
+	con.insertController("7800_joystick")
+
 	con.players[0].Reset()
 	con.players[1].Reset()
 
@@ -131,6 +133,129 @@ func (con *Console) Reset(random bool, biosCheck func() bool) error {
 	return nil
 }
 
+func (con *Console) insertController(c string) {
+	switch c {
+	case "7800_joystick":
+		if con.ctx.Quadtari() {
+			// quadtari only supports the 2600 stick
+			logger.Log(con.ctx, "console", "using quadtari for 7800 stick (forcing 2600 stick)")
+			for i := range con.players {
+				q := peripherals.NewQuadtari(con.RIOT, con.TIA)
+				q.A = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				q.B = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				if con.players[i] != nil {
+					con.players[i].Unplug()
+				}
+				con.players[i] = q
+			}
+		} else {
+			if _, ok := con.players[0].(*peripherals.Stick); !ok {
+				if con.players[0] != nil {
+					con.players[0].Unplug()
+				}
+				con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+				con.players[0].Reset()
+			}
+			if _, ok := con.players[1].(*peripherals.Stick); !ok {
+				if con.players[1] != nil {
+					con.players[1].Unplug()
+				}
+				con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
+				con.players[1].Reset()
+			}
+		}
+	case "paddle":
+		if _, ok := con.players[0].(*peripherals.Paddles); !ok {
+			if con.players[0] != nil {
+				con.players[0].Unplug()
+			}
+			con.players[0] = peripherals.NewPaddles(con.RIOT, con.TIA, false)
+			con.players[0].Reset()
+		}
+		if _, ok := con.players[1].(*peripherals.Paddles); !ok {
+			if con.players[1] != nil {
+				con.players[1].Unplug()
+			}
+			con.players[1] = peripherals.NewPaddles(con.RIOT, con.TIA, true)
+			con.players[1].Reset()
+		}
+	case "trakball":
+		if _, ok := con.players[0].(*peripherals.Trakball); !ok {
+			if con.players[0] != nil {
+				con.players[0].Unplug()
+			}
+			con.players[0] = peripherals.NewTrakball(con.RIOT, con.TIA, con.Mem, false)
+			con.players[0].Reset()
+		}
+		if _, ok := con.players[1].(*peripherals.Trakball); !ok {
+			if con.players[1] != nil {
+				con.players[1].Unplug()
+			}
+			con.players[1] = peripherals.NewTrakball(con.RIOT, con.TIA, con.Mem, true)
+			con.players[1].Reset()
+		}
+	case "2600_joystick":
+		if con.ctx.Quadtari() {
+			logger.Log(con.ctx, "console", "using quadtari for 2600 stick")
+			for i := range con.players {
+				q := peripherals.NewQuadtari(con.RIOT, con.TIA)
+				q.A = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				q.B = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				if con.players[i] != nil {
+					con.players[i].Unplug()
+				}
+				con.players[i] = q
+			}
+		} else {
+			if _, ok := con.players[0].(*peripherals.Stick); !ok {
+				if con.players[0] != nil {
+					con.players[0].Unplug()
+				}
+				con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, false)
+				con.players[0].Reset()
+			}
+			if _, ok := con.players[1].(*peripherals.Stick); !ok {
+				if con.players[1] != nil {
+					con.players[1].Unplug()
+				}
+				con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, false)
+				con.players[1].Reset()
+			}
+		}
+	case "snes2atari":
+		if con.ctx.Quadtari() {
+			// quadtari only supports the 2600 stick
+			logger.Log(con.ctx, "console", "using quadtari for snes2atari (forcing 2600 stick)")
+			for i := range con.players {
+				q := peripherals.NewQuadtari(con.RIOT, con.TIA)
+				q.A = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				q.B = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				if con.players[i] != nil {
+					con.players[i].Unplug()
+				}
+				con.players[i] = q
+			}
+		} else {
+			if _, ok := con.players[0].(*peripherals.Stick); !ok {
+				if con.players[0] != nil {
+					con.players[0].Unplug()
+				}
+				con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
+				con.players[0].Reset()
+			}
+			if _, ok := con.players[1].(*peripherals.Stick); !ok {
+				if con.players[1] != nil {
+					con.players[1].Unplug()
+				}
+				con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
+				con.players[1].Reset()
+			}
+		}
+	default:
+		logger.Logf(con.ctx, "console", "unsupported controller: %s", c)
+	}
+}
+
 func (con *Console) Insert(c external.CartridgeInsertor) error {
 	err := con.Mem.External.Insert(c)
 	if err != nil {
@@ -141,63 +266,7 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 		return err
 	}
 
-	switch c.Controller {
-	case "7800_joystick":
-		if _, ok := con.players[0].(*peripherals.Stick); !ok {
-			con.players[0].Unplug()
-			con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
-			con.players[0].Reset()
-		}
-		if _, ok := con.players[1].(*peripherals.Stick); !ok {
-			con.players[1].Unplug()
-			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
-			con.players[1].Reset()
-		}
-	case "paddle":
-		if _, ok := con.players[0].(*peripherals.Paddles); !ok {
-			con.players[0].Unplug()
-			con.players[0] = peripherals.NewPaddles(con.RIOT, con.TIA, false)
-			con.players[0].Reset()
-		}
-		if _, ok := con.players[1].(*peripherals.Paddles); !ok {
-			con.players[1].Unplug()
-			con.players[1] = peripherals.NewPaddles(con.RIOT, con.TIA, true)
-			con.players[1].Reset()
-		}
-	case "trakball":
-		if _, ok := con.players[0].(*peripherals.Trakball); !ok {
-			con.players[0].Unplug()
-			con.players[0] = peripherals.NewTrakball(con.RIOT, con.TIA, con.Mem, false)
-			con.players[0].Reset()
-		}
-		if _, ok := con.players[1].(*peripherals.Trakball); !ok {
-			con.players[1].Unplug()
-			con.players[1] = peripherals.NewTrakball(con.RIOT, con.TIA, con.Mem, true)
-			con.players[1].Reset()
-		}
-	case "2600_joystick":
-		if _, ok := con.players[0].(*peripherals.Stick); !ok {
-			con.players[0].Unplug()
-			con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, false)
-			con.players[0].Reset()
-		}
-		if _, ok := con.players[1].(*peripherals.Stick); !ok {
-			con.players[1].Unplug()
-			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, false)
-			con.players[1].Reset()
-		}
-	case "snes2atari":
-		if _, ok := con.players[0].(*peripherals.Stick); !ok {
-			con.players[0].Unplug()
-			con.players[0] = peripherals.NewStick(con.RIOT, con.TIA, false, true)
-			con.players[0].Reset()
-		}
-		if _, ok := con.players[1].(*peripherals.Stick); !ok {
-			con.players[1].Unplug()
-			con.players[1] = peripherals.NewStick(con.RIOT, con.TIA, true, true)
-			con.players[1].Reset()
-		}
-	}
+	con.insertController(c.Controller)
 
 	if c.UseSavekey {
 		con.players[1].Unplug()

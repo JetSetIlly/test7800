@@ -25,7 +25,7 @@ type Trakball struct {
 	yclk uint8
 }
 
-func NewTrakball(r RIOT, t PaddlesTIA, m Memory, portRight bool) *Trakball {
+func NewTrakball(r RIOT, t TIA, m Memory, portRight bool) *Trakball {
 	tb := &Trakball{
 		portRight: portRight,
 		riot:      r,

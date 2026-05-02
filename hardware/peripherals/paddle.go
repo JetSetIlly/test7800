@@ -9,7 +9,7 @@ import (
 )
 
 type paddle struct {
-	tia       PaddlesTIA
+	tia       GroundedTIA
 	inptx     tia.Register
 	swchaMask uint8
 
@@ -47,12 +47,12 @@ func (pdl *paddle) tick() {
 type Paddles struct {
 	portRight bool
 	riot      RIOT
-	tia       PaddlesTIA
+	tia       GroundedTIA
 	paddles   [2]paddle
 	grounded  bool
 }
 
-func NewPaddles(r RIOT, t PaddlesTIA, portRight bool) *Paddles {
+func NewPaddles(r RIOT, t GroundedTIA, portRight bool) *Paddles {
 	pdl := &Paddles{
 		portRight: portRight,
 		riot:      r,
@@ -144,7 +144,7 @@ func (pdl *Paddles) Update(inp gui.Input) error {
 }
 
 func (pdl *Paddles) Tick() {
-	if !pdl.grounded && pdl.tia.PaddlesGrounded() {
+	if !pdl.grounded && pdl.tia.Grounded() {
 		pdl.grounded = true
 		pdl.paddles[0].ground()
 		pdl.paddles[1].ground()

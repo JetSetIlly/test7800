@@ -17,7 +17,7 @@ type context struct {
 	audio         string
 	sampleRate    int
 	overscan      string
-	savekey       bool
+	quadtari      bool
 }
 
 func (ctx *context) AllowLogging() bool {
@@ -89,4 +89,8 @@ func (ctx *context) SampleRate() (int, bool) {
 
 func (ctx *context) Overscan() string {
 	return ctx.overscan
+}
+
+func (ctx *context) Quadtari() bool {
+	return ctx.quadtari
 }

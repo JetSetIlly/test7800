@@ -78,6 +78,8 @@ References to "7800 Software Guide" in comments are referring to [this wiki page
 
 [Trakball Schematics](https://atarimuseum.ctrl-alt-rees.com/ahs_archives/archives/archives-techdocs-7800.htm)
 
+[QuadTari Development Guide](https://www.bitethechili.com/quadtari/devGuide.md)
+
 #### POKEY
 
 [POKEY C012294 Documentation](https://7800.8bitdev.org/index.php/POKEY_C012294_Documentation)

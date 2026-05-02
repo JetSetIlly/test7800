@@ -14,9 +14,9 @@ type TIA interface {
 	PortWrite(reg tia.Register, data uint8, mask uint8) error
 }
 
-type PaddlesTIA interface {
+type GroundedTIA interface {
 	TIA
-	PaddlesGrounded() bool
+	Grounded() bool
 }
 
 type Memory interface {

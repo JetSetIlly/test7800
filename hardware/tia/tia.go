@@ -275,6 +275,6 @@ func (tia *TIA) Tick() bool {
 	return !tia.wsync
 }
 
-func (tia *TIA) PaddlesGrounded() bool {
+func (tia *TIA) Grounded() bool {
 	return tia.vblank&0x80 == 0x80
 }
