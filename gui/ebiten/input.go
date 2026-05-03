@@ -9,6 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/jetsetilly/test7800/gui"
+	"github.com/jetsetilly/test7800/logger"
 )
 
 func (eg *guiEbiten) pushInput(inp gui.Input) {
@@ -53,19 +54,43 @@ func (eg *guiEbiten) inputDragAndDrop() error {
 	return nil
 }
 
+func (eg *guiEbiten) detectGamepads() error {
+	var buf []ebiten.GamepadID
+	buf = inpututil.AppendJustConnectedGamepadIDs(buf)
+	for _, id := range buf {
+		if ebiten.IsStandardGamepadLayoutAvailable(id) {
+			eg.gamepads[id] = ebiten.GamepadName(id)
+			logger.Logf(logger.Allow, "gamepad", "attached %s", eg.gamepads[id])
+			eg.gamepad = id
+		}
+	}
+	for id, name := range eg.gamepads {
+		if inpututil.IsGamepadJustDisconnected(id) {
+			logger.Logf(logger.Allow, "gamepad", "attached %s", name)
+			delete(eg.gamepads, id)
+			if eg.gamepad == id {
+				eg.gamepad = 0
+			}
+		}
+	}
+
+	return nil
+}
+
 func (eg *guiEbiten) inputGamepadAxis() error {
-	const gamepad = 0
 	const deadzone = 0.25
 
 	// left and right direction of the stick
-	v := ebiten.GamepadAxis(gamepad, 0)
+	v := ebiten.GamepadAxisValue(eg.gamepad, 0)
 	if eg.gamepadAnalogue[0] != 0 && v <= deadzone && v >= -deadzone {
 		// stick is in the deadzone so make sure left/right input is nullified
-		for _, v := range []gui.Input{{Action: gui.StickLeft, Data: false}, {Action: gui.StickRight, Data: false}} {
+		nullify := []gui.Input{
+			{Action: gui.StickLeft, Data: false},
+			{Action: gui.StickRight, Data: false},
+		}
+		for _, v := range nullify {
 			eg.pushInput(v)
 		}
-
-		// all values in the deadzone are reduced to zero
 		eg.gamepadAnalogue[0] = 0
 
 	} else if v != eg.gamepadAnalogue[0] {
@@ -79,9 +104,14 @@ func (eg *guiEbiten) inputGamepadAxis() error {
 	}
 
 	// up and down direction of the stick
-	v = ebiten.GamepadAxis(gamepad, 1)
+	v = ebiten.GamepadAxisValue(eg.gamepad, 1)
 	if eg.gamepadAnalogue[1] != 0 && v <= deadzone && v >= -deadzone {
-		for _, v := range []gui.Input{{Action: gui.StickUp, Data: false}, {Action: gui.StickDown, Data: false}} {
+		// stick is in the deadzone so make sure left/right input is nullified
+		nullify := []gui.Input{
+			{Action: gui.StickUp, Data: false},
+			{Action: gui.StickDown, Data: false},
+		}
+		for _, v := range nullify {
 			eg.pushInput(v)
 		}
 		eg.gamepadAnalogue[1] = 0
@@ -102,8 +132,8 @@ func (eg *guiEbiten) inputGamepadAxis() error {
 func (eg *guiEbiten) inputGamepad() error {
 	var pressed []ebiten.GamepadButton
 	var released []ebiten.GamepadButton
-	pressed = inpututil.AppendJustPressedGamepadButtons(0, pressed)
-	released = inpututil.AppendJustReleasedGamepadButtons(0, released)
+	pressed = inpututil.AppendJustPressedGamepadButtons(eg.gamepad, pressed)
+	released = inpututil.AppendJustReleasedGamepadButtons(eg.gamepad, released)
 
 	var inp gui.Input
 
