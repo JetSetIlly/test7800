@@ -130,37 +130,37 @@ func (eg *guiEbiten) inputGamepadAxis() error {
 }
 
 func (eg *guiEbiten) inputGamepad() error {
-	var pressed []ebiten.GamepadButton
-	var released []ebiten.GamepadButton
-	pressed = inpututil.AppendJustPressedGamepadButtons(eg.gamepad, pressed)
-	released = inpututil.AppendJustReleasedGamepadButtons(eg.gamepad, released)
+	var pressed []ebiten.StandardGamepadButton
+	var released []ebiten.StandardGamepadButton
+	pressed = inpututil.AppendJustPressedStandardGamepadButtons(ebiten.GamepadID(eg.gamepad), pressed)
+	released = inpututil.AppendJustReleasedStandardGamepadButtons(ebiten.GamepadID(eg.gamepad), released)
 
 	var inp gui.Input
 
 	for _, p := range released {
 		switch p {
 		// d-pad
-		case ebiten.GamepadButton14:
+		case ebiten.StandardGamepadButtonLeftLeft:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickLeft, Data: false}
-		case ebiten.GamepadButton12:
+		case ebiten.StandardGamepadButtonLeftRight:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickRight, Data: false}
-		case ebiten.GamepadButton11:
+		case ebiten.StandardGamepadButtonLeftTop:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickUp, Data: false}
-		case ebiten.GamepadButton13:
+		case ebiten.StandardGamepadButtonLeftBottom:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickDown, Data: false}
 
 		// fire buttons
-		case ebiten.GamepadButton0, ebiten.GamepadButton2:
+		case ebiten.StandardGamepadButtonRightBottom, ebiten.StandardGamepadButtonRightLeft:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickButtonA, Data: false}
-		case ebiten.GamepadButton1, ebiten.GamepadButton3:
+		case ebiten.StandardGamepadButtonRightRight, ebiten.StandardGamepadButtonRightTop:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickButtonB, Data: false}
 
 		// control
-		case ebiten.GamepadButton8: // xbox button
+		case ebiten.StandardGamepadButtonCenterCenter: // xbox button
 			inp = gui.Input{Port: gui.Panel, Action: gui.Select, Data: false}
-		case ebiten.GamepadButton6: // back button
+		case ebiten.StandardGamepadButtonCenterLeft: // back button
 			inp = gui.Input{Port: gui.Panel, Action: gui.Pause, Data: false}
-		case ebiten.GamepadButton7: // start button
+		case ebiten.StandardGamepadButtonCenterRight: // start button
 			inp = gui.Input{Port: gui.Panel, Action: gui.Start, Data: false}
 		}
 
@@ -170,27 +170,27 @@ func (eg *guiEbiten) inputGamepad() error {
 	for _, p := range pressed {
 		switch p {
 		// d-pad
-		case ebiten.GamepadButton14:
+		case ebiten.StandardGamepadButtonLeftLeft:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickLeft, Data: true}
-		case ebiten.GamepadButton12:
+		case ebiten.StandardGamepadButtonLeftRight:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickRight, Data: true}
-		case ebiten.GamepadButton11:
+		case ebiten.StandardGamepadButtonLeftTop:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickUp, Data: true}
-		case ebiten.GamepadButton13:
+		case ebiten.StandardGamepadButtonLeftBottom:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickDown, Data: true}
 
-		// fire buttons
-		case ebiten.GamepadButton0, ebiten.GamepadButton2:
+			// fire buttons
+		case ebiten.StandardGamepadButtonRightBottom, ebiten.StandardGamepadButtonRightLeft:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickButtonA, Data: true}
-		case ebiten.GamepadButton1, ebiten.GamepadButton3:
+		case ebiten.StandardGamepadButtonRightRight, ebiten.StandardGamepadButtonRightTop:
 			inp = gui.Input{Port: gui.Player0, Action: gui.StickButtonB, Data: true}
 
 		// control
-		case ebiten.GamepadButton8: // xbox button
+		case ebiten.StandardGamepadButtonCenterCenter: // xbox button
 			inp = gui.Input{Port: gui.Panel, Action: gui.Select, Data: true}
-		case ebiten.GamepadButton6: // back button
+		case ebiten.StandardGamepadButtonCenterLeft: // xbox button
 			inp = gui.Input{Port: gui.Panel, Action: gui.Pause, Data: true}
-		case ebiten.GamepadButton7: // start button
+		case ebiten.StandardGamepadButtonCenterRight: // xbox button
 			inp = gui.Input{Port: gui.Panel, Action: gui.Start, Data: true}
 		}
 
