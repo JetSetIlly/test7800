@@ -4,13 +4,24 @@ type Action int
 
 type Port int
 
-type Source string
+type InputType int
+
+const (
+	InputKeyboard InputType = iota
+	InputGamepad
+)
+
+type InputSource struct {
+	Type InputType
+	Name string
+	ID   int
+}
 
 type Input struct {
 	Port   Port
 	Action Action
 	Data   any
-	Source Source
+	Source InputSource
 }
 
 const (

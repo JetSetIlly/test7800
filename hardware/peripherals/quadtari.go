@@ -63,10 +63,10 @@ func (q *Quadtari) Unplug() {
 }
 
 func (q *Quadtari) Update(inp gui.Input) error {
-	switch inp.Source {
-	case "keyboard":
+	switch inp.Source.Type {
+	case gui.InputKeyboard:
 		return q.A.Update(inp)
-	case "gamepad":
+	case gui.InputGamepad:
 		return q.B.Update(inp)
 	}
 	return nil

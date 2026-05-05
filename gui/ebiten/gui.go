@@ -62,14 +62,17 @@ type guiEbiten struct {
 	// keeping track of the physical state.
 	proDifficulty [2]bool
 
-	// attached gamepads
-	gamepads map[ebiten.GamepadID]string
+	// attach keyboards
+	keyboards []gui.InputSource
 
-	// the gamepad to use
-	gamepad ebiten.GamepadID
+	// attached gamepads
+	gamepads []gui.InputSource
 
 	// state of the left analogue stick of the first gamepad
-	gamepadAnalogue [2]float64
+	//
+	// * very important that the order of this slice is the same as the gamepads slice. the
+	// detectGamepads() function should be careful to treat both slices in the same way
+	gamepadAnalogue [][2]float64
 
 	// position of mouse cursor on last update
 	mouseX, mouseY int
@@ -107,7 +110,11 @@ func (eg *guiEbiten) Update() error {
 	}
 
 	// handle user input
-	err := eg.inputKeyboard()
+	err := eg.detectKeyboards()
+	if err != nil {
+		return ebiten.Termination
+	}
+	err = eg.inputKeyboard()
 	if err != nil {
 		return ebiten.Termination
 	}
@@ -311,7 +318,6 @@ func Launch(endGui <-chan bool, g *gui.ChannelsGUI, update func() error) error {
 		audio: audioPlayer{
 			state: gui.StatePaused,
 		},
-		gamepads:  make(map[ebiten.GamepadID]string),
 		lastFrame: time.Now(),
 		update:    update,
 	}
