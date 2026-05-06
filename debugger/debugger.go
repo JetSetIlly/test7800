@@ -506,6 +506,7 @@ func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) err
 		mapper     string
 		overscan   string
 		quadtari   bool
+		players    string
 		useDialog  bool
 	)
 
@@ -546,6 +547,7 @@ func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) err
 	flgs.StringVar(&mapper, "mapper", "AUTO", "mapper selection. automatic selection by default")
 	flgs.StringVar(&overscan, "overscan", "AUTO", fmt.Sprintf("television overscan: %s", list(overscanOptions)))
 	flgs.BoolVar(&quadtari, "quadtari", false, "use quadtari for peripherals")
+	flgs.StringVar(&players, "players", "", "comma separated list of hardware controllers for up to four players")
 	flgs.BoolVar(&useDialog, "dialog", true, "present user with file dialogue on startup if no file is specified")
 	err := flgs.Parse(args)
 	if err != nil {
@@ -620,6 +622,11 @@ func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) err
 	overscan = strings.ToUpper(overscan)
 	if !slices.Contains(overscanOptions, overscan) {
 		return fmt.Errorf("overscan option should be one of %s", list(overscanOptions))
+	}
+
+	inputSources, err := parsePlayers(players)
+	if err != nil {
+		return err
 	}
 
 	// TODO: validate -mapper argument
@@ -736,7 +743,10 @@ func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) err
 		savekeyAuto:  savekeyAuto,
 		savekeyForce: savekeyForce,
 	}
+
 	m.console = hardware.Create(&m.ctx, g)
+	m.console.SetPlayers(inputSources)
+
 	defer m.console.End()
 
 	signal.Notify(m.sig, syscall.SIGINT)

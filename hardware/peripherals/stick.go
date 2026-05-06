@@ -31,6 +31,9 @@ type Stick struct {
 	// button joysticks which iw why we only track the singleButton configuration
 	swcha            uint8
 	singleButtonFire bool
+
+	// match inputSource with incoming gui.Input from Update() function
+	inputSource gui.InputSource
 }
 
 func NewStick(r RIOT, t TIA, portRight bool, twoButtons bool) *Stick {
@@ -87,101 +90,105 @@ func (st *Stick) Unplug() {
 }
 
 func (st *Stick) Update(inp gui.Input) error {
-	switch inp.Action {
-	case gui.StickLeft:
-		if inp.Data.(bool) {
-			if st.swcha&0x40 != 0x00 {
-				st.swcha |= 0x80
-				st.swcha ^= 0x40
-				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
-			}
-		} else {
-			if st.swcha&0x40 == 0x00 {
-				st.swcha |= 0x40
-				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
-			}
-		}
-	case gui.StickUp:
-		if inp.Data.(bool) {
-			if st.swcha&0x10 != 0x00 {
-				st.swcha |= 0x20
-				st.swcha ^= 0x10
-				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
-			}
-		} else {
-			if st.swcha&0x10 == 0x00 {
-				st.swcha |= 0x10
-				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
-			}
-		}
-	case gui.StickRight:
-		if inp.Data.(bool) {
-			if st.swcha&0x80 != 0x00 {
-				st.swcha |= 0x40
-				st.swcha ^= 0x80
-				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
-			}
-		} else {
-			if st.swcha&0x80 == 0x00 {
-				st.swcha |= 0x80
-				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
-			}
-		}
-	case gui.StickDown:
-		if inp.Data.(bool) {
-			if st.swcha&0x20 != 0x00 {
-				st.swcha |= 0x10
-				st.swcha ^= 0x20
-				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
-			}
-		} else {
-			if st.swcha&0x20 == 0x00 {
-				st.swcha |= 0x20
-				st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
-			}
-		}
-	case gui.StickButtonA:
-		b, err := st.riot.PortRead(riot.SWCHB)
-		if err != nil {
-			return fmt.Errorf("stick button a: %w", err)
-		}
-		if b&st.singleMask == st.singleMask {
+	if st.inputSource.Type == gui.InputAny ||
+		(inp.Source.Type == st.inputSource.Type && inp.Source.Position == st.inputSource.Position) {
+
+		switch inp.Action {
+		case gui.StickLeft:
 			if inp.Data.(bool) {
-				st.tia.PortWrite(st.button, 0x00, 0x7f)
-				st.singleButtonFire = true
+				if st.swcha&0x40 != 0x00 {
+					st.swcha |= 0x80
+					st.swcha ^= 0x40
+					st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+				}
 			} else {
-				st.tia.PortWrite(st.button, 0x80, 0x7f)
-				st.singleButtonFire = false
+				if st.swcha&0x40 == 0x00 {
+					st.swcha |= 0x40
+					st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+				}
 			}
-		} else {
-			// the two-button stick write to INPT0/INPT1 has an opposite logic to
-			// the write to INPT4/INPT5
+		case gui.StickUp:
 			if inp.Data.(bool) {
-				st.tia.PortWrite(st.buttonA, 0x80, 0x7f)
+				if st.swcha&0x10 != 0x00 {
+					st.swcha |= 0x20
+					st.swcha ^= 0x10
+					st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+				}
 			} else {
-				st.tia.PortWrite(st.buttonA, 0x00, 0x7f)
+				if st.swcha&0x10 == 0x00 {
+					st.swcha |= 0x10
+					st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+				}
 			}
-		}
-	case gui.StickButtonB:
-		b, err := st.riot.PortRead(riot.SWCHB)
-		if err != nil {
-			return fmt.Errorf("stick button b: %w", err)
-		}
-		if b&st.singleMask == st.singleMask {
+		case gui.StickRight:
 			if inp.Data.(bool) {
-				st.tia.PortWrite(st.button, 0x00, 0x7f)
-				st.singleButtonFire = true
+				if st.swcha&0x80 != 0x00 {
+					st.swcha |= 0x40
+					st.swcha ^= 0x80
+					st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+				}
 			} else {
-				st.tia.PortWrite(st.button, 0x80, 0x7f)
-				st.singleButtonFire = false
+				if st.swcha&0x80 == 0x00 {
+					st.swcha |= 0x80
+					st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+				}
 			}
-		} else {
-			// the two-button stick write to INPT0/INPT1 has an opposite logic to
-			// the write to INPT4/INPT5
+		case gui.StickDown:
 			if inp.Data.(bool) {
-				st.tia.PortWrite(st.buttonB, 0x80, 0x7f)
+				if st.swcha&0x20 != 0x00 {
+					st.swcha |= 0x10
+					st.swcha ^= 0x20
+					st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+				}
 			} else {
-				st.tia.PortWrite(st.buttonB, 0x00, 0x7f)
+				if st.swcha&0x20 == 0x00 {
+					st.swcha |= 0x20
+					st.riot.PortWrite(riot.SWCHA, st.swcha>>st.riotShift, st.riotMask)
+				}
+			}
+		case gui.StickButtonA:
+			b, err := st.riot.PortRead(riot.SWCHB)
+			if err != nil {
+				return fmt.Errorf("stick button a: %w", err)
+			}
+			if b&st.singleMask == st.singleMask {
+				if inp.Data.(bool) {
+					st.tia.PortWrite(st.button, 0x00, 0x7f)
+					st.singleButtonFire = true
+				} else {
+					st.tia.PortWrite(st.button, 0x80, 0x7f)
+					st.singleButtonFire = false
+				}
+			} else {
+				// the two-button stick write to INPT0/INPT1 has an opposite logic to
+				// the write to INPT4/INPT5
+				if inp.Data.(bool) {
+					st.tia.PortWrite(st.buttonA, 0x80, 0x7f)
+				} else {
+					st.tia.PortWrite(st.buttonA, 0x00, 0x7f)
+				}
+			}
+		case gui.StickButtonB:
+			b, err := st.riot.PortRead(riot.SWCHB)
+			if err != nil {
+				return fmt.Errorf("stick button b: %w", err)
+			}
+			if b&st.singleMask == st.singleMask {
+				if inp.Data.(bool) {
+					st.tia.PortWrite(st.button, 0x00, 0x7f)
+					st.singleButtonFire = true
+				} else {
+					st.tia.PortWrite(st.button, 0x80, 0x7f)
+					st.singleButtonFire = false
+				}
+			} else {
+				// the two-button stick write to INPT0/INPT1 has an opposite logic to
+				// the write to INPT4/INPT5
+				if inp.Data.(bool) {
+					st.tia.PortWrite(st.buttonB, 0x80, 0x7f)
+				} else {
+					st.tia.PortWrite(st.buttonB, 0x00, 0x7f)
+				}
 			}
 		}
 	}
@@ -198,4 +205,10 @@ func (st *Stick) SWCHA() (uint8, uint8) {
 
 func (st *Stick) Button() (tia.Register, bool) {
 	return st.button, st.singleButtonFire
+}
+
+func (st *Stick) SetInputFilter(inputSource gui.InputSource, primary bool) {
+	if primary {
+		st.inputSource = inputSource
+	}
 }

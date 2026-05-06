@@ -1,12 +1,14 @@
 package peripherals
 
 import (
+	"fmt"
+
 	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/riot"
 	"github.com/jetsetilly/test7800/hardware/tia"
 )
 
-type quadtari interface {
+type peripheral interface {
 	IsAnalogue() bool
 	IsController() bool
 	Reset()
@@ -17,11 +19,15 @@ type quadtari interface {
 	Button() (tia.Register, bool)
 }
 
+type filteringPeripheral interface {
+	SetInputFilter(inputSource gui.InputSource, primary bool)
+}
+
 type Quadtari struct {
 	riot RIOT
 	tia  GroundedTIA
-	A    quadtari
-	B    quadtari
+	A    peripheral
+	B    peripheral
 
 	// whether the TIA returned grounded on the most recent tick
 	grounded bool
@@ -63,11 +69,13 @@ func (q *Quadtari) Unplug() {
 }
 
 func (q *Quadtari) Update(inp gui.Input) error {
-	switch inp.Source.Type {
-	case gui.InputKeyboard:
-		return q.A.Update(inp)
-	case gui.InputGamepad:
-		return q.B.Update(inp)
+	err := q.A.Update(inp)
+	if err != nil {
+		return fmt.Errorf("quadtari: %w", err)
+	}
+	err = q.B.Update(inp)
+	if err != nil {
+		return fmt.Errorf("quadtari: %w", err)
 	}
 	return nil
 }
@@ -95,5 +103,17 @@ func (q *Quadtari) Tick() {
 			}
 		}
 		q.grounded = grounded
+	}
+}
+
+func (q *Quadtari) SetInputFilter(inputSource gui.InputSource, secondary bool) {
+	if secondary {
+		if c, ok := q.B.(filteringPeripheral); ok {
+			c.SetInputFilter(inputSource, true)
+		}
+	} else {
+		if c, ok := q.A.(filteringPeripheral); ok {
+			c.SetInputFilter(inputSource, true)
+		}
 	}
 }

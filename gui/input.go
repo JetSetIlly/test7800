@@ -7,30 +7,42 @@ type Port int
 type InputType int
 
 const (
-	InputKeyboard InputType = iota
+	InputAny InputType = iota
+	InputKeyboard
 	InputGamepad
+	InputNone
 )
 
+func (t InputType) GoString() string {
+	switch t {
+	case InputNone:
+		return "none"
+	case InputKeyboard:
+		return "keyboard"
+	case InputGamepad:
+		return "gamepad"
+	case InputAny:
+		return "any"
+	}
+	return "unknown"
+}
+
 type InputSource struct {
-	Type InputType
-	Name string
-	ID   int
+	Type     InputType
+	Position int
 }
 
 type Input struct {
+	Source InputSource
 	Port   Port
 	Action Action
 	Data   any
-	Source InputSource
 }
 
 const (
-	Player0 Port = iota
-	Player1
+	Players Port = iota
 	Panel
 )
-
-const Undefined Port = -1
 
 type PaddleFireData struct {
 	Paddle int // 0 or 1 to indicate which paddle in the pair

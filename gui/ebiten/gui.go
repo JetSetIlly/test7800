@@ -72,7 +72,7 @@ type guiEbiten struct {
 	//
 	// * very important that the order of this slice is the same as the gamepads slice. the
 	// detectGamepads() function should be careful to treat both slices in the same way
-	gamepadAnalogue [][2]float64
+	gamepadState []gamepadState
 
 	// position of mouse cursor on last update
 	mouseX, mouseY int

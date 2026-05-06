@@ -14,15 +14,6 @@ import (
 	"github.com/jetsetilly/test7800/logger"
 )
 
-type peripheral interface {
-	IsAnalogue() bool
-	IsController() bool
-	Reset()
-	Unplug()
-	Update(inp gui.Input) error
-	Tick()
-}
-
 type Console struct {
 	ctx Context
 	g   *gui.ChannelsDebugger
@@ -35,6 +26,10 @@ type Console struct {
 
 	panel   *peripherals.Panel
 	players [2]peripheral
+
+	// copy of the inputSources slice used by SetPlayers(). this copy is used whenever
+	// insertControllers() is called
+	inputSources []gui.InputSource
 
 	// the HLT and RDY lines to the CPU is set by MARIA
 	hlt bool
@@ -82,7 +77,7 @@ func Create(ctx Context, g *gui.ChannelsDebugger) *Console {
 	con.panel = peripherals.NewPanel(con.RIOT)
 	con.panel.Reset()
 
-	con.insertController("7800_joystick")
+	con.insertControllers("7800_joystick")
 
 	con.players[0].Reset()
 	con.players[1].Reset()
@@ -133,7 +128,7 @@ func (con *Console) Reset(random bool, biosCheck func() bool) error {
 	return nil
 }
 
-func (con *Console) insertController(c string) {
+func (con *Console) insertControllers(c string) {
 	switch c {
 	case "7800_joystick":
 		if con.ctx.Quadtari() {
@@ -254,6 +249,8 @@ func (con *Console) insertController(c string) {
 	default:
 		logger.Logf(con.ctx, "console", "unsupported controller: %s", c)
 	}
+
+	con.SetPlayers(con.inputSources)
 }
 
 func (con *Console) Insert(c external.CartridgeInsertor) error {
@@ -266,7 +263,7 @@ func (con *Console) Insert(c external.CartridgeInsertor) error {
 		return err
 	}
 
-	con.insertController(c.Controller)
+	con.insertControllers(c.Controller)
 
 	if c.UseSavekey {
 		con.players[1].Unplug()

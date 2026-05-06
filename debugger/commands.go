@@ -8,6 +8,7 @@ import (
 
 	"github.com/jetsetilly/dialog"
 	"github.com/jetsetilly/test7800/disassembly"
+	"github.com/jetsetilly/test7800/gui"
 	"github.com/jetsetilly/test7800/hardware/memory"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
 	"github.com/jetsetilly/test7800/logger"
@@ -49,6 +50,21 @@ func (m *debugger) parseCommand(cmd []string) bool {
 			fmt.Println(m.styles.err.Render(err.Error()))
 			break // switch
 		}
+
+	case "PLAYERS":
+		if len(cmd) == 1 {
+			fmt.Println(m.styles.err.Render(
+				"PLAYERS requires a list of hardware controller types. KEYBOARD, GAMEPAD, NONE",
+			))
+			break // switch
+		}
+		players := strings.Join(cmd[1:], ",")
+		inputSources, err := parsePlayers(players)
+		if err != nil {
+			fmt.Println(m.styles.err.Render(err.Error()))
+			break // switch
+		}
+		m.console.SetPlayers(inputSources)
 
 	case "R", "RUN":
 		return m.run()
@@ -601,4 +617,49 @@ func (m *debugger) parseCommand(cmd []string) bool {
 	}
 
 	return false
+}
+
+func parsePlayers(players string) ([]gui.InputSource, error) {
+	players = strings.TrimSpace(players)
+
+	if len(players) == 0 {
+		return []gui.InputSource{}, nil
+	}
+
+	players = strings.ToLower(players)
+	splt := strings.Split(players, ",")
+
+	// special condition for a single entry containing "any". this effectively removes all filters
+	// from all controllers, which is the default state
+	if len(splt) == 1 && splt[0] == "any" {
+		return []gui.InputSource{{}, {}, {}, {}}, nil
+	}
+
+	positions := map[gui.InputType]int{
+		gui.InputKeyboard: 0,
+		gui.InputGamepad:  0,
+	}
+
+	var inputSources []gui.InputSource
+
+	for _, p := range splt {
+		switch p {
+		case "keyboard":
+			inputSources = append(inputSources, gui.InputSource{Type: gui.InputKeyboard, Position: positions[gui.InputKeyboard]})
+			positions[gui.InputKeyboard]++
+		case "gamepad":
+			inputSources = append(inputSources, gui.InputSource{Type: gui.InputGamepad, Position: positions[gui.InputGamepad]})
+			positions[gui.InputGamepad]++
+		case "", "none":
+			inputSources = append(inputSources, gui.InputSource{Type: gui.InputNone})
+		default:
+			return []gui.InputSource{}, fmt.Errorf("%s is not a recognised controller type", p)
+		}
+	}
+
+	for range 4 - len(inputSources) {
+		inputSources = append(inputSources, gui.InputSource{Type: gui.InputNone})
+	}
+
+	return inputSources, nil
 }
