@@ -33,11 +33,6 @@ type input struct {
 	err error
 }
 
-type recent struct {
-	result execution.Result
-	cpu    string
-}
-
 type debugger struct {
 	ctx context
 	g   *gui.ChannelsDebugger
@@ -55,7 +50,7 @@ type debugger struct {
 	disasm []*execution.Result
 
 	// recent execution results to be printed on emulation halt
-	recent []recent
+	recent []execution.Result
 
 	// coprocessor disassembly and development environments
 	coprocDisasm *coprocDisasm
@@ -290,10 +285,7 @@ func (m *debugger) runLoop() error {
 
 		if m.console.MC.LastResult.Final {
 			// record last instruction
-			m.recent = append(m.recent, recent{
-				result: m.console.MC.LastResult,
-				cpu:    m.console.MC.String(),
-			})
+			m.recent = append(m.recent, m.console.MC.LastResult)
 			if len(m.recent) > maxRecentLen {
 				m.recent = m.recent[1:]
 			}
@@ -373,7 +365,7 @@ func (m *debugger) runLoop() error {
 			fmt.Println(m.styles.debugger.Render("most recent CPU instructions"))
 			n := max(len(m.recent)-10, 0)
 			for _, e := range m.recent[n:] {
-				res := disassembly.FormatResult(e.result)
+				res := disassembly.FormatResult(e)
 				m.printInstruction(os.Stdout, m.styles.instruction, res)
 			}
 		}
