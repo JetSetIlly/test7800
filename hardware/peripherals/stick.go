@@ -12,6 +12,8 @@ type Stick struct {
 	riot RIOT
 	tia  TIA
 
+	// the amount which RIOT/SWCHA values are shifted by depending on the port the stick is attached
+	// to the mask value has been pre-shifted and does not need to be shifted
 	riotShift uint8
 	riotMask  uint8
 
@@ -28,7 +30,8 @@ type Stick struct {
 	// current state of the SWCHA register and the button registers
 	//
 	// these fields are used to faciliate quadtari compatability. the quadtari only supports single
-	// button joysticks which iw why we only track the singleButton configuration
+	// button joysticks which iw why we only track the singleButton configuration (because the
+	// quadtari does not support multi-button sticks)
 	swcha            uint8
 	singleButtonFire bool
 
@@ -42,24 +45,22 @@ func NewStick(r RIOT, t TIA, portRight bool, twoButtons bool) *Stick {
 		tia:        t,
 		portRight:  portRight,
 		twoButtons: twoButtons,
+		singleMask: 0x04,
+		swcha:      0xf0,
 	}
 
 	if portRight {
-		st.riotShift = 4
-		st.riotMask = 0xf0
 		st.buttonA = tia.INPT3
 		st.buttonB = tia.INPT2
 		st.button = tia.INPT5
-		st.singleMask = 0x01
-		st.swcha = 0xf0
+		st.riotShift = 4
+		st.riotMask = 0xf0
 	} else {
-		st.riotShift = 0
-		st.riotMask = 0x0f
 		st.buttonA = tia.INPT1
 		st.buttonB = tia.INPT0
 		st.button = tia.INPT4
-		st.singleMask = 0x04
-		st.swcha = 0xf0
+		st.riotShift = 0
+		st.riotMask = 0x0f
 	}
 
 	return st
