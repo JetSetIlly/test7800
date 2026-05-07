@@ -38,9 +38,41 @@ By default, the NTSC BIOS is used. To select a PAL BIOS use the `-tv` argument (
 
 ```test7800 -tv=pal centipede.a78```
 
+#### BIOS
+
 If you want the emulation to ignore the BIOS startup routine use the `-bios` option:
 
 ```test7800 -bios=false centipede.a78```
+
+Alternatively, the checksum check can be skipped with the `-checksum` option:
+
+```test7800 -checksum=false centipede.a78```
+
+Both options are useful for running NTSC ROMs that have no been signed.
+
+#### QuadTari
+
+To enable QuadTari support use the `-quadtari` option:
+
+```test7800 -quadtari qtdemo.a78```
+
+By default, any attached controller or keyboard will be used for all player input. To change that, the `-players` option can be used.
+
+For example, to specify that the second player uses the keyboard and the fourth player uses the first attached gamepad:
+
+```test7800 -quadtari -players=none,keyboard,none,gamepad qtdemo.a78```
+
+`none` indicates the player in that position has no controller. Instead of `none` you can also just leave that position empty. For example (making sure there are no spaces in the list):
+
+```test7800 -quadtari -players=,keyboard,,gamepad qtdemo.a78```
+
+Test7800 supports multiple gamepads. This means that `gamepad` can appear more than once in the `-players` list.
+
+```test7800 -quadtari -players=,gamepad,,gamepad qtdemo.a78```
+
+Multiple keyboards are not supported but `keyboard` can appear in the `-players` list multiple times. In thoses cases the physical keyboard will control all "keyboard" players equally.
+
+The `-players` option also works without the `-quadtari` option and can be used to specify controllers for the first and second players.
 
 ### Limitations and Future
 
