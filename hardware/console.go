@@ -135,9 +135,9 @@ func (con *Console) insertControllers(c string) {
 			// quadtari only supports the 2600 stick
 			logger.Log(con.ctx, "console", "using quadtari for 7800 stick (forcing 2600 stick)")
 			for i := range con.players {
-				q := peripherals.NewQuadtari(con.RIOT, con.TIA)
-				q.A = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
-				q.B = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				q := peripherals.NewQuadtari(con.RIOT, con.TIA, i == 1)
+				q.First = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				q.Second = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
 				if con.players[i] != nil {
 					con.players[i].Unplug()
 				}
@@ -193,9 +193,9 @@ func (con *Console) insertControllers(c string) {
 		if con.ctx.Quadtari() {
 			logger.Log(con.ctx, "console", "using quadtari for 2600 stick")
 			for i := range con.players {
-				q := peripherals.NewQuadtari(con.RIOT, con.TIA)
-				q.A = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
-				q.B = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				q := peripherals.NewQuadtari(con.RIOT, con.TIA, i == 1)
+				q.First = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				q.Second = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
 				if con.players[i] != nil {
 					con.players[i].Unplug()
 				}
@@ -222,9 +222,9 @@ func (con *Console) insertControllers(c string) {
 			// quadtari only supports the 2600 stick
 			logger.Log(con.ctx, "console", "using quadtari for snes2atari (forcing 2600 stick)")
 			for i := range con.players {
-				q := peripherals.NewQuadtari(con.RIOT, con.TIA)
-				q.A = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
-				q.B = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				q := peripherals.NewQuadtari(con.RIOT, con.TIA, i == 1)
+				q.First = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
+				q.Second = peripherals.NewStick(con.RIOT, con.TIA, i == 1, false)
 				if con.players[i] != nil {
 					con.players[i].Unplug()
 				}

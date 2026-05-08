@@ -30,7 +30,7 @@ type Stick struct {
 	// current state of the SWCHA register and the button registers
 	//
 	// these fields are used to faciliate quadtari compatability. the quadtari only supports single
-	// button joysticks which iw why we only track the singleButton configuration (because the
+	// button joysticks which is why we only track the singleButton configuration (because the
 	// quadtari does not support multi-button sticks)
 	swcha            uint8
 	singleButtonFire bool
@@ -208,8 +208,6 @@ func (st *Stick) Button() (tia.Register, bool) {
 	return st.button, st.singleButtonFire
 }
 
-func (st *Stick) SetInputFilter(inputSource gui.InputSource, primary bool) {
-	if primary {
-		st.inputSource = inputSource
-	}
+func (st *Stick) SetInputFilter(inputSource gui.InputSource, _ bool) {
+	st.inputSource = inputSource
 }
