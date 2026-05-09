@@ -616,7 +616,7 @@ func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) err
 		return fmt.Errorf("overscan option should be one of %s", list(overscanOptions))
 	}
 
-	inputSources, err := parsePlayers(players)
+	inputSources, err := parsePlayers(players, quadtari)
 	if err != nil {
 		return err
 	}

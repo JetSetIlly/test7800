@@ -55,22 +55,22 @@ func (con *Console) handleInput() {
 }
 
 func (con *Console) SetPlayers(inputSources []gui.InputSource) error {
-	if len(inputSources) == 0 {
-		return nil
-	}
-
-	if len(inputSources) < 4 {
-		panic("console.SetPlayers() should be called with a slice with at least four elements")
-	}
-
 	if c, ok := con.players[0].(filteringPeripheral); ok {
-		c.SetInputFilter(inputSources[0], true)
-		c.SetInputFilter(inputSources[2], false)
+		if len(inputSources) > 0 {
+			c.SetInputFilter(inputSources[0], true)
+		}
+		if len(inputSources) > 2 {
+			c.SetInputFilter(inputSources[2], false)
+		}
 	}
 
 	if c, ok := con.players[1].(filteringPeripheral); ok {
-		c.SetInputFilter(inputSources[1], true)
-		c.SetInputFilter(inputSources[3], false)
+		if len(inputSources) > 1 {
+			c.SetInputFilter(inputSources[1], true)
+		}
+		if len(inputSources) > 3 {
+			c.SetInputFilter(inputSources[3], false)
+		}
 	}
 
 	con.inputSources = inputSources[:]

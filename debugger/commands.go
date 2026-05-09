@@ -59,7 +59,7 @@ func (m *debugger) parseCommand(cmd []string) bool {
 			break // switch
 		}
 		players := strings.Join(cmd[1:], ",")
-		inputSources, err := parsePlayers(players)
+		inputSources, err := parsePlayers(players, m.ctx.quadtari)
 		if err != nil {
 			fmt.Println(m.styles.err.Render(err.Error()))
 			break // switch
@@ -612,7 +612,20 @@ func (m *debugger) parseCommand(cmd []string) bool {
 	return false
 }
 
-func parsePlayers(players string) ([]gui.InputSource, error) {
+func parsePlayers(players string, quadtari bool) ([]gui.InputSource, error) {
+	num := 2
+	if quadtari {
+		num = 4
+	}
+
+	b := func(t gui.InputType) []gui.InputSource {
+		var inputSources []gui.InputSource
+		for range num {
+			inputSources = append(inputSources, gui.InputSource{Type: gui.InputNone})
+		}
+		return inputSources
+	}
+
 	players = strings.TrimSpace(players)
 
 	if len(players) == 0 {
@@ -621,6 +634,10 @@ func parsePlayers(players string) ([]gui.InputSource, error) {
 
 	players = strings.ToLower(players)
 	splt := strings.Split(players, ",")
+
+	if len(splt) > num {
+		return b(gui.InputAny), fmt.Errorf("too many players specified. maximum of %d", num)
+	}
 
 	// special condition for a single entry containing "any". this effectively removes all filters
 	// from all controllers, which is the default state
@@ -650,7 +667,7 @@ func parsePlayers(players string) ([]gui.InputSource, error) {
 		}
 	}
 
-	for range 4 - len(inputSources) {
+	for range num - len(inputSources) {
 		inputSources = append(inputSources, gui.InputSource{Type: gui.InputNone})
 	}
 
