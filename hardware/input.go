@@ -29,17 +29,12 @@ func (con *Console) handleInput() {
 			if inp.Action == gui.AnalogueSelect && inp.Data.(bool) {
 				switch inp.Port {
 				case gui.Players:
-					if con.players[0].IsController() && !con.players[0].IsAnalogue() {
-						if _, ok := con.players[0].(*peripherals.Paddles); !ok {
-							logger.Log(logger.Allow, "controllers", "plugging paddle into player 0 port")
-							con.players[0].Unplug()
-							con.players[0] = peripherals.NewPaddles(con.RIOT, con.TIA, false)
-							con.players[0].Reset()
-						}
-					}
+					// on-demand analogue select limited to the right player. this works nicely for
+					// some games but the best way of enabling paddles is to have the paddles set in
+					// the a78 head
 					if con.players[1].IsController() && !con.players[1].IsAnalogue() {
 						if _, ok := con.players[1].(*peripherals.Paddles); !ok {
-							logger.Log(logger.Allow, "controllers", "plugging paddle into player 1 port")
+							logger.Log(logger.Allow, "controllers", "plugging paddle into right player port")
 							con.players[1].Unplug()
 							con.players[1] = peripherals.NewPaddles(con.RIOT, con.TIA, true)
 							con.players[1].Reset()
