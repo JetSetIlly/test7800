@@ -26,9 +26,11 @@ func (pdl *paddle) ground() {
 }
 
 func (pdl *paddle) changeResistance(v int) {
+	const maxPaddleResistance = 511
+
 	pdl.resistance -= v
 	pdl.resistance = max(pdl.resistance, 0)
-	pdl.resistance = min(pdl.resistance, 255)
+	pdl.resistance = min(pdl.resistance, maxPaddleResistance)
 }
 
 func (pdl *paddle) tick() {
