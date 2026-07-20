@@ -46,12 +46,20 @@ func (ctx *context) Rand16Bit() uint16 {
 	return uint16(ctx.rand.IntN(65535))
 }
 
+func (ctx *context) RandN(n int) int {
+	return ctx.rand.IntN(n)
+}
+
 func (ctx *context) Break(e error) {
 	ctx.Breaks = append(ctx.Breaks, e)
 }
 
 func (ctx *context) UseOverlay() bool {
 	return ctx.useOverlay
+}
+
+func (ctx *context) Quadtari() bool {
+	return false
 }
 
 func (ctx *context) UseAudio() bool {
