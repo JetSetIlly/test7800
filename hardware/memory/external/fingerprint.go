@@ -222,7 +222,6 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 				}, nil
 			}
 
-			// banksets
 			if cartType&0x2000 == 0x2000 {
 				supergame := cartType&0x02 == 0x02
 				banksetRAM := cartType&0x4000 == 0x4000
@@ -231,6 +230,22 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 					data:     d,
 					creator: func(ctx Context, d []uint8) (Bus, error) {
 						return NewBanksets(ctx, supergame, d[dataStart:], banksetRAM)
+					},
+					Controller: controller,
+					spec:       spec,
+					chips:      chips,
+					UseHSC:     useHSC,
+					UseSavekey: useSavekey,
+				}, nil
+			}
+
+			// souper
+			if cartType&0x1000 == 0x1000 {
+				return CartridgeInsertor{
+					filename: filename,
+					data:     d,
+					creator: func(ctx Context, d []uint8) (Bus, error) {
+						return NewSouper(ctx, d[dataStart:])
 					},
 					Controller: controller,
 					spec:       spec,
