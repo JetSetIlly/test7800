@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/jetsetilly/test7800/hardware/cpu/execution"
 	"github.com/jetsetilly/test7800/hardware/maria"
 	"github.com/jetsetilly/test7800/hardware/memory/external"
+	"github.com/jetsetilly/test7800/hardware/pokey"
 	"github.com/jetsetilly/test7800/logger"
 	"github.com/jetsetilly/test7800/resources"
 )
@@ -500,6 +502,7 @@ func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) err
 		quadtari   bool
 		players    string
 		useDialog  bool
+		pokeyChip  string
 	)
 
 	specOptions := []string{"AUTO", "NTSC", "PAL"}
@@ -541,6 +544,7 @@ func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) err
 	flgs.BoolVar(&quadtari, "quadtari", false, "use quadtari for peripherals")
 	flgs.StringVar(&players, "players", "", "comma separated list of hardware controllers for up to four players")
 	flgs.BoolVar(&useDialog, "dialog", true, "present user with file dialogue on startup if no file is specified")
+	flgs.StringVar(&pokeyChip, "pokey", "", "force use of optional pokey in cartridge. 'none' will remove an auto added chip")
 	err := flgs.Parse(args)
 	if err != nil {
 		return err
@@ -681,6 +685,24 @@ func Launch(endDebugger <-chan bool, g *gui.ChannelsDebugger, args []string) err
 
 	} else if len(args) > 1 {
 		return fmt.Errorf("too many arguments to debugger")
+	}
+
+	// deal with pokey chip option
+	if pokeyChip != "" {
+		var chips external.Chips
+		if strings.ToLower(pokeyChip) == "none" {
+			loader.SetChips(chips)
+		} else {
+			address, err := strconv.ParseInt(pokeyChip, 16, 16)
+			if err != nil {
+				return err
+			}
+			pk := func(ctx external.Context) (external.OptionalBus, error) {
+				return pokey.NewAudio(ctx, uint16(address))
+			}
+			chips = append(chips, pk)
+			loader.SetChips(chips)
+		}
 	}
 
 	ctx := context{

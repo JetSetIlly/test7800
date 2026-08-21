@@ -6,6 +6,8 @@ type CartridgeReset struct {
 	BypassBIOS bool
 }
 
+type Chips []func(Context) (OptionalBus, error)
+
 type CartridgeInsertor struct {
 	filename string
 	data     []uint8
@@ -23,7 +25,7 @@ type CartridgeInsertor struct {
 	spec string
 
 	// list of additional chips (eg. POKEYs) that are present in the cartridge
-	chips []func(Context) (OptionalBus, error)
+	chips Chips
 
 	// use high-score cartridge shim with cartridge
 	UseHSC     bool
@@ -44,4 +46,8 @@ func (c CartridgeInsertor) Spec() string {
 
 func (c CartridgeInsertor) ResetProcedure() CartridgeReset {
 	return c.reset
+}
+
+func (c *CartridgeInsertor) SetChips(chips Chips) {
+	c.chips = chips
 }
