@@ -171,6 +171,13 @@ func (mar *Maria) Reset(random bool) {
 
 	mar.lineram.initialise()
 
+	// reset frame information and deallocate existing images. this fixes an issue caused when
+	// launching a new ROM after another ROM has been running - if the frame geometry is different
+	// then images of the wrong size can persist in the frame queue.
+	for i := range len(mar.frames) {
+		mar.frames[i] = frame{}
+	}
+
 	mar.framesCt = 0
 	mar.currentFrame = &mar.frames[mar.framesCt]
 	mar.prevFrame = &mar.frames[len(mar.frames)-1]
