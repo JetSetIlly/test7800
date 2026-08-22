@@ -73,6 +73,12 @@ func NewAudio() *Audio {
 	return au
 }
 
+// Reset audio registers
+func (au *Audio) Reset() {
+	au.Channel0 = channel{}
+	au.Channel1 = channel{}
+}
+
 // Snapshot creates a copy of the TIA Audio sub-system in its current state.
 func (au *Audio) Snapshot() *Audio {
 	n := *au

@@ -128,6 +128,7 @@ func (tia *TIA) Reset() error {
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00,
 	}
+	tia.aud.Reset()
 	return nil
 }
 
