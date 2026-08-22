@@ -87,8 +87,10 @@ type Maria struct {
 	Spec spec.Spec
 
 	// the image that is sent to the user interface
-	currentFrame frame
-	prevFrame    frame
+	currentFrame *frame
+	prevFrame    *frame
+	frames       [10]frame
+	framesCt     int
 
 	// interface to CPU (for debugging purposes only)
 	cpu CPU
@@ -168,6 +170,11 @@ func (mar *Maria) Reset(random bool) {
 	mar.RecentDLL = mar.RecentDLL[:0]
 
 	mar.lineram.initialise()
+
+	mar.framesCt = 0
+	mar.currentFrame = &mar.frames[mar.framesCt]
+	mar.prevFrame = &mar.frames[len(mar.frames)-1]
+
 	mar.newFrame()
 }
 
@@ -392,8 +399,13 @@ func (mar *Maria) newFrame() {
 	}()
 
 	mar.prevFrame = mar.currentFrame
-	mar.currentFrame.overscan = mar.ctx.Overscan()
+	mar.framesCt++
+	if mar.framesCt >= len(mar.frames) {
+		mar.framesCt = 0
+	}
+	mar.currentFrame = &mar.frames[mar.framesCt]
 
+	mar.currentFrame.overscan = mar.ctx.Overscan()
 	mar.currentFrame.debug = mar.ctx.UseOverlay()
 	if mar.currentFrame.debug {
 		mar.currentFrame.left = 0
@@ -436,15 +448,18 @@ func (mar *Maria) newFrame() {
 		}
 	}
 
-	mar.currentFrame.main = image.NewRGBA(image.Rect(0, 0,
-		mar.currentFrame.right-mar.currentFrame.left,
-		mar.currentFrame.bottom-mar.currentFrame.top),
-	)
-
-	mar.currentFrame.overlay = image.NewRGBA(image.Rect(0, 0,
-		mar.currentFrame.right-mar.currentFrame.left,
-		mar.currentFrame.bottom-mar.currentFrame.top),
-	)
+	if mar.prevFrame.left != mar.currentFrame.left || mar.prevFrame.right != mar.currentFrame.right || mar.prevFrame.top != mar.currentFrame.top || mar.prevFrame.bottom != mar.currentFrame.bottom || mar.currentFrame.main == nil || mar.currentFrame.overlay == nil {
+		for i := range mar.frames {
+			mar.frames[i].main = image.NewRGBA(image.Rect(0, 0,
+				mar.currentFrame.right-mar.currentFrame.left,
+				mar.currentFrame.bottom-mar.currentFrame.top),
+			)
+			mar.frames[i].overlay = image.NewRGBA(image.Rect(0, 0,
+				mar.currentFrame.right-mar.currentFrame.left,
+				mar.currentFrame.bottom-mar.currentFrame.top),
+			)
+		}
+	}
 }
 
 func (mar *Maria) PushRender() {
@@ -844,6 +859,8 @@ func (mar *Maria) Tick(dmaLatch bool) (dma bool, rdy bool, nmi bool) {
 				// debugging overlay is green for the duration the CPU is
 				// executing instruction inside an interrupt
 				mar.currentFrame.overlay.Set(x, y, color.RGBA{G: 255, A: 255})
+			} else {
+				mar.currentFrame.overlay.Set(x, y, color.RGBA{})
 			}
 
 			// vblank is indicated by grey stripes
