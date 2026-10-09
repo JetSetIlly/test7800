@@ -1,5 +1,7 @@
 package external
 
+import "fmt"
+
 type Flat struct {
 	data   []byte
 	origin uint16
@@ -13,7 +15,7 @@ func NewFlat(_ Context, d []byte) (*Flat, error) {
 }
 
 func (ext *Flat) Label() string {
-	return "Flat"
+	return fmt.Sprintf("Flat (%dk)", len(ext.data)/1024)
 }
 
 func (ext *Flat) Access(_ bool, address uint16, data uint8) (uint8, error) {
