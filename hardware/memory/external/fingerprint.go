@@ -33,7 +33,8 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 	if slices.Contains([]string{"ELF", "AUTO"}, mapper) {
 		if bytes.Contains(d, []byte{0x7f, 'E', 'L', 'F'}) {
 			return CartridgeInsertor{
-				data: d,
+				filename: filename,
+				data:     d,
 				creator: func(ctx Context, d []uint8) (Bus, error) {
 					return elf.NewElf(ctx, d)
 				},
@@ -154,7 +155,8 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 
 			if cartType == 0x0000 {
 				return CartridgeInsertor{
-					data: d,
+					filename: filename,
+					data:     d,
 					creator: func(ctx Context, d []uint8) (Bus, error) {
 						return NewFlat(ctx, d[dataStart:])
 					},
@@ -173,7 +175,8 @@ func FingerprintBlob(filename string, d []uint8, mapper string) (CartridgeInsert
 			// Fractalus' uses this type of RAM chip and that has a flat ROM map
 			if cartType == 0x0080 {
 				return CartridgeInsertor{
-					data: d,
+					filename: filename,
+					data:     d,
 					creator: func(ctx Context, d []uint8) (Bus, error) {
 						return NewMRAM(ctx, d[dataStart:])
 					},
