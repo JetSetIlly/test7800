@@ -309,11 +309,14 @@ func (con *Console) Step() error {
 				con.clkDiv = !con.clkDiv
 				if con.clkDiv {
 					tiaRDY = con.TIA.Tick()
-					con.RIOT.Tick()
 					con.players[0].Tick()
 					con.players[1].Tick()
 				}
 			}
+
+			// the RIOT ticks at the current speed of the CPU. either 1.79Mhz or 1.19Mhz (the latter
+			// when IsSlowAddressBus() is true)
+			con.RIOT.Tick()
 
 			// if either the MARIA or TIA RDY pins are inactive then the CPU's RDY pin is inactive
 			con.rdy = mariaRDY && tiaRDY
